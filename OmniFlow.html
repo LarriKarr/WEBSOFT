@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>OmniFlow — Life & Focus Organizer</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --bg-main: #0f172a;
+            --bg-panel: #1e293b;
+            --border-color: #334155;
+            --text-main: #f8fafc;
+            --accent: #6366f1;
+        }
+
+        body.theme-light {
+            --bg-main: #f1f5f9;
+            --bg-panel: #ffffff;
+            --border-color: #cbd5e1;
+            --text-main: #0f172a;
+            --accent: #4f46e5;
+        }
+
+        body { background-color: var(--bg-main); color: var(--text-main); touch-action: manipulation; }
+        .theme-panel { background-color: var(--bg-panel); border-color: var(--border-color); }
+        
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+
+        .tab-btn.active { border-bottom: 2px solid var(--accent); color: var(--accent); font-weight: bold; }
+        .drag-over { border: 2px dashed #6366f1 !important; background-color: rgba(99, 102, 241, 0.1) !important; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden font-sans select-none">
+
+    <!-- Top Universal Header -->
+    <header class="theme-panel border-b px-3 py-2 flex items-center justify-between text-xs shrink-0 z-30">
+        <div class="flex items-center gap-2">
+            <span class="font-bold text-indigo-400 text-sm sm:text-base flex items-center gap-1.5">
+                <i class="fa-solid fa-infinity"></i> OmniFlow
+            </span>
+            <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30 hidden sm:inline">OS 1.0</span>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <nav class="flex items-center gap-1 sm:gap-3 text-xs overflow-x-auto whitespace-nowrap">
+            <button onclick="switchTab('matrix')" id="tab-matrix" class="tab-btn active px-2 py-1 flex items-center gap-1">
+                <i class="fa-solid fa-border-all"></i> <span class="hidden sm:inline">Матрица</span>
+            </button>
+            <button onclick="switchTab('calendar')" id="tab-calendar" class="tab-btn px-2 py-1 flex items-center gap-1">
+                <i class="fa-solid fa-calendar-days"></i> <span class="hidden sm:inline">Календарь</span>
+            </button>
+            <button onclick="switchTab('pomodoro')" id="tab-pomodoro" class="tab-btn px-2 py-1 flex items-center gap-1">
+                <i class="fa-solid fa-stopwatch"></i> <span class="hidden sm:inline">Pomodoro</span>
+            </button>
+            <button onclick="switchTab('finance')" id="tab-finance" class="tab-btn px-2 py-1 flex items-center gap-1">
+                <i class="fa-solid fa-wallet"></i> <span class="hidden sm:inline">Финансы</span>
+            </button>
+            <button onclick="switchTab('habits')" id="tab-habits" class="tab-btn px-2 py-1 flex items-center gap-1">
+                <i class="fa-solid fa-fire"></i> <span class="hidden sm:inline">Привычки</span>
+            </button>
+        </nav>
+
+        <!-- Actions: Theme Switcher Only -->
+        <div class="flex items-center gap-1.5 shrink-0">
+            <button onclick="toggleTheme()" title="Смена темы" class="p-1.5 hover:bg-slate-700/50 rounded text-slate-300">
+                <i class="fa-solid fa-moon"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace Area -->
+    <main class="flex-1 overflow-hidden relative">
+
+        <!-- 1. EISENHOWER MATRIX VIEW (Strict 2x2 Grid Layout with Floating Add Buttons) -->
+        <section id="view-matrix" class="h-full p-2 sm:p-4 grid grid-cols-2 grid-rows-2 gap-2 sm:gap-4 overflow-hidden">
+            <!-- Q1: Urgent & Important (Top-Left) -->
+            <div class="theme-panel border border-red-500/40 rounded-lg p-2 sm:p-3 flex flex-col h-full overflow-hidden relative" ondragover="allowDrop(event)" ondrop="dropTask(event, 'q1')">
+                <div class="flex items-center mb-2 shrink-0 pr-2">
+                    <span class="font-bold text-red-400 flex items-center gap-1.5 text-xs sm:text-sm truncate">
+                        <i class="fa-solid fa-fire-flame-curved"></i> Срочно и Важно
+                    </span>
+                </div>
+                <div id="container-q1" class="flex-1 space-y-2 overflow-y-auto min-h-0 pb-10"></div>
+                <!-- Floating Action Button in Bottom Right -->
+                <button onclick="openAddTaskModal('q1')" class="absolute bottom-2 right-2 text-xs bg-red-600 hover:bg-red-500 text-white font-semibold px-2.5 py-1.5 rounded-lg border border-red-400 shadow-md flex items-center gap-1 z-10">
+                    <i class="fa-solid fa-plus"></i> <span class="hidden sm:inline">Добавить</span>
+                </button>
+            </div>
+
+            <!-- Q2: Not Urgent & Important (Top-Right) -->
+            <div class="theme-panel border border-indigo-500/40 rounded-lg p-2 sm:p-3 flex flex-col h-full overflow-hidden relative" ondragover="allowDrop(event)" ondrop="dropTask(event, 'q2')">
+                <div class="flex items-center mb-2 shrink-0 pr-2">
+                    <span class="font-bold text-indigo-400 flex items-center gap-1.5 text-xs sm:text-sm truncate">
+                        <i class="fa-solid fa-calendar-check"></i> Не срочно, но Важно
+                    </span>
+                </div>
+                <div id="container-q2" class="flex-1 space-y-2 overflow-y-auto min-h-0 pb-10"></div>
+                <!-- Floating Action Button in Bottom Right -->
+                <button onclick="openAddTaskModal('q2')" class="absolute bottom-2 right-2 text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-2.5 py-1.5 rounded-lg border border-indigo-400 shadow-md flex items-center gap-1 z-10">
+                    <i class="fa-solid fa-plus"></i> <span class="hidden sm:inline">Добавить</span>
+                </button>
+            </div>
+
+            <!-- Q3: Urgent & Not Important (Bottom-Left) -->
+            <div class="theme-panel border border-amber-500/40 rounded-lg p-2 sm:p-3 flex flex-col h-full overflow-hidden relative" ondragover="allowDrop(event)" ondrop="dropTask(event, 'q3')">
+                <div class="flex items-center mb-2 shrink-0 pr-2">
+                    <span class="font-bold text-amber-400 flex items-center gap-1.5 text-xs sm:text-sm truncate">
+                        <i class="fa-solid fa-user-group"></i> Срочно, но Не важно
+                    </span>
+                </div>
+                <div id="container-q3" class="flex-1 space-y-2 overflow-y-auto min-h-0 pb-10"></div>
+                <!-- Floating Action Button in Bottom Right -->
+                <button onclick="openAddTaskModal('q3')" class="absolute bottom-2 right-2 text-xs bg-amber-600 hover:bg-amber-500 text-white font-semibold px-2.5 py-1.5 rounded-lg border border-amber-400 shadow-md flex items-center gap-1 z-10">
+                    <i class="fa-solid fa-plus"></i> <span class="hidden sm:inline">Добавить</span>
+                </button>
+            </div>
+
+            <!-- Q4: Not Urgent & Not Important (Bottom-Right) -->
+            <div class="theme-panel border border-slate-500/40 rounded-lg p-2 sm:p-3 flex flex-col h-full overflow-hidden relative" ondragover="allowDrop(event)" ondrop="dropTask(event, 'q4')">
+                <div class="flex items-center mb-2 shrink-0 pr-2">
+                    <span class="font-bold text-slate-400 flex items-center gap-1.5 text-xs sm:text-sm truncate">
+                        <i class="fa-solid fa-trash-can"></i> Не срочно и Не важно
+                    </span>
+                </div>
+                <div id="container-q4" class="flex-1 space-y-2 overflow-y-auto min-h-0 pb-10"></div>
+                <!-- Floating Action Button in Bottom Right -->
+                <button onclick="openAddTaskModal('q4')" class="absolute bottom-2 right-2 text-xs bg-slate-700 hover:bg-slate-600 text-white font-semibold px-2.5 py-1.5 rounded-lg border border-slate-400 shadow-md flex items-center gap-1 z-10">
+                    <i class="fa-solid fa-plus"></i> <span class="hidden sm:inline">Добавить</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- 2. CALENDAR VIEW -->
+        <section id="view-calendar" class="h-full p-3 sm:p-6 hidden flex flex-col gap-4 overflow-y-auto">
+            <div class="theme-panel border p-4 rounded-xl flex items-center justify-between">
+                <button onclick="changeCalMonth(-1)" class="p-2 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 text-xs"><i class="fa-solid fa-chevron-left"></i></button>
+                <span id="calMonthTitle" class="font-bold text-indigo-400 text-sm sm:text-base">Месяц Год</span>
+                <button onclick="changeCalMonth(1)" class="p-2 bg-slate-800 hover:bg-slate-700 rounded text-slate-300 text-xs"><i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+
+            <!-- Calendar Grid -->
+            <div class="theme-panel border p-4 rounded-xl flex-1 flex flex-col">
+                <div class="grid grid-cols-7 text-center font-bold text-xs text-slate-400 mb-2 border-b border-slate-800 pb-2">
+                    <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div>Вс</div>
+                </div>
+                <div id="calendarGrid" class="grid grid-cols-7 gap-1 sm:gap-2 flex-1 auto-rows-fr text-xs"></div>
+            </div>
+        </section>
+
+        <!-- 3. POMODORO TIMER VIEW -->
+        <section id="view-pomodoro" class="h-full p-4 hidden flex flex-col items-center justify-center text-center overflow-y-auto">
+            <div class="theme-panel border p-6 sm:p-8 rounded-2xl shadow-2xl max-w-md w-full flex flex-col items-center gap-5">
+                <div class="flex gap-2 text-xs">
+                    <button onclick="setPomoMode('work')" id="mode-work" class="px-3 py-1.5 rounded-full bg-indigo-600 text-white font-semibold">Работа</button>
+                    <button onclick="setPomoMode('short')" id="mode-short" class="px-3 py-1.5 rounded-full bg-slate-800 text-slate-300">Отдых</button>
+                    <button onclick="setPomoMode('long')" id="mode-long" class="px-3 py-1.5 rounded-full bg-slate-800 text-slate-300">Пауза</button>
+                </div>
+
+                <!-- Custom Timer Settings Form -->
+                <div class="w-full bg-slate-900/60 p-3 rounded-xl border border-slate-800 grid grid-cols-3 gap-2 text-left">
+                    <div>
+                        <label class="text-[10px] text-slate-400 block mb-1">Работа (мин)</label>
+                        <input type="number" id="settingWorkTime" value="25" min="1" max="120" onchange="updateCustomTimerSettings()" class="w-full bg-slate-800 border border-slate-700 p-1.5 rounded text-xs text-center text-slate-200 outline-none">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400 block mb-1">Отдых (мин)</label>
+                        <input type="number" id="settingShortTime" value="5" min="1" max="60" onchange="updateCustomTimerSettings()" class="w-full bg-slate-800 border border-slate-700 p-1.5 rounded text-xs text-center text-slate-200 outline-none">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-slate-400 block mb-1">Пауза (мин)</label>
+                        <input type="number" id="settingLongTime" value="15" min="1" max="60" onchange="updateCustomTimerSettings()" class="w-full bg-slate-800 border border-slate-700 p-1.5 rounded text-xs text-center text-slate-200 outline-none">
+                    </div>
+                </div>
+
+                <div id="pomoTimerDisplay" class="text-6xl sm:text-7xl font-mono font-bold text-indigo-400 tracking-wider">
+                    25:00
+                </div>
+
+                <div class="flex gap-4 w-full">
+                    <button onclick="togglePomoTimer()" id="btnPomoStart" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl font-bold text-base shadow-lg transition">
+                        СТАРТ
+                    </button>
+                    <button onclick="resetPomoTimer()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-3 rounded-xl font-semibold border border-slate-700">
+                        <i class="fa-solid fa-rotate-right"></i>
+                    </button>
+                </div>
+
+                <div class="text-xs text-slate-400 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i> Завершено циклов за сегодня: <span id="pomoSessionCount" class="font-bold text-slate-200">0</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. FINANCE TRACKER VIEW -->
+        <section id="view-finance" class="h-full p-3 sm:p-6 hidden flex flex-col gap-4 overflow-y-auto">
+            <!-- Balance Dashboard Header -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div class="theme-panel border border-emerald-500/30 p-4 rounded-xl flex items-center justify-between">
+                    <div>
+                        <span class="text-xs text-slate-400 block">Доходы</span>
+                        <span id="finIncomeTotal" class="text-lg sm:text-xl font-bold text-emerald-400">+0 ₽</span>
+                    </div>
+                    <i class="fa-solid fa-arrow-trend-up text-emerald-500/30 text-3xl"></i>
+                </div>
+                <div class="theme-panel border border-red-500/30 p-4 rounded-xl flex items-center justify-between">
+                    <div>
+                        <span class="text-xs text-slate-400 block">Расходы</span>
+                        <span id="finExpenseTotal" class="text-lg sm:text-xl font-bold text-red-400">-0 ₽</span>
+                    </div>
+                    <i class="fa-solid fa-arrow-trend-down text-red-500/30 text-3xl"></i>
+                </div>
+                <div class="theme-panel border border-indigo-500/30 p-4 rounded-xl flex items-center justify-between">
+                    <div>
+                        <span class="text-xs text-slate-400 block">Чистый Баланс</span>
+                        <span id="finNetBalance" class="text-lg sm:text-xl font-bold text-indigo-400">0 ₽</span>
+                    </div>
+                    <i class="fa-solid fa-scale-balanced text-indigo-500/30 text-3xl"></i>
+                </div>
+            </div>
+
+            <!-- Content Area: Chart + Transactions Table -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1">
+                <!-- Add Transaction Form & Chart -->
+                <div class="theme-panel border p-4 rounded-xl flex flex-col gap-3">
+                    <span class="font-bold text-indigo-400 text-xs sm:text-sm"><i class="fa-solid fa-plus-circle"></i> Новая транзакция</span>
+                    <select id="finType" class="bg-slate-900 border border-slate-700 p-2 rounded text-xs text-slate-200 outline-none">
+                        <option value="expense">Расход (-)</option>
+                        <option value="income">Доход (+)</option>
+                    </select>
+                    <input type="number" id="finAmount" placeholder="Сумма (₽)" class="bg-slate-900 border border-slate-700 p-2 rounded text-xs text-slate-200 outline-none">
+                    <input type="text" id="finCategory" placeholder="Категория (Еда, Зарплата, Жильё...)" class="bg-slate-900 border border-slate-700 p-2 rounded text-xs text-slate-200 outline-none">
+                    <input type="date" id="finDate" class="bg-slate-900 border border-slate-700 p-2 rounded text-xs text-slate-200 outline-none">
+                    <button onclick="addTransaction()" class="bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded text-xs font-bold">Добавить транзакцию</button>
+                    
+                    <hr class="border-slate-800 my-1">
+                    <span class="font-bold text-slate-400 text-xs">Структура расходов</span>
+                    <div class="flex justify-center items-center p-2">
+                        <canvas id="financeChart" width="180" height="180"></canvas>
+                    </div>
+                </div>
+
+                <!-- History Table -->
+                <div class="theme-panel border p-4 rounded-xl lg:col-span-2 flex flex-col">
+                    <span class="font-bold text-indigo-400 text-xs sm:text-sm mb-3"><i class="fa-solid fa-clock-rotate-left"></i> История операций</span>
+                    <div class="flex-1 overflow-y-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="border-b border-slate-700 text-slate-400">
+                                    <th class="p-2">Дата</th>
+                                    <th class="p-2">Категория</th>
+                                    <th class="p-2">Тип</th>
+                                    <th class="p-2 text-right">Сумма</th>
+                                    <th class="p-2 text-center"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="finHistoryTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. HABIT TRACKER VIEW -->
+        <section id="view-habits" class="h-full p-3 sm:p-6 hidden flex flex-col gap-4 overflow-y-auto">
+            <div class="theme-panel border p-4 rounded-xl flex items-center justify-between">
+                <span class="font-bold text-indigo-400 text-xs sm:text-sm"><i class="fa-solid fa-fire text-amber-500"></i> Трекер привычек</span>
+                <button onclick="addHabitPrompt()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded text-xs font-semibold">+ Новая привычка</button>
+            </div>
+
+            <div id="habitsList" class="space-y-3"></div>
+        </section>
+    </main>
+
+    <!-- Modal: Add Task from Calendar or Matrix -->
+    <div id="addTaskModal" class="fixed inset-0 bg-black/70 flex items-center justify-center hidden z-50 p-2">
+        <div class="theme-panel border rounded-xl shadow-2xl w-full max-w-md p-4 flex flex-col gap-3 text-xs">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                <span class="font-bold text-indigo-400"><i class="fa-solid fa-tasks"></i> Новая задача / дело</span>
+                <button onclick="closeAddTaskModal()" class="text-slate-400"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <input type="hidden" id="taskTargetQuadrant">
+            
+            <input type="text" id="taskTitleInput" placeholder="Название дела..." class="bg-slate-900 border border-slate-700 p-2 rounded text-slate-200 outline-none">
+            <textarea id="taskDescInput" placeholder="Описание или заметка (необязательно)..." class="bg-slate-900 border border-slate-700 p-2 rounded text-slate-200 outline-none h-16"></textarea>
+            
+            <!-- Date & Time & Alarm -->
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="text-[10px] text-slate-400 block mb-1">Дата</label>
+                    <input type="date" id="taskDateInput" class="w-full bg-slate-900 border border-slate-700 p-2 rounded text-slate-200 outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-400 block mb-1"><i class="fa-regular fa-clock text-indigo-400"></i> Время / Будильник</label>
+                    <input type="time" id="taskTimeInput" class="w-full bg-slate-900 border border-slate-700 p-2 rounded text-slate-200 outline-none">
+                </div>
+            </div>
+
+            <!-- Important & Urgent Checkboxes (Eisenhower flags) -->
+            <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-800 flex flex-col gap-2">
+                <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Параметры матрицы Эйзенхауэра:</span>
+                <label class="flex items-center gap-2 cursor-pointer select-none">
+                    <input type="checkbox" id="taskImportantCheck" class="w-4 h-4 accent-indigo-500 rounded">
+                    <span class="text-slate-200">Важно <span class="text-[10px] text-slate-400">(если не отмечено — неважно)</span></span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer select-none">
+                    <input type="checkbox" id="taskUrgentCheck" class="w-4 h-4 accent-indigo-500 rounded">
+                    <span class="text-slate-200">Срочно <span class="text-[10px] text-slate-400">(если не отмечено — несрочно)</span></span>
+                </label>
+            </div>
+
+            <div class="flex gap-2 pt-1">
+                <button onclick="saveNewTask()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 py-2 rounded text-white font-bold">Сохранить дело</button>
+                <button onclick="closeAddTaskModal()" class="px-4 bg-slate-800 text-slate-300 rounded">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script Engine -->
+    <script>
+        // Data Structures & State with Auto-Load / Auto-Save Initialization
+        let appState = {
+            tasks: [],
+            finance: [],
+            habits: [],
+            pomoCount: 0,
+            theme: 'dark',
+            timerSettings: { work: 25, short: 5, long: 15 }
+        };
+
+        // Load data from localStorage automatically on startup
+        function loadAppData() {
+            try {
+                const saved = localStorage.getItem('omniflow_app_state');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    appState = { ...appState, ...parsed };
+                }
+            } catch(e) {
+                console.error('Ошибка загрузки данных из памяти:', e);
+            }
+        }
+
+        // Save data to localStorage automatically on any change
+        function saveState() {
+            try {
+                localStorage.setItem('omniflow_app_state', JSON.stringify(appState));
+            } catch(e) {
+                console.error('Ошибка сохранения данных:', e);
+            }
+        }
+
+        let currentCalDate = new Date();
+        let pomoInterval = null;
+        let pomoTimeLeft = 25 * 60;
+        let pomoMode = 'work';
+        let alarmedTasks = {};
+
+        window.onload = function() {
+            loadAppData();
+
+            if (appState.theme === 'light') document.body.classList.add('theme-light');
+            
+            // Set Pomodoro input values from state
+            if (appState.timerSettings) {
+                document.getElementById('settingWorkTime').value = appState.timerSettings.work;
+                document.getElementById('settingShortTime').value = appState.timerSettings.short;
+                document.getElementById('settingLongTime').value = appState.timerSettings.long;
+                pomoTimeLeft = appState.timerSettings.work * 60;
+            }
+
+            renderMatrix();
+            renderFinance();
+            renderCalendar();
+            renderHabits();
+            document.getElementById('pomoSessionCount').innerText = appState.pomoCount;
+            updatePomoDisplay();
+
+            // Set today's date for finance input
+            document.getElementById('finDate').valueAsDate = new Date();
+
+            // Start alarm checker ticker
+            setInterval(checkAlarmsTicker, 1000);
+        };
+
+        // Navigation Switcher
+        function switchTab(tabId) {
+            document.querySelectorAll('nav .tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab-' + tabId).classList.add('active');
+
+            ['matrix', 'calendar', 'pomodoro', 'finance', 'habits'].forEach(v => {
+                document.getElementById('view-' + v).classList.add('hidden');
+            });
+            document.getElementById('view-' + tabId).classList.remove('hidden');
+
+            if (tabId === 'finance') renderFinanceChart();
+            if (tabId === 'calendar') renderCalendar();
+        }
+
+        // Helper to determine Quadrant based on Important & Urgent flags
+        function getQuadrant(isImportant, isUrgent) {
+            if (isImportant && isUrgent) return 'q1';   // Срочно и Важно
+            if (isImportant && !isUrgent) return 'q2';  // Не срочно, но Важно
+            if (!isImportant && isUrgent) return 'q3';  // Срочно, но Не важно
+            return 'q4';                                // Не срочно и Не важно
+        }
+
+        // 1. EISENHOWER MATRIX ENGINE
+        function renderMatrix() {
+            ['q1', 'q2', 'q3', 'q4'].forEach(q => {
+                const container = document.getElementById('container-' + q);
+                container.innerHTML = '';
+                const qTasks = appState.tasks.filter(t => t.quadrant === q);
+                
+                qTasks.forEach(task => {
+                    const card = document.createElement('div');
+                    card.className = `p-2 bg-slate-800/80 hover:bg-slate-800 rounded border border-slate-700/80 flex justify-between items-start cursor-grab text-xs ${task.completed ? 'opacity-50 line-through' : ''}`;
+                    card.draggable = true;
+                    card.ondragstart = (e) => e.dataTransfer.setData('text/plain', task.id);
+                    
+                    card.innerHTML = `
+                        <div class="flex items-start gap-1.5 flex-1 min-w-0">
+                            <input type="checkbox" ${task.completed ? 'checked' : ''} onchange="toggleTaskComplete('${task.id}')" class="mt-0.5 accent-indigo-500 cursor-pointer shrink-0">
+                            <div class="min-w-0 flex-1">
+                                <span class="font-semibold text-slate-200 block truncate">${task.title}</span>
+                                <div class="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                    ${task.date ? `<span class="text-[9px] text-indigo-300"><i class="fa-regular fa-calendar"></i> ${task.date}</span>` : ''}
+                                    ${task.time ? `<span class="text-[9px] text-amber-300"><i class="fa-regular fa-clock"></i> ${task.time}</span>` : ''}
+                                </div>
+                                ${task.desc ? `<span class="text-[9px] text-slate-400 block mt-0.5 truncate">${task.desc}</span>` : ''}
+                            </div>
+                        </div>
+                        <button onclick="deleteTask('${task.id}')" class="text-slate-500 hover:text-red-400 text-xs ml-1 shrink-0"><i class="fa-solid fa-xmark"></i></button>
+                    `;
+                    container.appendChild(card);
+                });
+            });
+            saveState();
+        }
+
+        function openAddTaskModal(quadrantOrDate) {
+            document.getElementById('taskTitleInput').value = '';
+            document.getElementById('taskDescInput').value = '';
+            document.getElementById('taskTimeInput').value = '';
+            document.getElementById('taskImportantCheck').checked = false;
+            document.getElementById('taskUrgentCheck').checked = false;
+
+            // If a specific date string was passed (from calendar)
+            if (typeof quadrantOrDate === 'string' && quadrantOrDate.includes('-')) {
+                document.getElementById('taskDateInput').value = quadrantOrDate;
+                document.getElementById('taskTargetQuadrant').value = 'q2'; // default important/not urgent for calendar
+            } else {
+                document.getElementById('taskDateInput').value = new Date().toISOString().split('T')[0];
+                document.getElementById('taskTargetQuadrant').value = quadrantOrDate || 'q1';
+                if (quadrantOrDate === 'q1') { document.getElementById('taskImportantCheck').checked = true; document.getElementById('taskUrgentCheck').checked = true; }
+                if (quadrantOrDate === 'q2') { document.getElementById('taskImportantCheck').checked = true; }
+                if (quadrantOrDate === 'q3') { document.getElementById('taskUrgentCheck').checked = true; }
+            }
+
+            document.getElementById('addTaskModal').classList.remove('hidden');
+        }
+
+        function closeAddTaskModal() { document.getElementById('addTaskModal').classList.add('hidden'); }
+
+        function saveNewTask() {
+            const title = document.getElementById('taskTitleInput').value.trim();
+            const desc = document.getElementById('taskDescInput').value.trim();
+            const date = document.getElementById('taskDateInput').value;
+            const time = document.getElementById('taskTimeInput').value;
+            const isImportant = document.getElementById('taskImportantCheck').checked;
+            const isUrgent = document.getElementById('taskUrgentCheck').checked;
+
+            if (title) {
+                const quadrant = getQuadrant(isImportant, isUrgent);
+                appState.tasks.push({
+                    id: 'task_' + Date.now(),
+                    title, desc, date, time,
+                    isImportant, isUrgent,
+                    quadrant,
+                    completed: false,
+                    createdAt: new Date().toISOString()
+                });
+                renderMatrix();
+                renderCalendar();
+                closeAddTaskModal();
+            }
+        }
+
+        function toggleTaskComplete(id) {
+            const t = appState.tasks.find(x => x.id === id);
+            if (t) { t.completed = !t.completed; renderMatrix(); renderCalendar(); }
+        }
+
+        function deleteTask(id) {
+            appState.tasks = appState.tasks.filter(x => x.id !== id);
+            renderMatrix();
+            renderCalendar();
+        }
+
+        function allowDrop(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+        function dropTask(e, quadrant) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            const taskId = e.dataTransfer.getData('text/plain');
+            const task = appState.tasks.find(t => t.id === taskId);
+            if (task) {
+                task.quadrant = quadrant;
+                task.isImportant = (quadrant === 'q1' || quadrant === 'q2');
+                task.isUrgent = (quadrant === 'q1' || quadrant === 'q3');
+                renderMatrix();
+                renderCalendar();
+            }
+        }
+
+        // 2. CALENDAR ENGINE
+        function renderCalendar() {
+            const year = currentCalDate.getFullYear();
+            const month = currentCalDate.getMonth();
+
+            const monthsStr = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+            document.getElementById('calMonthTitle').innerText = `${monthsStr[month]} ${year}`;
+
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = '';
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const offset = (firstDay === 0 ? 6 : firstDay - 1);
+
+            for (let i = 0; i < offset; i++) {
+                grid.appendChild(document.createElement('div'));
+            }
+
+            const today = new Date();
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dayBox = document.createElement('div');
+                const monthStr = String(month + 1).padStart(2, '0');
+                const dayStr = String(d).padStart(2, '0');
+                const dateKey = `${year}-${monthStr}-${dayStr}`;
+
+                const isToday = today.getDate() === d && today.getMonth() === month && today.getFullYear() === year;
+
+                dayBox.className = `p-1.5 rounded-lg border theme-panel flex flex-col justify-between overflow-hidden cursor-pointer hover:border-indigo-400 transition ${isToday ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-800'}`;
+                dayBox.onclick = () => openAddTaskModal(dateKey);
+
+                // Find tasks and finance items for this date
+                const dayTasks = appState.tasks.filter(t => t.date === dateKey);
+                const dayFinances = appState.finance.filter(f => f.date === dateKey);
+
+                let contentHtml = `<div class="flex justify-between items-center"><span class="${isToday ? 'text-indigo-400 font-bold' : 'text-slate-300'}">${d}</span><span class="text-[9px] text-slate-500">+</span></div>`;
+                contentHtml += `<div class="flex-1 overflow-y-auto space-y-0.5 mt-1">`;
+
+                dayTasks.forEach(t => {
+                    contentHtml += `<div class="bg-indigo-600/30 text-indigo-200 px-1 rounded text-[9px] truncate" title="${t.title}">${t.time ? t.time + ' ' : ''}${t.title}</div>`;
+                });
+
+                dayFinances.forEach(f => {
+                    const colorClass = f.type === 'income' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300';
+                    const sign = f.type === 'income' ? '+' : '-';
+                    contentHtml += `<div class="${colorClass} px-1 rounded text-[9px] truncate">${sign}${f.amount}₽</div>`;
+                });
+
+                contentHtml += `</div>`;
+                dayBox.innerHTML = contentHtml;
+                grid.appendChild(dayBox);
+            }
+        }
+
+        function changeCalMonth(dir) {
+            currentCalDate.setMonth(currentCalDate.getMonth() + dir);
+            renderCalendar();
+        }
+
+        // 3. POMODORO TIMER ENGINE
+        function updateCustomTimerSettings() {
+            const w = parseInt(document.getElementById('settingWorkTime').value) || 25;
+            const s = parseInt(document.getElementById('settingShortTime').value) || 5;
+            const l = parseInt(document.getElementById('settingLongTime').value) || 15;
+            appState.timerSettings = { work: w, short: s, long: l };
+            saveState();
+            if (!pomoInterval) {
+                setPomoMode(pomoMode);
+            }
+        }
+
+        function setPomoMode(mode) {
+            pomoMode = mode;
+            clearInterval(pomoInterval);
+            pomoInterval = null;
+            document.getElementById('btnPomoStart').innerText = 'СТАРТ';
+
+            const sets = appState.timerSettings || { work: 25, short: 5, long: 15 };
+            if (mode === 'work') pomoTimeLeft = sets.work * 60;
+            if (mode === 'short') pomoTimeLeft = sets.short * 60;
+            if (mode === 'long') pomoTimeLeft = sets.long * 60;
+
+            document.querySelectorAll('#view-pomodoro button[id^="mode-"]').forEach(b => {
+                b.className = 'px-3 py-1.5 rounded-full bg-slate-800 text-slate-300';
+            });
+            document.getElementById('mode-' + mode).className = 'px-3 py-1.5 rounded-full bg-indigo-600 text-white font-semibold';
+            updatePomoDisplay();
+        }
+
+        function togglePomoTimer() {
+            if (pomoInterval) {
+                clearInterval(pomoInterval);
+                pomoInterval = null;
+                document.getElementById('btnPomoStart').innerText = 'СТАРТ';
+            } else {
+                document.getElementById('btnPomoStart').innerText = 'ПАУЗА';
+                pomoInterval = setInterval(() => {
+                    pomoTimeLeft--;
+                    updatePomoDisplay();
+                    if (pomoTimeLeft <= 0) {
+                        clearInterval(pomoInterval);
+                        pomoInterval = null;
+                        playBeepSound();
+                        if (pomoMode === 'work') {
+                            appState.pomoCount++;
+                            document.getElementById('pomoSessionCount').innerText = appState.pomoCount;
+                            saveState();
+                        }
+                        alert('Время таймера истекло!');
+                    }
+                }, 1000);
+            }
+        }
+
+        function resetPomoTimer() { setPomoMode(pomoMode); }
+
+        function updatePomoDisplay() {
+            const m = Math.floor(pomoTimeLeft / 60).toString().padStart(2, '0');
+            const s = (pomoTimeLeft % 60).toString().padStart(2, '0');
+            document.getElementById('pomoTimerDisplay').innerText = `${m}:${s}`;
+        }
+
+        function playBeepSound() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                osc.type = 'sine';
+                osc.frequency.value = 800;
+                osc.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.5);
+            } catch(e) {}
+        }
+
+        // Alarm Check Ticker (Every second checks if any task alarm matches current time)
+        function checkAlarmsTicker() {
+            const now = new Date();
+            const currentDateStr = now.toISOString().split('T')[0];
+            const currentTimeStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+
+            appState.tasks.forEach(t => {
+                if (t.date === currentDateStr && t.time === currentTimeStr && !t.completed && !alarmedTasks[t.id + currentDateStr + currentTimeStr]) {
+                    alarmedTasks[t.id + currentDateStr + currentTimeStr] = true;
+                    playBeepSound();
+                    alert(`⏰ Будильник / Напоминание по делу:\n\n"${t.title}"`);
+                }
+            });
+        }
+
+        // 4. FINANCE TRACKER ENGINE
+        function renderFinance() {
+            const table = document.getElementById('finHistoryTable');
+            table.innerHTML = '';
+
+            let incomeTotal = 0, expenseTotal = 0;
+
+            appState.finance.forEach(item => {
+                if (item.type === 'income') incomeTotal += item.amount;
+                if (item.type === 'expense') expenseTotal += item.amount;
+
+                const tr = document.createElement('tr');
+                tr.className = "border-b border-slate-800/60 hover:bg-slate-800/40 text-slate-300";
+                tr.innerHTML = `
+                    <td class="p-2 text-slate-400">${item.date || '—'}</td>
+                    <td class="p-2 font-semibold">${item.category}</td>
+                    <td class="p-2"><span class="px-2 py-0.5 rounded text-[10px] ${item.type === 'income' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}">${item.type === 'income' ? 'Доход' : 'Расход'}</span></td>
+                    <td class="p-2 text-right font-mono font-bold ${item.type === 'income' ? 'text-emerald-400' : 'text-red-400'}">${item.type === 'income' ? '+' : '-'}${item.amount} ₽</td>
+                    <td class="p-2 text-center"><button onclick="deleteTransaction('${item.id}')" class="text-slate-500 hover:text-red-400"><i class="fa-solid fa-trash"></i></button></td>
+                `;
+                table.appendChild(tr);
+            });
+
+            document.getElementById('finIncomeTotal').innerText = `+${incomeTotal} ₽`;
+            document.getElementById('finExpenseTotal').innerText = `-${expenseTotal} ₽`;
+            document.getElementById('finNetBalance').innerText = `${incomeTotal - expenseTotal} ₽`;
+
+            saveState();
+            renderFinanceChart();
+            renderCalendar();
+        }
+
+        function addTransaction() {
+            const type = document.getElementById('finType').value;
+            const amount = parseFloat(document.getElementById('finAmount').value);
+            const category = document.getElementById('finCategory').value.trim() || 'Прочее';
+            const date = document.getElementById('finDate').value || new Date().toISOString().split('T')[0];
+
+            if (amount && amount > 0) {
+                appState.finance.unshift({
+                    id: 'fin_' + Date.now(),
+                    type, amount, category, date
+                });
+                document.getElementById('finAmount').value = '';
+                document.getElementById('finCategory').value = '';
+                renderFinance();
+            }
+        }
+
+        function deleteTransaction(id) {
+            appState.finance = appState.finance.filter(x => x.id !== id);
+            renderFinance();
+        }
+
+        function renderFinanceChart() {
+            const canvas = document.getElementById('financeChart');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const expenses = appState.finance.filter(f => f.type === 'expense');
+            if (expenses.length === 0) return;
+
+            const cats = {};
+            expenses.forEach(e => cats[e.category] = (cats[e.category] || 0) + e.amount);
+
+            const total = Object.values(cats).reduce((a, b) => a + b, 0);
+            const colors = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#3b82f6', '#8b5cf6'];
+
+            let startAngle = 0;
+            let idx = 0;
+
+            for (let cat in cats) {
+                const sliceAngle = (cats[cat] / total) * 2 * Math.PI;
+                ctx.beginPath();
+                ctx.arc(90, 90, 70, startAngle, startAngle + sliceAngle);
+                ctx.lineTo(90, 90);
+                ctx.fillStyle = colors[idx % colors.length];
+                ctx.fill();
+                startAngle += sliceAngle;
+                idx++;
+            }
+        }
+
+        // 5. HABIT TRACKER ENGINE
+        function renderHabits() {
+            const list = document.getElementById('habitsList');
+            list.innerHTML = '';
+
+            appState.habits.forEach(habit => {
+                const card = document.createElement('div');
+                card.className = "theme-panel border p-3 rounded-xl flex justify-between items-center";
+                card.innerHTML = `
+                    <div>
+                        <span class="font-bold text-slate-200 block text-xs sm:text-sm">${habit.name}</span>
+                        <span class="text-[10px] text-slate-400">Стрик: 🔥 ${habit.streak || 0} дней</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="checkHabit('${habit.id}')" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-semibold">Отметить сегодня</button>
+                        <button onclick="deleteHabit('${habit.id}')" class="text-slate-500 hover:text-red-400"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+            saveState();
+        }
+
+        function addHabitPrompt() {
+            const name = prompt('Название привычки:');
+            if (name) {
+                appState.habits.push({ id: 'hab_' + Date.now(), name, streak: 0 });
+                renderHabits();
+            }
+        }
+
+        function checkHabit(id) {
+            const h = appState.habits.find(x => x.id === id);
+            if (h) { h.streak = (h.streak || 0) + 1; renderHabits(); }
+        }
+
+        function deleteHabit(id) {
+            appState.habits = appState.habits.filter(x => x.id !== id);
+            renderHabits();
+        }
+
+        // Theme Toggle
+        function toggleTheme() {
+            document.body.classList.toggle('theme-light');
+            appState.theme = document.body.classList.contains('theme-light') ? 'light' : 'dark';
+            saveState();
+        }
+    </script>
+</body>
+</html>
