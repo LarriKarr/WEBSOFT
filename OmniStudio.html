@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniStudio Pro Ultimate</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- CodeMirror 5 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/abbott.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/moxer.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+    
+    <!-- Extended CodeMirror Modes -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/clike/clike.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/php/php.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/htmlmixed/htmlmixed.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/sql/sql.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/markdown/markdown.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/shell/shell.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/rust/rust.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/go/go.min.js"></script>
+
+    <!-- CodeMirror Addons -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/edit/closetag.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/edit/closebrackets.min.js"></script>
+
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html-docx-js@0.3.1/dist/html-docx.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+    <style id="themeStyles">
+        :root {
+            --bg-main: #0f172a;
+            --bg-panel: #1e293b;
+            --bg-header: #0f172a;
+            --border-color: #334155;
+            --accent-color: #6366f1;
+            --text-main: #f8fafc;
+        }
+        body.theme-cyberpunk {
+            --bg-main: #0d0221;
+            --bg-panel: #190a38;
+            --bg-header: #090117;
+            --border-color: #ff007f;
+            --accent-color: #00f0ff;
+            --text-main: #00f0ff;
+        }
+        body.theme-github {
+            --bg-main: #0d1117;
+            --bg-panel: #161b22;
+            --bg-header: #010409;
+            --border-color: #30363d;
+            --accent-color: #238636;
+            --text-main: #c9d1d9;
+        }
+        body.theme-light {
+            --bg-main: #f1f5f9;
+            --bg-panel: #ffffff;
+            --bg-header: #e2e8f0;
+            --border-color: #cbd5e1;
+            --accent-color: #2563eb;
+            --text-main: #0f172a;
+        }
+
+        body { background-color: var(--bg-main); color: var(--text-main); }
+        .theme-panel { background-color: var(--bg-panel); border-color: var(--border-color); }
+        .theme-header { background-color: var(--bg-header); border-color: var(--border-color); }
+        
+        .CodeMirror { height: 100%; font-family: 'Fira Code', monospace; font-size: 13px; }
+        .wysiwyg-editor { outline: none; min-height: 100%; word-break: break-word; }
+        .wysiwyg-editor table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+        .wysiwyg-editor table, .wysiwyg-editor th, .wysiwyg-editor td { border: 1px solid var(--border-color); padding: 8px; }
+        .wysiwyg-editor img { max-width: 100%; height: auto; display: inline-block; margin: 10px 0; border-radius: 4px; }
+        
+        .tab-btn.active { border-bottom: 2px solid var(--accent-color); font-weight: bold; }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: var(--bg-main); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 2px; }
+
+        @media print {
+            body * { visibility: hidden; }
+            #wysiwygPanel, #wysiwygPanel * { visibility: visible; }
+            #wysiwygPanel { position: absolute; left: 0; top: 0; width: 100%; padding: 0; background: white; color: black; }
+            #wysiwygEditor { border: none; box-shadow: none; }
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden font-sans select-none">
+
+    <!-- 2-ROW COMPACT MAIN HEADER -->
+    <header class="theme-header border-b px-2 py-1 flex flex-col gap-1 text-xs z-30">
+        <!-- Row 1: Logo, Files, Export, View Modes -->
+        <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+                <span class="font-bold text-indigo-400 text-sm flex items-center gap-1">
+                    <i class="fa-solid fa-microchip"></i> OmniPro
+                </span>
+                
+                <!-- Open File / Zip -->
+                <label title="Открыть файл (DOCX, XLSX, PDF, ZIP, TXT...)" class="cursor-pointer bg-gray-700/50 hover:bg-gray-600 px-2 py-1 rounded flex items-center gap-1 text-gray-200">
+                    <i class="fa-solid fa-folder-open text-amber-400"></i>
+                    <span class="hidden sm:inline">Открыть</span>
+                    <input type="file" id="fileInput" class="hidden" onchange="handleFileOpen(event)">
+                </label>
+
+                <!-- Export Dropdown -->
+                <div class="relative inline-block text-left group">
+                    <button title="Экспорт" class="bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded flex items-center gap-1">
+                        <i class="fa-solid fa-download"></i> <span class="hidden sm:inline">Экспорт</span> <i class="fa-solid fa-chevron-down text-[9px]"></i>
+                    </button>
+                    <div class="hidden group-hover:block absolute left-0 w-44 theme-panel border rounded shadow-xl z-50 py-1">
+                        <button onclick="exportFile('pdf')" class="w-full text-left px-3 py-1.5 hover:bg-gray-700/50 flex items-center gap-2"><i class="fa-solid fa-file-pdf text-red-400"></i> PDF (.pdf)</button>
+                        <button onclick="exportFile('docx')" class="w-full text-left px-3 py-1.5 hover:bg-gray-700/50 flex items-center gap-2"><i class="fa-solid fa-file-word text-blue-400"></i> Word (.docx)</button>
+                        <button onclick="exportFile('html')" class="w-full text-left px-3 py-1.5 hover:bg-gray-700/50 flex items-center gap-2"><i class="fa-solid fa-file-code text-orange-400"></i> HTML (.html)</button>
+                        <button onclick="exportFile('txt')" class="w-full text-left px-3 py-1.5 hover:bg-gray-700/50 flex items-center gap-2"><i class="fa-solid fa-file-lines text-gray-400"></i> Текст (.txt)</button>
+                        <button onclick="exportFile('zip')" class="w-full text-left px-3 py-1.5 hover:bg-gray-700/50 flex items-center gap-2"><i class="fa-solid fa-file-zipper text-amber-400"></i> ZIP Архив (.zip)</button>
+                    </div>
+                </div>
+
+                <button onclick="window.print()" title="Печать A4" class="p-1.5 hover:bg-gray-700/50 rounded text-gray-300">
+                    <i class="fa-solid fa-print"></i>
+                </button>
+            </div>
+
+            <!-- View Modes -->
+            <div class="flex items-center space-x-1 bg-black/30 p-0.5 rounded border border-gray-700">
+                <button id="btnViewWysiwyg" onclick="setViewMode('wysiwyg')" title="Текст" class="px-2 py-0.5 rounded bg-gray-700 text-white"><i class="fa-solid fa-eye"></i></button>
+                <button id="btnViewSplit" onclick="setViewMode('split')" title="Сплит" class="px-2 py-0.5 rounded hover:bg-gray-800 text-gray-400"><i class="fa-solid fa-columns"></i></button>
+                <button id="btnViewCode" onclick="setViewMode('code')" title="Код" class="px-2 py-0.5 rounded hover:bg-gray-800 text-gray-400"><i class="fa-solid fa-code"></i></button>
+                <button id="btnViewPreview" onclick="setViewMode('preview')" title="Превью" class="px-2 py-0.5 rounded hover:bg-gray-800 text-emerald-400"><i class="fa-solid fa-play"></i></button>
+            </div>
+        </div>
+
+        <!-- Row 2: AI, DevTools, Languages, Themes, Reference Sidebar -->
+        <div class="flex items-center justify-between gap-2 pt-0.5 border-t border-gray-800">
+            <div class="flex items-center gap-1.5 overflow-x-auto">
+                <button onclick="toggleAIModal()" title="AI Помощник" class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-2 py-0.5 rounded flex items-center gap-1 font-semibold text-[11px]">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> AI
+                </button>
+
+                <button onclick="toggleUtilsModal()" title="Утилиты & Инструменты" class="bg-gray-800 hover:bg-gray-700 text-indigo-300 px-2 py-0.5 rounded border border-gray-700 text-[11px]">
+                    <i class="fa-solid fa-screwdriver-wrench"></i>
+                </button>
+
+                <button onclick="toggleFindModal()" title="Поиск" class="p-1 hover:bg-gray-700/50 rounded text-gray-300">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            </div>
+
+            <div class="flex items-center gap-1.5">
+                <!-- Extended Language Selector -->
+                <select id="langSelect" onchange="changeLanguage()" class="bg-gray-800 text-gray-200 text-[11px] px-1.5 py-0.5 rounded border border-gray-700 outline-none">
+                    <option value="htmlmixed">HTML / XML</option>
+                    <option value="javascript">JavaScript / JSON</option>
+                    <option value="php">PHP</option>
+                    <option value="css">CSS</option>
+                    <option value="python">Python</option>
+                    <option value="clike">C / C++ / Java / C#</option>
+                    <option value="sql">SQL</option>
+                    <option value="markdown">Markdown</option>
+                    <option value="shell">Bash / Shell</option>
+                    <option value="rust">Rust</option>
+                    <option value="go">Go</option>
+                </select>
+
+                <!-- Themes -->
+                <select id="themeSelect" onchange="changeTheme()" class="bg-gray-800 text-gray-200 text-[11px] px-1.5 py-0.5 rounded border border-gray-700 outline-none">
+                    <option value="default">Dracula</option>
+                    <option value="cyberpunk">Cyber</option>
+                    <option value="github">GitHub</option>
+                    <option value="light">Light</option>
+                </select>
+
+                <!-- Reference & Snippets Panel Toggle -->
+                <button onclick="toggleSidebar()" title="Справочник и Сниппеты" class="bg-gray-800 hover:bg-gray-700 text-indigo-300 px-2 py-0.5 rounded border border-gray-700 text-[11px] font-semibold">
+                    <i class="fa-solid fa-book-bookmark"></i> <span class="hidden md:inline">Справка</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Multi-Tab Bar -->
+    <div class="theme-header border-b flex items-center px-2 gap-1 overflow-x-auto text-xs py-1 whitespace-nowrap" id="tabBar">
+        <button onclick="createNewTab()" title="Новая вкладка" class="px-2 py-1 bg-indigo-600/30 hover:bg-indigo-600/50 rounded text-indigo-300 shrink-0">
+            <i class="fa-solid fa-plus"></i>
+        </button>
+    </div>
+
+    <!-- FULL RICH TEXT / WYSIWYG FORMATTING TOOLBAR -->
+    <div id="wysiwygToolbar" class="theme-panel border-b px-2 py-1 flex items-center overflow-x-auto whitespace-nowrap gap-1 text-xs">
+        <button onclick="execCmd('bold')" title="Жирный" class="p-1.5 hover:bg-gray-700/50 rounded"><i class="fa-solid fa-bold"></i></button>
+        <button onclick="execCmd('italic')" title="Курсив" class="p-1.5 hover:bg-gray-700/50 rounded"><i class="fa-solid fa-italic"></i></button>
+        <button onclick="execCmd('underline')" title="Подчеркнутый" class="p-1.5 hover:bg-gray-700/50 rounded"><i class="fa-solid fa-underline"></i></button>
+        <button onclick="execCmd('strikeThrough')" title="Зачеркнутый" class="p-1.5 hover:bg-gray-700/50 rounded"><i class="fa-solid fa-strikethrough"></i></button>
+
+        <div class="h-4 w-px bg-gray-700 mx-0.5"></div>
+
+        <button onclick="execCmd('formatBlock', '<h1>')" title="Заголовок 1" class="p-1.5 hover:bg-gray-700/50 rounded font-bold">H1</button>
+        <button onclick="execCmd('formatBlock', '<h2>')" title="Заголовок 2" class="p-1.5 hover:bg-gray-700/50 rounded font-bold">H2</button>
+        <button onclick="execCmd('formatBlock', '<p>')" title="Обычный параграф" class="p-1.5 hover:bg-gray-700/50 rounded">P</button>
+
+        <div class="h-4 w-px bg-gray-700 mx-0.5"></div>
+
+        <button onclick="execCmd('justifyLeft')" title="По левому краю" class="p-1.5 hover:bg-gray-700/50 rounded"><i class="fa-solid fa-align-left"></i></button>
+        <button onclick="execCmd('justifyCenter')" title="По центру" class="p-1.5 hover:bg-gray-700/50 rounded"><i class="fa-solid fa-align-center"></i></button>
+        <button onclick="execCmd('justifyRight')" title="По правому краю" class="p-1.5 hover:bg-gray-700/50 rounded"><i class="fa-solid fa-align-right"></i></button>
+
+        <div class="h-4 w-px bg-gray-700 mx-0.5"></div>
+
+        <button onclick="execCmd('insertUnorderedList')" title="Маркированный список" class="p-1.5 hover:bg-gray-700/50 rounded"><i class="fa-solid fa-list-ul"></i></button>
+        <button onclick="execCmd('insertOrderedList')" title="Нумерованный список" class="p-1.5 hover:bg-gray-700/50 rounded"><i class="fa-solid fa-list-ol"></i></button>
+
+        <div class="h-4 w-px bg-gray-700 mx-0.5"></div>
+
+        <!-- MEDIA & INSERTS -->
+        <button onclick="promptImage()" title="Вставить картинку по URL" class="p-1.5 hover:bg-gray-700/50 rounded text-amber-400"><i class="fa-solid fa-image"></i></button>
+        <label title="Загрузить картинку с диска" class="p-1.5 hover:bg-gray-700/50 rounded cursor-pointer text-amber-300">
+            <i class="fa-solid fa-file-image"></i>
+            <input type="file" accept="image/*" class="hidden" onchange="uploadImage(event)">
+        </label>
+        <button onclick="insertTable()" title="Вставить таблицу" class="p-1.5 hover:bg-gray-700/50 rounded text-blue-400"><i class="fa-solid fa-table"></i></button>
+        <button onclick="openDiagramModal()" title="Нарисовать блок-схему" class="p-1.5 hover:bg-gray-700/50 rounded text-indigo-400"><i class="fa-solid fa-diagram-project"></i></button>
+        <button onclick="promptEmbed()" title="Вставить презентацию / Iframe" class="p-1.5 hover:bg-gray-700/50 rounded text-purple-400"><i class="fa-solid fa-window-restore"></i></button>
+
+        <div class="h-4 w-px bg-gray-700 mx-0.5"></div>
+
+        <button id="micBtn" onclick="toggleSpeech()" title="Голосовой ввод" class="p-1.5 hover:bg-gray-700/50 rounded text-red-400"><i class="fa-solid fa-microphone"></i></button>
+        <label title="Распознать текст с картинки (OCR)" class="p-1.5 hover:bg-gray-700/50 rounded cursor-pointer text-emerald-400">
+            <i class="fa-solid fa-file-arrow-up"></i>
+            <input type="file" accept="image/*" class="hidden" onchange="runOCR(event)">
+        </label>
+        <button onclick="parseMarkdownInWYSIWYG()" title="Рендер Markdown" class="p-1.5 hover:bg-gray-700/50 rounded text-emerald-300"><i class="fa-brands fa-markdown"></i></button>
+    </div>
+
+    <!-- MAIN WORKSPACE -->
+    <div class="flex-1 flex overflow-hidden relative">
+        <div id="editorContainer" class="flex-1 flex overflow-hidden">
+            <!-- Visual WYSIWYG Panel -->
+            <div id="wysiwygPanel" class="flex-1 h-full p-4 md:p-6 overflow-auto theme-panel">
+                <div id="wysiwygEditor" contenteditable="true" class="wysiwyg-editor max-w-4xl mx-auto p-4 md:p-8 rounded border shadow-2xl focus:outline-none min-h-[90%] bg-opacity-50"></div>
+            </div>
+
+            <!-- CodeMirror Code Panel -->
+            <div id="codePanel" class="flex-1 h-full hidden border-l border-gray-700">
+                <textarea id="codeEditor"></textarea>
+            </div>
+
+            <!-- Live Preview Sandbox -->
+            <div id="previewPanel" class="flex-1 h-full hidden bg-white">
+                <iframe id="liveFrame" class="w-full h-full border-none"></iframe>
+            </div>
+        </div>
+
+        <!-- SIDEBAR: LANGUAGE GUIDE & TEMPLATES / SNIPPETS -->
+        <aside id="sidebar" class="w-72 md:w-80 theme-panel border-l flex flex-col hidden transition-all duration-300 z-20 absolute right-0 h-full md:relative">
+            <div class="p-3 border-b border-gray-700 flex justify-between items-center text-xs">
+                <span class="font-bold text-indigo-400 flex items-center gap-1.5"><i class="fa-solid fa-book"></i> Справочник & Шаблоны</span>
+                <button onclick="toggleSidebar()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-3 overflow-y-auto flex-1 space-y-4 text-xs">
+                <div>
+                    <h4 class="font-semibold text-gray-300 mb-1">Краткая справка по языку</h4>
+                    <div id="langDoc" class="bg-black/30 p-2.5 rounded border border-gray-700 text-gray-300 leading-relaxed"></div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <h4 class="font-semibold text-gray-300">Быстрые шаблоны (Сниппеты)</h4>
+                        <button onclick="addCustomSnippet()" class="text-indigo-400 hover:underline">+ Свой</button>
+                    </div>
+                    <div id="snippetList" class="space-y-1"></div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- AI Assistant Modal -->
+    <div id="aiModal" class="fixed inset-0 bg-black/70 flex items-center justify-center hidden z-50 p-2">
+        <div class="theme-panel border rounded-lg shadow-2xl w-full max-w-lg p-4 flex flex-col gap-3">
+            <div class="flex justify-between items-center border-b border-gray-700 pb-2">
+                <span class="font-bold text-indigo-400 flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Помощник (Gemini API)</span>
+                <button onclick="toggleAIModal()" class="text-gray-400"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <input type="password" id="apiKeyInput" placeholder="Введите Gemini API Key..." class="bg-black/40 p-2 rounded border border-gray-700 text-xs text-gray-200">
+            <textarea id="aiPrompt" placeholder="Что нужно сделать с кодом или текстом?" class="bg-black/40 p-2 rounded border border-gray-700 text-xs text-gray-200 h-24"></textarea>
+            <div class="flex gap-2">
+                <button onclick="askAI('fix')" class="flex-1 bg-red-600/80 hover:bg-red-600 py-1.5 rounded text-xs text-white">Исправить ошибки</button>
+                <button onclick="askAI('explain')" class="flex-1 bg-indigo-600/80 hover:bg-indigo-600 py-1.5 rounded text-xs text-white">Объяснить код</button>
+                <button onclick="askAI('generate')" class="flex-1 bg-emerald-600/80 hover:bg-emerald-600 py-1.5 rounded text-xs text-white">Сгенерировать</button>
+            </div>
+            <div id="aiOutput" class="bg-black/50 p-2 rounded border border-gray-700 text-xs h-28 overflow-y-auto text-gray-300"></div>
+        </div>
+    </div>
+
+    <!-- Dev Utilities Modal -->
+    <div id="utilsModal" class="fixed inset-0 bg-black/70 flex items-center justify-center hidden z-50 p-2">
+        <div class="theme-panel border rounded-lg shadow-2xl w-full max-w-md p-4 flex flex-col gap-3 text-xs">
+            <div class="flex justify-between items-center border-b border-gray-700 pb-2">
+                <span class="font-bold text-indigo-400"><i class="fa-solid fa-screwdriver-wrench"></i> Утилиты разработчика</span>
+                <button onclick="toggleUtilsModal()" class="text-gray-400"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="flex items-center gap-2">
+                <label>Выбор цвета (Color Picker):</label>
+                <input type="color" id="colorPicker" onchange="insertColor(this.value)" class="bg-transparent cursor-pointer">
+            </div>
+            <hr class="border-gray-700">
+            <div class="flex gap-2">
+                <button onclick="generateLorem()" class="bg-gray-700 hover:bg-gray-600 py-1.5 px-3 rounded text-gray-200">Lorem Ipsum</button>
+                <button onclick="generateUUID()" class="bg-gray-700 hover:bg-gray-600 py-1.5 px-3 rounded text-gray-200">UUID</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Find Modal -->
+    <div id="findModal" class="fixed top-14 right-4 theme-panel border rounded shadow-2xl p-3 z-50 hidden text-xs w-72">
+        <div class="flex justify-between items-center mb-2">
+            <span class="font-bold text-indigo-400">Поиск и Замена</span>
+            <button onclick="toggleFindModal()" class="text-gray-400"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <input type="text" id="findInput" placeholder="Искать..." class="w-full bg-black/40 p-1.5 rounded border border-gray-700 mb-1 text-gray-200">
+        <input type="text" id="replaceInput" placeholder="Заменить на..." class="w-full bg-black/40 p-1.5 rounded border border-gray-700 mb-2 text-gray-200">
+        <div class="flex gap-2">
+            <button onclick="executeFind()" class="flex-1 bg-indigo-600 py-1 rounded text-white">Искать</button>
+            <button onclick="executeReplace()" class="flex-1 bg-emerald-600 py-1 rounded text-white">Заменить</button>
+        </div>
+    </div>
+
+    <!-- Diagram Canvas Modal -->
+    <div id="diagramModal" class="fixed inset-0 bg-black/70 flex items-center justify-center hidden z-50 p-2">
+        <div class="theme-panel border rounded-lg shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden">
+            <div class="p-3 border-b border-gray-700 flex justify-between items-center text-xs">
+                <span class="font-bold text-indigo-400">Конструктор схем</span>
+                <button onclick="closeDiagramModal()" class="text-gray-400"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-2 flex items-center gap-2 border-b border-gray-700 text-xs bg-black/20">
+                <button onclick="addBlock('rect')" class="px-2 py-1 bg-gray-700 rounded">Блок</button>
+                <button onclick="addBlock('circle')" class="px-2 py-1 bg-gray-700 rounded">Круг</button>
+                <button onclick="addBlock('text')" class="px-2 py-1 bg-gray-700 rounded">Текст</button>
+                <button onclick="clearCanvas()" class="px-2 py-1 bg-red-900/50 rounded text-red-200">Очистить</button>
+            </div>
+            <div class="p-2 bg-black/50 flex justify-center overflow-x-auto">
+                <canvas id="diagramCanvas" width="600" height="300" class="border border-gray-700 bg-gray-900 rounded"></canvas>
+            </div>
+            <div class="p-3 border-t border-gray-700 flex justify-end gap-2">
+                <button onclick="closeDiagramModal()" class="px-3 py-1 bg-gray-700 rounded text-xs">Отмена</button>
+                <button onclick="insertDiagramToEditor()" class="px-3 py-1 bg-indigo-600 rounded text-xs text-white">Вставить</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        let tabs = [];
+        let activeTabId = null;
+        let codeEditor, fabricCanvas, recognition;
+        let isRecording = false;
+        let viewMode = 'wysiwyg';
+        let customSnippets = JSON.parse(localStorage.getItem('omni_custom_snippets') || '[]');
+
+        // Extended Language Database
+        const langData = {
+            htmlmixed: {
+                doc: "<b>HTML/XML:</b> Структурная разметка веб-страниц.",
+                snippets: [
+                    { name: "HTML5 Каркас", code: "<!DOCTYPE html>\n<html lang=\"ru\">\n<head>\n  <meta charset=\"UTF-8\">\n  <title>Документ</title>\n</head>\n<body>\n  <h1>Привет!</h1>\n</body>\n</html>" },
+                    { name: "Форма ввода", code: "<form action=\"\" method=\"POST\">\n  <input type=\"text\" placeholder=\"Имя\">\n  <button type=\"submit\">Отправить</button>\n</form>" }
+                ]
+            },
+            javascript: {
+                doc: "<b>JavaScript:</b> Динамический скриптовый язык программирования.",
+                snippets: [
+                    { name: "Fetch Запрос", code: "async function getData(url) {\n  const res = await fetch(url);\n  return await res.json();\n}" },
+                    { name: "EventListener", code: "document.addEventListener('DOMContentLoaded', () => {\n  console.log('Готово');\n});" }
+                ]
+            },
+            php: {
+                doc: "<b>PHP:</b> Серверный язык программирования.",
+                snippets: [
+                    { name: "PHP Старт", code: "<?php\n\ndeclare(strict_types=1);\n\necho 'Hello World';\n" },
+                    { name: "PDO Подключение", code: "$pdo = new PDO('mysql:host=localhost;dbname=test', 'root', '');" }
+                ]
+            },
+            python: {
+                doc: "<b>Python:</b> Язык с чистым и понятным синтаксисом.",
+                snippets: [
+                    { name: "Main функция", code: "def main():\n    print('Hello World')\n\nif __name__ == '__main__':\n    main()" }
+                ]
+            },
+            sql: {
+                doc: "<b>SQL:</b> Язык запросов к базам данных.",
+                snippets: [
+                    { name: "SELECT Запрос", code: "SELECT * FROM users WHERE status = 'active';" }
+                ]
+            },
+            css: {
+                doc: "<b>CSS:</b> Таблицы стилей оформление страниц.",
+                snippets: [
+                    { name: "Flex Center", code: "display: flex;\njustify-content: center;\nalign-items: center;" }
+                ]
+            }
+        };
+
+        window.onload = function() {
+            codeEditor = CodeMirror.fromTextArea(document.getElementById('codeEditor'), {
+                mode: 'htmlmixed',
+                theme: 'dracula',
+                lineNumbers: true,
+                autoCloseTags: true,
+                autoCloseBrackets: true,
+                lineWrapping: true
+            });
+
+            fabricCanvas = new fabric.Canvas('diagramCanvas');
+
+            const savedTabs = JSON.parse(localStorage.getItem('omni_tabs_session') || '[]');
+            if (savedTabs.length > 0) {
+                tabs = savedTabs;
+                switchTab(tabs[0].id);
+            } else {
+                createNewTab('Документ 1.html', '<h2>Добро пожаловать в OmniStudio Pro</h2><p>Начните ввод текста или откройте документ...</p>');
+            }
+
+            renderTabs();
+            setupSync();
+            setupSpeech();
+            updateLangDocs('htmlmixed');
+            setInterval(autoSaveSession, 3000);
+        };
+
+        function createNewTab(title = 'Файл.html', content = '') {
+            const id = 'tab_' + Date.now();
+            tabs.push({ id, title, content });
+            renderTabs();
+            switchTab(id);
+        }
+
+        function closeTab(id, e) {
+            e.stopPropagation();
+            if (tabs.length === 1) return;
+            tabs = tabs.filter(t => t.id !== id);
+            if (activeTabId === id) switchTab(tabs[0].id);
+            renderTabs();
+        }
+
+        function switchTab(id) {
+            saveCurrentTabState();
+            activeTabId = id;
+            const tab = tabs.find(t => t.id === id);
+            if (tab) {
+                document.getElementById('wysiwygEditor').innerHTML = tab.content;
+                codeEditor.setValue(tab.content);
+            }
+            renderTabs();
+        }
+
+        function renderTabs() {
+            const bar = document.getElementById('tabBar');
+            bar.querySelectorAll('.tab-item').forEach(e => e.remove());
+
+            tabs.forEach(t => {
+                const btn = document.createElement('div');
+                btn.className = `tab-item tab-btn px-3 py-1 bg-black/20 hover:bg-black/40 rounded cursor-pointer flex items-center gap-2 text-gray-300 shrink-0 ${t.id === activeTabId ? 'active text-indigo-400 bg-black/50' : ''}`;
+                btn.onclick = () => switchTab(t.id);
+                btn.innerHTML = `<span>${t.title}</span><i class="fa-solid fa-xmark text-[10px] hover:text-red-400" onclick="closeTab('${t.id}', event)"></i>`;
+                bar.insertBefore(btn, bar.lastElementChild);
+            });
+        }
+
+        function saveCurrentTabState() {
+            if (!activeTabId) return;
+            const tab = tabs.find(t => t.id === activeTabId);
+            if (tab) {
+                tab.content = document.getElementById('wysiwygEditor').innerHTML;
+            }
+        }
+
+        function setViewMode(mode) {
+            saveCurrentTabState();
+            viewMode = mode;
+            const wPanel = document.getElementById('wysiwygPanel');
+            const cPanel = document.getElementById('codePanel');
+            const pPanel = document.getElementById('previewPanel');
+            const toolbar = document.getElementById('wysiwygToolbar');
+
+            wPanel.classList.add('hidden');
+            cPanel.classList.add('hidden');
+            pPanel.classList.add('hidden');
+            toolbar.classList.add('hidden');
+
+            if (mode === 'wysiwyg') {
+                wPanel.classList.remove('hidden');
+                toolbar.classList.remove('hidden');
+            } else if (mode === 'code') {
+                cPanel.classList.remove('hidden');
+                codeEditor.refresh();
+            } else if (mode === 'split') {
+                wPanel.classList.remove('hidden');
+                cPanel.classList.remove('hidden');
+                toolbar.classList.remove('hidden');
+                codeEditor.refresh();
+            } else if (mode === 'preview') {
+                pPanel.classList.remove('hidden');
+                document.getElementById('liveFrame').srcdoc = codeEditor.getValue();
+            }
+        }
+
+        function setupSync() {
+            const wysiwyg = document.getElementById('wysiwygEditor');
+            wysiwyg.addEventListener('input', () => {
+                if (viewMode !== 'code') codeEditor.setValue(wysiwyg.innerHTML);
+            });
+            codeEditor.on('change', () => {
+                if (viewMode !== 'wysiwyg') wysiwyg.innerHTML = codeEditor.getValue();
+            });
+        }
+
+        function setupSpeech() {
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                recognition = new SpeechRecognition();
+                recognition.lang = 'ru-RU';
+                recognition.continuous = true;
+                recognition.onresult = (e) => {
+                    const text = e.results[e.results.length - 1][0].transcript;
+                    execCmd('insertText', text + ' ');
+                };
+            }
+        }
+
+        function toggleSpeech() {
+            if (!recognition) return alert('Браузер не поддерживает распознавание речи.');
+            const btn = document.getElementById('micBtn');
+            if (!isRecording) {
+                recognition.start();
+                isRecording = true;
+                btn.classList.add('bg-red-600', 'text-white');
+            } else {
+                recognition.stop();
+                isRecording = false;
+                btn.classList.remove('bg-red-600', 'text-white');
+            }
+        }
+
+        async function runOCR(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            alert('Запущено распознавание текста с изображения...');
+            const result = await Tesseract.recognize(file, 'rus+eng');
+            execCmd('insertHTML', `<p>${result.data.text}</p>`);
+        }
+
+        function toggleAIModal() { document.getElementById('aiModal').classList.toggle('hidden'); }
+        async function askAI(type) {
+            const key = document.getElementById('apiKeyInput').value;
+            const promptText = document.getElementById('aiPrompt').value;
+            const output = document.getElementById('aiOutput');
+            if (!key) return alert('Введите ваш API Key');
+
+            output.innerText = 'Обработка...';
+            const code = codeEditor.getValue();
+            let fullPrompt = `${promptText}\n\nКод:\n${code}`;
+
+            try {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${key}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: fullPrompt }] }] })
+                });
+                const data = await res.json();
+                output.innerText = data.candidates[0].content.parts[0].text;
+            } catch (err) {
+                output.innerText = 'Ошибка: ' + err.message;
+            }
+        }
+
+        function toggleUtilsModal() { document.getElementById('utilsModal').classList.toggle('hidden'); }
+        function insertColor(val) { execCmd('insertText', val); }
+        function generateLorem() { execCmd('insertText', 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.'); }
+        function generateUUID() { execCmd('insertText', crypto.randomUUID()); }
+
+        async function handleFileOpen(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (file.name.endsWith('.zip')) {
+                const zip = await JSZip.loadAsync(file);
+                zip.forEach(async (relativePath, zipEntry) => {
+                    if (!zipEntry.dir) {
+                        const content = await zipEntry.async('string');
+                        createNewTab(zipEntry.name, content);
+                    }
+                });
+            } else if (file.name.endsWith('.docx')) {
+                const ab = await file.arrayBuffer();
+                const res = await mammoth.convertToHtml({ arrayBuffer: ab });
+                createNewTab(file.name, res.value);
+            } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.csv')) {
+                const ab = await file.arrayBuffer();
+                const wb = XLSX.read(ab, { type: 'array' });
+                const html = XLSX.utils.sheet_to_html(wb.Sheets[wb.SheetNames[0]]);
+                createNewTab(file.name, html);
+            } else {
+                const text = await file.text();
+                createNewTab(file.name, text);
+            }
+        }
+
+        async function exportFile(format) {
+            saveCurrentTabState();
+            const tab = tabs.find(t => t.id === activeTabId);
+
+            if (format === 'zip') {
+                const zip = new JSZip();
+                tabs.forEach(t => zip.file(t.title, t.content));
+                const content = await zip.generateAsync({ type: 'blob' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(content);
+                a.download = 'project.zip';
+                a.click();
+            } else if (format === 'pdf') {
+                html2pdf().from(document.getElementById('wysiwygEditor')).save((tab ? tab.title : 'doc') + '.pdf');
+            } else {
+                const blob = new Blob([tab ? tab.content : ''], { type: 'text/plain;charset=utf-8' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = (tab ? tab.title : 'doc') + '.' + format;
+                a.click();
+            }
+        }
+
+        function autoSaveSession() {
+            saveCurrentTabState();
+            localStorage.setItem('omni_tabs_session', JSON.stringify(tabs));
+        }
+
+        function changeTheme() {
+            const theme = document.getElementById('themeSelect').value;
+            document.body.className = `h-screen flex flex-col overflow-hidden font-sans select-none theme-${theme}`;
+            codeEditor.setOption('theme', theme === 'cyberpunk' ? 'moxer' : theme === 'light' ? 'abbott' : 'dracula');
+        }
+
+        function changeLanguage() {
+            const lang = document.getElementById('langSelect').value;
+            codeEditor.setOption('mode', lang);
+            updateLangDocs(lang);
+        }
+
+        function updateLangDocs(lang) {
+            const data = langData[lang] || { doc: "Описание отсутствует.", snippets: [] };
+            document.getElementById('langDoc').innerHTML = data.doc;
+            const sb = document.getElementById('snippetList');
+            sb.innerHTML = '';
+            
+            [...data.snippets, ...customSnippets].forEach(s => {
+                const btn = document.createElement('button');
+                btn.className = "w-full text-left p-1.5 bg-gray-700/50 hover:bg-gray-600 rounded text-gray-200 block mb-1 transition";
+                btn.innerText = s.name;
+                btn.onclick = () => {
+                    codeEditor.replaceSelection(s.code);
+                    if (viewMode === 'wysiwyg') setViewMode('code');
+                };
+                sb.appendChild(btn);
+            });
+        }
+
+        function addCustomSnippet() {
+            const name = prompt('Название сниппета:');
+            const code = prompt('Код:');
+            if (name && code) {
+                customSnippets.push({ name, code });
+                localStorage.setItem('omni_custom_snippets', JSON.stringify(customSnippets));
+                updateLangDocs(document.getElementById('langSelect').value);
+            }
+        }
+
+        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('hidden'); }
+        function toggleFindModal() { document.getElementById('findModal').classList.toggle('hidden'); }
+        function executeFind() { const q = document.getElementById('findInput').value; if (q) window.find(q); }
+        function executeReplace() {
+            const q = document.getElementById('findInput').value;
+            const r = document.getElementById('replaceInput').value;
+            if (!q) return;
+            let content = codeEditor.getValue().replaceAll(q, r);
+            codeEditor.setValue(content);
+            document.getElementById('wysiwygEditor').innerHTML = content;
+        }
+
+        function execCmd(c, v = null) { document.execCommand(c, false, v); }
+        function promptImage() { const u = prompt('Введите URL картинки:'); if (u) execCmd('insertImage', u); }
+        function uploadImage(e) {
+            const f = e.target.files[0];
+            if (f) {
+                const r = new FileReader();
+                r.onload = ev => execCmd('insertImage', ev.target.result);
+                r.readAsDataURL(f);
+            }
+        }
+        function insertTable() { execCmd('insertHTML', '<table><tbody><tr><td>Ячейка 1</td><td>Ячейка 2</td></tr><tr><td>Ячейка 3</td><td>Ячейка 4</td></tr></tbody></table>'); }
+        function promptEmbed() { const code = prompt('Вставьте HTML-код iframe или видео:'); if (code) execCmd('insertHTML', code); }
+        function parseMarkdownInWYSIWYG() {
+            const text = document.getElementById('wysiwygEditor').innerText;
+            document.getElementById('wysiwygEditor').innerHTML = marked.parse(text);
+            codeEditor.setValue(document.getElementById('wysiwygEditor').innerHTML);
+        }
+
+        function openDiagramModal() { document.getElementById('diagramModal').classList.remove('hidden'); }
+        function closeDiagramModal() { document.getElementById('diagramModal').classList.add('hidden'); }
+        function addBlock(t) {
+            if (t==='rect') fabricCanvas.add(new fabric.Rect({ left: 50, top: 50, fill: '#6366f1', width: 100, height: 50 }));
+            if (t==='circle') fabricCanvas.add(new fabric.Circle({ left: 50, top: 50, fill: '#10b981', radius: 30 }));
+            if (t==='text') fabricCanvas.add(new fabric.IText('Блок', { left: 50, top: 50, fill: '#fff' }));
+        }
+        function clearCanvas() { fabricCanvas.clear(); }
+        function insertDiagramToEditor() {
+            execCmd('insertImage', fabricCanvas.toDataURL({ format: 'png' }));
+            closeDiagramModal();
+        }
+    </script>
+</body>
+</html>

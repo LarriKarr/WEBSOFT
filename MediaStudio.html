@@ -1,0 +1,1489 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Media Studio Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .bg-checkerboard {
+            background-color: #1e293b;
+            background-image: 
+                linear-gradient(45deg, #334155 25%, transparent 25%), 
+                linear-gradient(-45deg, #334155 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #334155 75%), 
+                linear-gradient(-45deg, transparent 75%, #334155 75%);
+            background-size: 16px 16px;
+            background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+        }
+        
+        input[type=range] { accent-color: #6366f1; }
+        .drop-active { border-color: #6366f1 !important; background-color: rgba(99, 102, 241, 0.1) !important; }
+        .tab-btn.active { background-color: #4f46e5; color: #ffffff; }
+
+        .resize-handle { touch-action: none; }
+        canvas { touch-action: none; }
+
+        .vegas-ruler {
+            background: repeating-linear-gradient(90deg, #334155, #334155 1px, transparent 1px, transparent 20px);
+        }
+        .clip-drag-handle { touch-action: none; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased pb-12 select-none">
+
+    <!-- Header -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-indigo-600 rounded-lg text-white shadow-lg shadow-indigo-500/30">
+                    <i class="fa-solid fa-film text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">Media Studio Pro</h1>
+                    <p class="text-xs text-slate-400">Монтаж, Удаление фона, Маски, Текст & Фильтры</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-4">
+                <div class="hidden sm:flex text-xs bg-slate-800 border border-slate-700 text-slate-300 px-3 py-1.5 rounded-full items-center space-x-2">
+                    <i class="fa-solid fa-shield-halved text-emerald-400"></i>
+                    <span>100% Локальная обработка</span>
+                </div>
+
+                <button id="convertBtn" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2 rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center gap-2 text-xs sm:text-sm">
+                    <i class="fa-solid fa-play"></i> <span>Рендеринг и Экспорт</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 mt-6 space-y-6">
+
+        <!-- Result Download Button (Directly below rendering) -->
+        <div id="resultOutputArea" class="hidden bg-emerald-950/40 border border-emerald-800/60 rounded-2xl p-4 flex items-center justify-between shadow-xl animate-fade-in">
+            <span class="text-xs sm:text-sm font-medium text-emerald-400 flex items-center gap-2">
+                <i class="fa-solid fa-check-circle text-base"></i> Рендеринг успешно завершен! Готово к скачиванию:
+            </span>
+            <a id="downloadBtn" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm px-5 py-2.5 rounded-xl font-medium transition flex items-center gap-2 shadow-lg shadow-emerald-600/30">
+                <i class="fa-solid fa-download"></i> Скачать результат
+            </a>
+        </div>
+
+        <!-- Preview Panel at the Top -->
+        <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-3 shadow-2xl relative">
+            <div class="flex justify-between items-center text-xs text-slate-400 border-b border-slate-800/80 pb-2">
+                <span class="font-semibold text-slate-300 flex items-center gap-2">
+                    <i class="fa-solid fa-eye text-indigo-400"></i> Окно интерактивного предпросмотра
+                </span>
+                <div class="flex items-center gap-3">
+                    <span id="resInfo" class="font-mono text-indigo-400">Ready</span>
+                    <button id="resetTransformBtn" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 px-2 py-1 rounded text-[11px] transition flex items-center gap-1" title="Сбросить масштабирование и позицию кадра">
+                        <i class="fa-solid fa-rotate-left text-xs"></i> Сбросить кадр
+                    </button>
+                </div>
+            </div>
+
+            <!-- Resizable Workspace -->
+            <div id="previewContainer" class="flex-1 flex items-center justify-center bg-checkerboard rounded-xl p-2 min-h-[300px] h-[440px] relative overflow-hidden select-none border border-slate-800">
+                <canvas id="mainCanvas" class="max-h-full max-w-full object-contain rounded shadow-lg cursor-grab active:cursor-grabbing"></canvas>
+                
+                <div id="statusPlaceholder" class="absolute text-center text-slate-500 space-y-2 pointer-events-none">
+                    <i class="fa-solid fa-photo-film text-4xl"></i>
+                    <p class="text-xs">Загрузите медиафайлы для начала обработки</p>
+                </div>
+
+                <div id="progressOverlay" class="absolute inset-0 bg-slate-950/85 backdrop-blur flex flex-col items-center justify-center space-y-3 hidden z-20">
+                    <div class="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                    <p id="progressText" class="text-sm font-medium text-slate-200">Обработка...</p>
+                </div>
+
+                <div id="resizeHandle" class="resize-handle absolute bottom-1 right-1 w-5 h-5 bg-indigo-600/80 hover:bg-indigo-500 text-white rounded-tl-lg cursor-se-resize flex items-center justify-center text-[10px] shadow-lg z-10">
+                    <i class="fa-solid fa-up-right-and-down-left-from-center rotate-90"></i>
+                </div>
+            </div>
+
+            <!-- Player Controls Panel: Play | Time | Scissors | Trash | Audio Toggle -->
+            <div id="playerControls" class="flex items-center justify-between gap-3 pt-2 border-t border-slate-800/80 text-xs">
+                <div class="flex items-center gap-3">
+                    <button id="playPauseBtn" class="bg-indigo-600 hover:bg-indigo-500 text-white w-8 h-8 rounded-lg flex items-center justify-center text-xs transition shadow-md shadow-indigo-600/20 flex-shrink-0">
+                        <i class="fa-solid fa-play" id="playIcon"></i>
+                    </button>
+                    <span id="timeDisplay" class="font-mono text-slate-300 font-medium whitespace-nowrap">00:00 / 00:00</span>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button id="splitAtPlayheadBtn" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5" title="Разрезать видео в текущей точке">
+                        <i class="fa-solid fa-scissors text-indigo-400"></i> <span class="hidden sm:inline">Разрезать</span>
+                    </button>
+                    <button id="toggleAudioBtn" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-emerald-400 px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5" title="Включить / отключить звук">
+                        <i class="fa-solid fa-volume-high" id="audioIcon"></i> <span class="hidden sm:inline">Звук</span>
+                    </button>
+                    <button id="clearTimelineBtn" class="bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/50 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5" title="Очистить шкалу">
+                        <i class="fa-solid fa-trash"></i> <span class="hidden sm:inline">Очистить</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Professional Timeline Section with Embedded Add Button & Audio Track -->
+        <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                <h3 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                    <i class="fa-solid fa-layer-group text-indigo-400"></i> Трековая шкала (Видео & Звук)
+                </h3>
+            </div>
+
+            <!-- NLE Vegas Multi-Track Container -->
+            <div id="vegasTimeline" class="relative bg-slate-950 border border-slate-800 rounded-xl overflow-hidden select-none">
+                <!-- Ruler / TimeTicks -->
+                <div id="vegasRuler" class="h-6 vegas-ruler border-b border-slate-800 relative cursor-pointer text-[10px] font-mono text-slate-500 flex items-center px-1">
+                    <span class="absolute left-1">00:00</span>
+                    <span id="rulerTotalTime" class="absolute right-2">00:00</span>
+                </div>
+
+                <!-- Tracks Area -->
+                <div id="tracksArea" class="p-2 min-h-[140px] space-y-2 relative overflow-x-auto">
+                    <!-- Red Playhead Cursor Line -->
+                    <div id="playheadLine" class="absolute top-0 bottom-0 w-0.5 bg-red-500 z-30 pointer-events-none transition-all" style="left: 0px;">
+                        <div class="w-3 h-3 bg-red-500 rotate-45 -translate-x-1.2 -translate-y-1 rounded-sm shadow"></div>
+                    </div>
+                    
+                    <!-- Track 1: Video & Images with embedded Add Button -->
+                    <div id="trackRow1" class="w-full bg-slate-900/60 border border-slate-800 rounded-lg min-h-[60px] relative flex items-center px-1 py-1 gap-1">
+                        <div id="timelineEmpty" class="text-xs text-slate-500 italic px-2">Шкала пуста.</div>
+                        
+                        <!-- Embedded Add Media Button Inside Track -->
+                        <div id="dropZone" class="inline-flex flex-shrink-0">
+                            <input type="file" id="fileInput" multiple accept="image/*,video/*,.gif,.webm,.mp4,.png,.jpg,.jpeg,.webp,.avif" class="hidden">
+                            <button id="addMediaBtn" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium border border-indigo-500/30 px-3 py-2 rounded-lg transition flex items-center gap-1.5 shadow-md shadow-indigo-600/20 text-xs cursor-pointer">
+                                <i class="fa-solid fa-plus text-sm"></i> <span id="addBtnText">Добавить медиа</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Track 2: Audio Track -->
+                    <div id="trackRowAudio" class="w-full bg-slate-900/30 border border-slate-800/80 rounded-lg h-10 relative flex items-center px-2 py-1 gap-1 text-[11px] text-slate-400 font-mono">
+                        <span class="flex-shrink-0"><i class="fa-solid fa-waveform-lines text-indigo-400 mr-1"></i> Аудио трек:</span>
+                        <div id="audioTrackContent" class="flex-1 truncate text-slate-500 italic">Звуковая дорожка активна</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Workspace Controls -->
+        <div id="workspace" class="space-y-6">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+                <!-- Nav Tabs -->
+                <div class="flex rounded-xl bg-slate-950 p-1 border border-slate-800 text-xs gap-1">
+                    <button class="tab-btn active flex-1 py-2 rounded-lg font-medium transition" data-tab="bgTab">Фон & Маска</button>
+                    <button class="tab-btn flex-1 py-2 rounded-lg font-medium transition" data-tab="textTab">Текст & Анимация</button>
+                    <button class="tab-btn flex-1 py-2 rounded-lg font-medium transition" data-tab="filterTab">Цвет & Фильтры</button>
+                    <button class="tab-btn flex-1 py-2 rounded-lg font-medium transition" data-tab="exportTab">Настройки экспорта</button>
+                </div>
+
+                <!-- TAB 1: BG REMOVAL & MANUAL MASK -->
+                <div id="bgTab" class="tab-content space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="space-y-2">
+                            <label class="text-xs font-medium text-slate-400 flex justify-between">
+                                <span>Удаляемый хромакей цвет</span>
+                                <span id="hexLabel" class="font-mono text-indigo-300">#FFFFFF</span>
+                            </label>
+                            <div class="flex items-center gap-3">
+                                <input type="color" id="targetColor" value="#ffffff" class="w-10 h-9 bg-slate-800 border border-slate-700 rounded cursor-pointer p-1">
+                                <div class="flex gap-1.5">
+                                    <button class="preset-color w-6 h-6 rounded border border-slate-600 bg-white" data-color="#ffffff"></button>
+                                    <button class="preset-color w-6 h-6 rounded border border-slate-600 bg-black" data-color="#000000"></button>
+                                    <button class="preset-color w-6 h-6 rounded border border-slate-600 bg-green-500" data-color="#00ff00"></button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-[11px] text-slate-400 flex justify-between">Tolerance <span id="toleranceVal">30</span></label>
+                                <input type="range" id="tolerance" min="0" max="150" value="30" class="w-full">
+                            </div>
+                            <div>
+                                <label class="text-[11px] text-slate-400 flex justify-between">Smooth <span id="featherVal">10</span></label>
+                                <input type="range" id="feather" min="0" max="50" value="10" class="w-full">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-slate-800 pt-3 space-y-3">
+                        <label class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                            <i class="fa-solid fa-paintbrush text-indigo-400"></i> Ручная маска (Кисть / Восстановление)
+                        </label>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                            <div class="grid grid-cols-3 gap-2">
+                                <button id="toolTransform" class="tool-btn bg-slate-800 text-slate-300 p-2 rounded-lg border border-slate-700 flex items-center justify-center gap-1.5" title="Перемещение / Масштабирование кадра">
+                                    <i class="fa-solid fa-up-down-left-right"></i> Кадр
+                                </button>
+                                <button id="toolBrush" class="tool-btn bg-indigo-600 text-white p-2 rounded-lg border border-slate-700 flex items-center justify-center gap-1.5">
+                                    <i class="fa-solid fa-paint-brush"></i> Кисть
+                                </button>
+                                <button id="toolSelect" class="tool-btn bg-slate-800 text-slate-300 p-2 rounded-lg border border-slate-700 flex items-center justify-center gap-1.5">
+                                    <i class="fa-solid fa-vector-square"></i> Прямоугольник
+                                </button>
+                            </div>
+                            <div class="flex items-center justify-between gap-2">
+                                <label class="text-xs text-slate-400 whitespace-nowrap">Режим маски:</label>
+                                <select id="maskMode" class="bg-slate-800 border border-slate-700 text-xs rounded-lg px-2 py-1.5 w-full">
+                                    <option value="erase">Стереть (Прозрачность)</option>
+                                    <option value="restore">Восстановить область</option>
+                                </select>
+                            </div>
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-xs text-slate-400 whitespace-nowrap">Размер:</span>
+                                <input type="range" id="brushSize" min="5" max="100" value="25" class="w-full">
+                            </div>
+                        </div>
+                        <button id="clearMaskBtn" class="w-full text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 py-1.5 rounded-lg border border-slate-700 transition">Сбросить ручную маску</button>
+                    </div>
+                </div>
+
+                <!-- TAB 2: TEXT & ANIMATION -->
+                <div id="textTab" class="tab-content hidden space-y-4">
+                    <div>
+                        <label class="text-xs text-slate-400 block mb-1">Текст наложения</label>
+                        <input type="text" id="overlayText" placeholder="Введите ваш текст..." class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100">
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-[11px] text-slate-400">Шрифт</label>
+                                <select id="textFont" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs">
+                                    <option value="sans-serif">Sans-Serif</option>
+                                    <option value="Arial">Arial</option>
+                                    <option value="Impact">Impact</option>
+                                    <option value="Georgia">Georgia</option>
+                                    <option value="monospace">Monospace</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[11px] text-slate-400">Размер (px)</label>
+                                <input type="number" id="textSize" value="36" min="10" max="200" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-[11px] text-slate-400">Цвет текста</label>
+                                <input type="color" id="textColor" value="#ffffff" class="w-full h-8 bg-slate-800 border border-slate-700 rounded cursor-pointer p-1">
+                            </div>
+                            <div>
+                                <label class="text-[11px] text-slate-400">Цвет обводки</label>
+                                <input type="color" id="textStrokeColor" value="#000000" class="w-full h-8 bg-slate-800 border border-slate-700 rounded cursor-pointer p-1">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-slate-800 pt-3 space-y-3">
+                        <label class="text-xs font-semibold text-slate-300">Анимация текста (Появление / Исчезновение)</label>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <span class="text-[10px] text-slate-400">Эффект</span>
+                                    <select id="textAnimType" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs">
+                                        <option value="none">Без анимации</option>
+                                        <option value="fade">Fade (Проявление)</option>
+                                        <option value="slide">Slide (Сдвиг)</option>
+                                        <option value="scale">Scale (Увеличение)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <span class="text-[10px] text-slate-400">Длительность (сек)</span>
+                                    <input type="number" id="textAnimDuration" value="1.0" step="0.2" min="0.2" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <span class="text-[10px] text-slate-400">Позиция X (%)</span>
+                                    <input type="range" id="textPosX" min="0" max="100" value="50" class="w-full">
+                                </div>
+                                <div>
+                                    <span class="text-[10px] text-slate-400">Позиция Y (%)</span>
+                                    <input type="range" id="textPosY" min="0" max="100" value="85" class="w-full">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: FILTERS & COLOR -->
+                <div id="filterTab" class="tab-content hidden space-y-4">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                            <label class="text-[11px] text-slate-400 flex justify-between">Яркость <span id="brightnessVal">0</span></label>
+                            <input type="range" id="brightness" min="-100" max="100" value="0" class="w-full">
+                        </div>
+                        <div>
+                            <label class="text-[11px] text-slate-400 flex justify-between">Контраст <span id="contrastVal">0</span></label>
+                            <input type="range" id="contrast" min="-100" max="100" value="0" class="w-full">
+                        </div>
+                        <div>
+                            <label class="text-[11px] text-slate-400 flex justify-between">Насыщенность <span id="saturationVal">0</span></label>
+                            <input type="range" id="saturation" min="-100" max="100" value="0" class="w-full">
+                        </div>
+                        <div>
+                            <label class="text-[11px] text-slate-400 flex justify-between">Размытие (Blur) <span id="blurVal">0</span></label>
+                            <input type="range" id="filterBlur" min="0" max="20" value="0" class="w-full">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 pt-2 border-t border-slate-800">
+                        <div>
+                            <label class="text-[11px] text-slate-400 flex justify-between">Grayscale <span id="grayVal">0</span>%</label>
+                            <input type="range" id="filterGray" min="0" max="100" value="0" class="w-full">
+                        </div>
+                        <div>
+                            <label class="text-[11px] text-slate-400 flex justify-between">Sepia <span id="sepiaVal">0</span>%</label>
+                            <input type="range" id="filterSepia" min="0" max="100" value="0" class="w-full">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 4: EXPORT SETTINGS -->
+                <div id="exportTab" class="tab-content hidden space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="space-y-2">
+                            <label class="text-xs font-medium text-slate-400 block">Выходной формат файла</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <label class="flex items-center space-x-2 bg-slate-800 border border-slate-700 p-2 rounded-lg cursor-pointer">
+                                    <input type="radio" name="outFormat" value="webm" checked class="text-indigo-600">
+                                    <span class="text-xs font-medium">WebM (Видео)</span>
+                                </label>
+                                <label class="flex items-center space-x-2 bg-slate-800 border border-slate-700 p-2 rounded-lg cursor-pointer">
+                                    <input type="radio" name="outFormat" value="gif" class="text-indigo-600">
+                                    <span class="text-xs font-medium">GIF (Анимация)</span>
+                                </label>
+                                <label class="flex items-center space-x-2 bg-slate-800 border border-slate-700 p-2 rounded-lg cursor-pointer">
+                                    <input type="radio" name="outFormat" value="webp" class="text-indigo-600">
+                                    <span class="text-xs font-medium">WebP</span>
+                                </label>
+                                <label class="flex items-center space-x-2 bg-slate-800 border border-slate-700 p-2 rounded-lg cursor-pointer">
+                                    <input type="radio" name="outFormat" value="png" class="text-indigo-600">
+                                    <span class="text-xs font-medium">PNG (Кадр)</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-xs font-medium text-slate-400 block">Разрешение кадра (px)</label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <span class="text-[10px] text-slate-500 block">Ширина (W)</span>
+                                    <input type="number" id="frameWidth" value="800" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs">
+                                </div>
+                                <div>
+                                    <span class="text-[10px] text-slate-500 block">Высота (H)</span>
+                                    <input type="number" id="frameHeight" value="600" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Embedded GIF Parser/Encoder -->
+    <script>
+        (function(exports){
+            function GifReader(buf){
+                var p=0;
+                if(buf[p++]!==0x47||buf[p++]!==0x49||buf[p++]!==0x46||buf[p++]!==0x38||(buf[p++]!==0x37&&buf[p-1]!==0x39)||buf[p++]!==0x61) throw new Error("Invalid GIF");
+                this.width=buf[p++]|(buf[p++]<<8); this.height=buf[p++]|(buf[p++]<<8);
+                var flags=buf[p++]; this.globalColorTable = (flags & 0x80) ? true : false;
+                this.globalColorTableSize = 1 << ((flags & 0x07) + 1); p += 2;
+                if(this.globalColorTable){ this.globalPaletteOffset = p; p += this.globalColorTableSize * 3; }
+                this.buf = buf; this.p = p;
+            }
+            GifReader.prototype.decodeAndRender = function(cb){
+                var p = this.p, buf = this.buf, len = buf.length;
+                var gce = { delay: 10, disposal: 0, transIndex: null };
+                var globalPal = null;
+                if(this.globalColorTable){
+                    globalPal = [];
+                    for(var i=0; i<this.globalColorTableSize; i++){
+                        var off = this.globalPaletteOffset + i*3;
+                        globalPal.push([buf[off], buf[off+1], buf[off+2]]);
+                    }
+                }
+                while(p < len){
+                    if(buf[p] === 0x21){
+                        if(buf[p+1] === 0xF9){
+                            var size = buf[p+2], flags = buf[p+3];
+                            gce.disposal = (flags >> 2) & 7;
+                            gce.delay = (buf[p+4] | (buf[p+5] << 8)) || 10;
+                            gce.transIndex = (flags & 1) ? buf[p+6] : null;
+                            p += 3 + size + 1;
+                        } else { p += 2; while(buf[p] !== 0) p += buf[p] + 1; p++; }
+                    } else if(buf[p] === 0x2C){
+                        var x = buf[p+1] | (buf[p+2] << 8), y = buf[p+3] | (buf[p+4] << 8);
+                        var w = buf[p+5] | (buf[p+6] << 8), h = buf[p+7] | (buf[p+8] << 8);
+                        p += 9; var flags = buf[p++], pal = globalPal;
+                        if(flags & 0x80){
+                            var lsize = 1 << ((flags & 0x07) + 1); pal = [];
+                            for(var i=0; i<lsize; i++) pal.push([buf[p+i*3], buf[p+i*3+1], buf[p+i*3+2]]);
+                            p += lsize * 3;
+                        }
+                        var minCodeSize = buf[p++], lzwBuf = [];
+                        while(buf[p] !== 0){
+                            var blen = buf[p++];
+                            for(var i=0; i<blen; i++) lzwBuf.push(buf[p++]);
+                        }
+                        p++;
+                        var pixels = lzwDecode(minCodeSize, lzwBuf, w * h);
+                        cb({ x: x, y: y, w: w, h: h, delay: gce.delay * 10, disposal: gce.disposal, transIndex: gce.transIndex, palette: pal, pixels: pixels });
+                        gce = { delay: 10, disposal: 0, transIndex: null };
+                    } else break;
+                }
+            };
+            function lzwDecode(minCodeSize, buf, pixelCount){
+                var clearCode = 1 << minCodeSize, eoiCode = clearCode + 1, codeSize = minCodeSize + 1, mask = (1 << codeSize) - 1, dict = [];
+                function resetDict(){ dict = []; for(var i=0; i<clearCode; i++) dict[i] = [i]; dict[clearCode] = []; dict[eoiCode] = null; }
+                var pixels = [], bitPos = 0;
+                function readCode(){
+                    var code = 0;
+                    for(var i=0; i<codeSize; i++){
+                        var byteIdx = (bitPos + i) >> 3, bitIdx = (bitPos + i) & 7;
+                        if(byteIdx >= buf.length) return eoiCode;
+                        if((buf[byteIdx] >> bitIdx) & 1) code |= (1 << i);
+                    }
+                    bitPos += codeSize; return code;
+                }
+                resetDict(); var prevCode = null;
+                while(pixels.length < pixelCount){
+                    var code = readCode();
+                    if(code === eoiCode) break;
+                    if(code === clearCode){ codeSize = minCodeSize + 1; mask = (1 << codeSize) - 1; resetDict(); prevCode = null; continue; }
+                    var entry = dict[code];
+                    if(!entry){ if(code === dict.length && prevCode !== null) entry = dict[prevCode].concat(dict[prevCode][0]); else break; }
+                    for(var i=0; i<entry.length; i++) pixels.push(entry[i]);
+                    if(prevCode !== null && dict.length < 4096){
+                        dict.push(dict[prevCode].concat(entry[0]));
+                        if(dict.length === (1 << codeSize) && codeSize < 12) codeSize++;
+                    }
+                    prevCode = code;
+                }
+                return pixels;
+            }
+            function GifWriter(buf, width, height, gopts){
+                var p = 0; gopts = gopts || {}; var loop = gopts.loop !== undefined ? gopts.loop : null;
+                buf[p++] = 0x47; buf[p++] = 0x49; buf[p++] = 0x46; buf[p++] = 0x38; buf[p++] = 0x39; buf[p++] = 0x61;
+                buf[p++] = width & 0xff; buf[p++] = (width >> 8) & 0xff; buf[p++] = height & 0xff; buf[p++] = (height >> 8) & 0xff;
+                buf[p++] = 0x70; buf[p++] = 0; buf[p++] = 0;
+                if (loop !== null) {
+                    buf[p++] = 0x21; buf[p++] = 0xff; buf[p++] = 0x0b;
+                    var app = "NETSCAPE2.0"; for (var i = 0; i < 11; ++i) buf[p++] = app.charCodeAt(i);
+                    buf[p++] = 0x03; buf[p++] = 0x01; buf[p++] = loop & 0xff; buf[p++] = (loop >> 8) & 0xff; buf[p++] = 0x00;
+                }
+                this.addFrame = function(x, y, w, h, indexedPixels, opts){
+                    opts = opts || {}; var palette = opts.palette; if(!palette) throw new Error("Palette required");
+                    var delay = opts.delay || 10, transIndex = opts.transIndex !== undefined ? opts.transIndex : null;
+                    buf[p++] = 0x21; buf[p++] = 0xf9; buf[p++] = 4;
+                    var flags = 0; if (transIndex !== null) flags |= 1;
+                    buf[p++] = flags; buf[p++] = delay & 0xff; buf[p++] = (delay >> 8) & 0xff;
+                    buf[p++] = transIndex !== null ? transIndex : 0; buf[p++] = 0;
+                    buf[p++] = 0x2c; buf[p++] = x & 0xff; buf[p++] = (x >> 8) & 0xff; buf[p++] = y & 0xff; buf[p++] = (y >> 8) & 0xff;
+                    buf[p++] = w & 0xff; buf[p++] = (w >> 8) & 0xff; buf[p++] = h & 0xff; buf[p++] = (h >> 8) & 0xff;
+                    var palLen = palette.length, pow2 = 1; while ((1 << pow2) < palLen) pow2++;
+                    var palSize = 1 << pow2; buf[p++] = 0x80 | (pow2 - 1);
+                    for (var i = 0; i < palSize; ++i) { var col = palette[i] || 0; buf[p++] = (col >> 16) & 0xff; buf[p++] = (col >> 8) & 0xff; buf[p++] = col & 0xff; }
+                    var minCodeSize = pow2 < 2 ? 2 : pow2; buf[p++] = minCodeSize;
+                    var curCodeSize = minCodeSize + 1, clearCode = 1 << minCodeSize, eoiCode = clearCode + 1, nextCode = eoiCode + 1;
+                    var table = {}; for (var i = 0; i < clearCode; ++i) table[i] = i;
+                    var subBuf = [], bitBuf = 0, bitCount = 0;
+                    function writeBits(val, bits) {
+                        bitBuf |= (val << bitCount); bitCount += bits;
+                        while (bitCount >= 8) {
+                            subBuf.push(bitBuf & 0xff); bitBuf >>= 8; bitCount -= 8;
+                            if (subBuf.length === 255) { buf[p++] = 255; for (var k = 0; k < 255; ++k) buf[p++] = subBuf[k]; subBuf = []; }
+                        }
+                    }
+                    writeBits(clearCode, curCodeSize);
+                    var ent = indexedPixels[0];
+                    for (var i = 1; i < indexedPixels.length; ++i) {
+                        var c = indexedPixels[i], key = (ent << 16) | c;
+                        if (table[key] !== undefined) { ent = table[key]; }
+                        else {
+                            writeBits(ent, curCodeSize);
+                            if (nextCode < 4096) { table[key] = nextCode++; if (nextCode === (1 << curCodeSize) + 1 && curCodeSize < 12) curCodeSize++; }
+                            else { writeBits(clearCode, curCodeSize); curCodeSize = minCodeSize + 1; nextCode = eoiCode + 1; table = {}; }
+                            ent = c;
+                        }
+                    }
+                    writeBits(ent, curCodeSize); writeBits(eoiCode, curCodeSize);
+                    if (bitCount > 0) subBuf.push(bitBuf & 0xff);
+                    if (subBuf.length > 0) { buf[p++] = subBuf.length; for (var k = 0; k < subBuf.length; ++k) buf[p++] = subBuf[k]; }
+                    buf[p++] = 0;
+                };
+                this.end = function(){ buf[p++] = 0x3b; return buf.subarray(0, p); };
+            }
+            exports.GifReader = GifReader; exports.GifWriter = GifWriter;
+        })(window);
+    </script>
+
+    <!-- Main Engine & NLE Vegas Logic -->
+    <script>
+        let mediaClips = []; 
+        let selectedClipId = null;
+        let manualMaskCanvas = null;
+        let activeTool = 'brush'; 
+        let isDrawing = false;
+        let startX = 0, startY = 0;
+        let isPlaying = false;
+        let animFrameId = null;
+        let playheadTime = 0;
+        let audioEnabled = true;
+
+        let touchStartDist = 0;
+        let touchStartScale = 1.0;
+        let touchStartPos = { x: 0, y: 0 };
+        let activePointers = new Map();
+
+        // UI References
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const addMediaBtn = document.getElementById('addMediaBtn');
+        const addBtnText = document.getElementById('addBtnText');
+        const previewContainer = document.getElementById('previewContainer');
+        const resizeHandle = document.getElementById('resizeHandle');
+        const mainCanvas = document.getElementById('mainCanvas');
+        const ctx = mainCanvas.getContext('2d', { willReadFrequently: true });
+
+        const vegasRuler = document.getElementById('vegasRuler');
+        const rulerTotalTime = document.getElementById('rulerTotalTime');
+        const trackRow1 = document.getElementById('trackRow1');
+        const audioTrackContent = document.getElementById('audioTrackContent');
+        const playheadLine = document.getElementById('playheadLine');
+        const timelineEmpty = document.getElementById('timelineEmpty');
+
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const playIcon = document.getElementById('playIcon');
+        const splitAtPlayheadBtn = document.getElementById('splitAtPlayheadBtn');
+        const splitClipBtn = document.getElementById('splitClipBtn');
+        const toggleAudioBtn = document.getElementById('toggleAudioBtn');
+        const audioIcon = document.getElementById('audioIcon');
+        const timeDisplay = document.getElementById('timeDisplay');
+        const resetTransformBtn = document.getElementById('resetTransformBtn');
+        const clearTimelineBtn = document.getElementById('clearTimelineBtn');
+
+        const toolTransformBtn = document.getElementById('toolTransform');
+        const toolBrushBtn = document.getElementById('toolBrush');
+        const toolSelectBtn = document.getElementById('toolSelect');
+        const maskModeSelect = document.getElementById('maskMode');
+        const brushSizeInput = document.getElementById('brushSize');
+        const clearMaskBtn = document.getElementById('clearMaskBtn');
+
+        const targetColorInput = document.getElementById('targetColor');
+        const hexLabel = document.getElementById('hexLabel');
+        const toleranceInput = document.getElementById('tolerance');
+        const toleranceVal = document.getElementById('toleranceVal');
+        const featherInput = document.getElementById('feather');
+        const featherVal = document.getElementById('featherVal');
+        
+        const brightnessInput = document.getElementById('brightness');
+        const contrastInput = document.getElementById('contrast');
+        const saturationInput = document.getElementById('saturation');
+        const filterBlur = document.getElementById('filterBlur');
+        const filterGray = document.getElementById('filterGray');
+        const filterSepia = document.getElementById('filterSepia');
+
+        const overlayTextInput = document.getElementById('overlayText');
+        const textFontSelect = document.getElementById('textFont');
+        const textSizeInput = document.getElementById('textSize');
+        const textColorInput = document.getElementById('textColor');
+        const textStrokeColorInput = document.getElementById('textStrokeColor');
+        const textAnimType = document.getElementById('textAnimType');
+        const textAnimDuration = document.getElementById('textAnimDuration');
+        const textPosX = document.getElementById('textPosX');
+        const textPosY = document.getElementById('textPosY');
+
+        const convertBtn = document.getElementById('convertBtn');
+        const statusPlaceholder = document.getElementById('statusPlaceholder');
+        const progressOverlay = document.getElementById('progressOverlay');
+        const progressText = document.getElementById('progressText');
+        const resultOutputArea = document.getElementById('resultOutputArea');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        // Resizable Workspace Handle
+        let isResizingContainer = false, startContainerH = 0, startYContainer = 0;
+        resizeHandle.addEventListener('pointerdown', (e) => {
+            isResizingContainer = true;
+            startYContainer = e.clientY;
+            startContainerH = previewContainer.clientHeight;
+            resizeHandle.setPointerCapture(e.pointerId);
+            e.stopPropagation();
+        });
+        resizeHandle.addEventListener('pointermove', (e) => {
+            if (!isResizingContainer) return;
+            const newH = Math.max(220, Math.min(900, startContainerH + (e.clientY - startYContainer)));
+            previewContainer.style.height = `${newH}px`;
+            renderPreview();
+        });
+        resizeHandle.addEventListener('pointerup', (e) => {
+            if (isResizingContainer) {
+                isResizingContainer = false;
+                resizeHandle.releasePointerCapture(e.pointerId);
+            }
+        });
+
+        // Tab Switching
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+                btn.classList.add('active');
+                document.getElementById(btn.dataset.tab).classList.remove('hidden');
+            });
+        });
+
+        // Value Displays
+        targetColorInput.addEventListener('input', (e) => hexLabel.textContent = e.target.value.toUpperCase());
+        toleranceInput.addEventListener('input', (e) => toleranceVal.textContent = e.target.value);
+        featherInput.addEventListener('input', (e) => featherVal.textContent = e.target.value);
+        brightnessInput.addEventListener('input', (e) => document.getElementById('brightnessVal').textContent = e.target.value);
+        contrastInput.addEventListener('input', (e) => document.getElementById('contrastVal').textContent = e.target.value);
+        saturationInput.addEventListener('input', (e) => document.getElementById('saturationVal').textContent = e.target.value);
+        filterBlur.addEventListener('input', (e) => document.getElementById('blurVal').textContent = e.target.value);
+        filterGray.addEventListener('input', (e) => document.getElementById('grayVal').textContent = e.target.value);
+        filterSepia.addEventListener('input', (e) => document.getElementById('sepiaVal').textContent = e.target.value);
+
+        document.querySelectorAll('.preset-color').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const color = btn.getAttribute('data-color');
+                targetColorInput.value = color;
+                hexLabel.textContent = color.toUpperCase();
+                renderPreview();
+            });
+        });
+
+        // Audio Track Toggle
+        toggleAudioBtn.addEventListener('click', () => {
+            audioEnabled = !audioEnabled;
+            if (audioEnabled) {
+                audioIcon.className = "fa-solid fa-volume-high";
+                toggleAudioBtn.classList.remove('bg-red-950/50', 'text-red-400', 'border-red-800');
+                toggleAudioBtn.classList.add('text-emerald-400');
+                audioTrackContent.textContent = "Звуковая дорожка активна";
+                audioTrackContent.classList.remove('italic', 'text-red-400');
+            } else {
+                audioIcon.className = "fa-solid fa-volume-xmark";
+                toggleAudioBtn.classList.add('bg-red-950/50', 'text-red-400', 'border-red-800');
+                toggleAudioBtn.classList.remove('text-emerald-400');
+                audioTrackContent.textContent = "Звуковая дорожка отключена (Mute)";
+                audioTrackContent.classList.add('italic', 'text-red-400');
+            }
+            const activeClip = mediaClips.find(c => c.id === selectedClipId);
+            if (activeClip && activeClip.type === 'video') {
+                activeClip.element.muted = !audioEnabled;
+            }
+        });
+
+        // Drag & Drop & Upload
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => { if(e.target.files.length) handleFiles(e.target.files); });
+
+        async function handleFiles(files) {
+            for (let file of Array.from(files)) {
+                const isVid = file.type.includes('video');
+                const isGif = file.type.includes('gif') || file.name.toLowerCase().endsWith('.gif');
+                
+                const clip = {
+                    id: 'clip_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                    file: file,
+                    name: file.name,
+                    type: isVid ? 'video' : (isGif ? 'gif' : 'image'),
+                    url: URL.createObjectURL(file),
+                    scale: 1.0,
+                    positionX: 0,
+                    positionY: 0,
+                    startOffset: 0,
+                    clipDuration: 0,
+                    duration: 0,
+                    gifFrames: []
+                };
+
+                if (clip.type === 'video') {
+                    const tempVid = document.createElement('video');
+                    tempVid.src = clip.url;
+                    tempVid.muted = !audioEnabled;
+                    await new Promise(r => tempVid.onloadedmetadata = r);
+                    clip.element = tempVid;
+                    clip.duration = tempVid.duration;
+                    clip.clipDuration = tempVid.duration;
+                    addClipToTimeline(clip);
+                } else if (clip.type === 'gif') {
+                    const buffer = new Uint8Array(await file.arrayBuffer());
+                    const reader = new GifReader(buffer);
+                    let totalDelay = 0;
+                    
+                    reader.decodeAndRender(frame => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = reader.width;
+                        canvas.height = reader.height;
+                        const cCtx = canvas.getContext('2d');
+                        const imgData = cCtx.createImageData(frame.w, frame.h);
+                        
+                        for (let i = 0; i < frame.pixels.length; i++) {
+                            const pIdx = frame.pixels[i];
+                            const off = i * 4;
+                            if (pIdx === frame.transIndex) {
+                                imgData.data[off + 3] = 0;
+                            } else if (frame.palette && frame.palette[pIdx]) {
+                                const col = frame.palette[pIdx];
+                                imgData.data[off] = col[0];
+                                imgData.data[off + 1] = col[1];
+                                imgData.data[off + 2] = col[2];
+                                imgData.data[off + 3] = 255;
+                            }
+                        }
+                        cCtx.putImageData(imgData, frame.x, frame.y);
+                        const delaySec = (frame.delay || 100) / 1000;
+                        totalDelay += delaySec;
+                        clip.gifFrames.push({ canvas: canvas, delay: delaySec, time: totalDelay });
+                    });
+
+                    clip.element = clip.gifFrames.length > 0 ? clip.gifFrames[0].canvas : new Image();
+                    clip.duration = totalDelay || 3.0;
+                    clip.clipDuration = clip.duration;
+                    addClipToTimeline(clip);
+                } else {
+                    const tempImg = new Image();
+                    tempImg.src = clip.url;
+                    await new Promise(r => tempImg.onload = r);
+                    clip.element = tempImg;
+                    clip.duration = 3.0;
+                    clip.clipDuration = 3.0;
+                    addClipToTimeline(clip);
+                }
+            }
+        }
+
+        function getTotalTimelineDuration() {
+            return mediaClips.reduce((acc, c) => acc + c.clipDuration, 0);
+        }
+
+        function addClipToTimeline(clip) {
+            mediaClips.push(clip);
+            timelineEmpty.classList.add('hidden');
+            
+            // Transform add button into small compact button positioned after files
+            addMediaBtn.className = "bg-slate-800 hover:bg-slate-700 text-indigo-400 border border-slate-700 w-8 h-8 rounded-lg transition flex items-center justify-center text-xs cursor-pointer shadow-sm flex-shrink-0";
+            addBtnText.classList.add('hidden');
+            
+            renderVegasTimeline();
+            if (!selectedClipId) selectClip(clip.id);
+        }
+
+        function selectClip(id) {
+            selectedClipId = id;
+            renderVegasTimeline();
+            initCanvasForSelected();
+        }
+
+        function removeClip(id) {
+            mediaClips = mediaClips.filter(c => c.id !== id);
+            if (mediaClips.length === 0) {
+                timelineEmpty.classList.remove('hidden');
+                selectedClipId = null;
+                statusPlaceholder.classList.remove('hidden');
+                stopPlayback();
+                
+                // Restore add button size when empty
+                addMediaBtn.className = "bg-indigo-600 hover:bg-indigo-500 text-white font-medium border border-indigo-500/30 px-3 py-2 rounded-lg transition flex items-center gap-1.5 shadow-md shadow-indigo-600/20 text-xs cursor-pointer";
+                addBtnText.classList.remove('hidden');
+            } else if (selectedClipId === id) {
+                selectClip(mediaClips[0].id);
+            }
+            renderVegasTimeline();
+        }
+
+        function moveClip(id, direction) {
+            const idx = mediaClips.findIndex(c => c.id === id);
+            if (idx < 0) return;
+            const newIdx = idx + direction;
+            if (newIdx < 0 || newIdx >= mediaClips.length) return;
+
+            const temp = mediaClips[idx];
+            mediaClips[idx] = mediaClips[newIdx];
+            mediaClips[newIdx] = temp;
+
+            renderVegasTimeline();
+            selectClip(selectedClipId);
+        }
+
+        // Render Sony Vegas Track Line with DropZone at the end of files
+        function renderVegasTimeline() {
+            const totalTime = getTotalTimelineDuration() || 1;
+            rulerTotalTime.textContent = fmtTime(totalTime);
+            
+            // Clear existing clip blocks
+            Array.from(trackRow1.children).forEach(child => {
+                if (child.id !== 'timelineEmpty' && child.id !== 'dropZone') child.remove();
+            });
+
+            mediaClips.forEach(clip => {
+                const flexBasis = (clip.clipDuration / totalTime) * 100;
+                const block = document.createElement('div');
+                block.className = `clip-drag-handle h-12 bg-gradient-to-r ${clip.id === selectedClipId ? 'from-indigo-600 to-indigo-800 ring-2 ring-indigo-400' : 'from-slate-800 to-slate-700'} border border-slate-600 rounded-lg p-1 flex flex-col justify-between text-[11px] relative cursor-pointer overflow-hidden shadow-md transition-all flex-shrink-0`;
+                block.style.width = `${Math.max(90, flexBasis * 3)}px`;
+
+                block.innerHTML = `
+                    <div class="flex justify-between items-center px-1">
+                        <span class="truncate font-semibold text-slate-100">${clip.name}</span>
+                        <button class="remove-clip text-slate-400 hover:text-red-400 p-0.5"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="flex justify-between items-center text-[9px] font-mono text-indigo-300 px-1">
+                        <span>${clip.type.toUpperCase()}</span>
+                        <span>${clip.clipDuration.toFixed(1)}s</span>
+                    </div>
+                `;
+
+                block.addEventListener('click', (e) => {
+                    if (!e.target.closest('.remove-clip')) selectClip(clip.id);
+                });
+
+                block.querySelector('.remove-clip').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    removeClip(clip.id);
+                });
+
+                // Insert clip block right before the dropZone element
+                trackRow1.insertBefore(block, dropZone);
+            });
+
+            updatePlayheadUI();
+        }
+
+        // Click Ruler to Move Cursor / Playhead
+        vegasRuler.addEventListener('click', (e) => {
+            const rect = vegasRuler.getBoundingClientRect();
+            const ratio = (e.clientX - rect.left) / rect.width;
+            const total = getTotalTimelineDuration();
+            playheadTime = ratio * total;
+            
+            const clip = mediaClips.find(c => c.id === selectedClipId);
+            if (clip && clip.type === 'video') {
+                clip.element.currentTime = clip.startOffset + Math.min(playheadTime, clip.clipDuration);
+            }
+
+            updatePlayheadUI();
+            renderPreview();
+        });
+
+        function updatePlayheadUI() {
+            const total = getTotalTimelineDuration() || 1;
+            const ratio = Math.min(1.0, Math.max(0, playheadTime / total));
+            const trackWidth = vegasRuler.clientWidth || 300;
+            playheadLine.style.left = `${ratio * trackWidth}px`;
+            timeDisplay.textContent = `${fmtTime(playheadTime)} / ${fmtTime(total)}`;
+        }
+
+        function fmtTime(sec) {
+            const m = Math.floor(sec / 60);
+            const s = Math.floor(sec % 60);
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        clearTimelineBtn.addEventListener('click', () => {
+            mediaClips = [];
+            renderVegasTimeline();
+            timelineEmpty.classList.remove('hidden');
+            selectedClipId = null;
+            statusPlaceholder.classList.remove('hidden');
+            stopPlayback();
+            
+            addMediaBtn.className = "bg-indigo-600 hover:bg-indigo-500 text-white font-medium border border-indigo-500/30 px-3 py-2 rounded-lg transition flex items-center gap-1.5 shadow-md shadow-indigo-600/20 text-xs cursor-pointer";
+            addBtnText.classList.remove('hidden');
+        });
+
+        // Split Logic
+        function splitSelectedClipAtTime(splitTime) {
+            const clip = mediaClips.find(c => c.id === selectedClipId);
+            if (!clip) return;
+
+            const localTime = (splitTime !== undefined) ? splitTime : playheadTime;
+            if (localTime <= clip.startOffset + 0.1 || localTime >= clip.startOffset + clip.clipDuration - 0.1) {
+                alert("Невозможно разрезать клип в самом начале или конце.");
+                return;
+            }
+
+            const firstPartDuration = localTime - clip.startOffset;
+            const secondPartDuration = clip.clipDuration - firstPartDuration;
+
+            clip.clipDuration = firstPartDuration;
+
+            const secondClip = {
+                id: 'clip_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                file: clip.file,
+                name: clip.name + ' (ч.2)',
+                type: clip.type,
+                url: clip.url,
+                element: clip.element,
+                duration: clip.duration,
+                startOffset: clip.startOffset + firstPartDuration,
+                clipDuration: secondPartDuration,
+                scale: clip.scale,
+                positionX: clip.positionX,
+                positionY: clip.positionY,
+                gifFrames: clip.gifFrames
+            };
+
+            const index = mediaClips.findIndex(c => c.id === selectedClipId);
+            mediaClips.splice(index + 1, 0, secondClip);
+
+            renderVegasTimeline();
+            selectClip(selectedClipId);
+        }
+
+        splitClipBtn.addEventListener('click', () => splitSelectedClipAtTime());
+        splitAtPlayheadBtn.addEventListener('click', () => splitSelectedClipAtTime());
+
+        // Playback Engine
+        playPauseBtn.addEventListener('click', () => {
+            if (isPlaying) stopPlayback();
+            else startPlayback();
+        });
+
+        function startPlayback() {
+            const clip = mediaClips.find(c => c.id === selectedClipId);
+            if (!clip) return;
+
+            isPlaying = true;
+            playIcon.className = "fa-solid fa-pause";
+
+            if (clip.type === 'video') {
+                clip.element.currentTime = clip.startOffset + playheadTime;
+                clip.element.muted = !audioEnabled;
+                clip.element.play();
+            }
+
+            let lastTime = performance.now();
+            function loop(now) {
+                if (!isPlaying) return;
+                const dt = (now - lastTime) / 1000;
+                lastTime = now;
+
+                playheadTime += dt;
+                const total = getTotalTimelineDuration();
+                if (playheadTime >= total) {
+                    playheadTime = 0;
+                    if (clip.type === 'video') clip.element.currentTime = clip.startOffset;
+                }
+
+                updatePlayheadUI();
+                renderPreview();
+                animFrameId = requestAnimationFrame(loop);
+            }
+            animFrameId = requestAnimationFrame(loop);
+        }
+
+        function stopPlayback() {
+            isPlaying = false;
+            playIcon.className = "fa-solid fa-play";
+            if (animFrameId) cancelAnimationFrame(animFrameId);
+            const clip = mediaClips.find(c => c.id === selectedClipId);
+            if (clip && clip.type === 'video') {
+                clip.element.pause();
+            }
+        }
+
+        // Initialize Canvas & Mask Buffers
+        function initCanvasForSelected() {
+            const clip = mediaClips.find(c => c.id === selectedClipId);
+            if (!clip) return;
+
+            statusPlaceholder.classList.add('hidden');
+            let w = clip.element.videoWidth || clip.element.width || clip.element.naturalWidth || 800;
+            let h = clip.element.videoHeight || clip.element.height || clip.element.naturalHeight || 600;
+
+            mainCanvas.width = w;
+            mainCanvas.height = h;
+
+            document.getElementById('frameWidth').value = w;
+            document.getElementById('frameHeight').value = h;
+
+            if (!manualMaskCanvas || manualMaskCanvas.width !== w || manualMaskCanvas.height !== h) {
+                manualMaskCanvas = document.createElement('canvas');
+                manualMaskCanvas.width = w;
+                manualMaskCanvas.height = h;
+            }
+
+            renderPreview();
+        }
+
+        resetTransformBtn.addEventListener('click', () => {
+            const clip = mediaClips.find(c => c.id === selectedClipId);
+            if (clip) {
+                clip.scale = 1.0;
+                clip.positionX = 0;
+                clip.positionY = 0;
+                renderPreview();
+            }
+        });
+
+        // Get Active Frame Element (Fully fixes animation playback bug)
+        function getActiveFrameElement(clip, timeInClip) {
+            if (clip.type === 'gif' && clip.gifFrames.length > 0) {
+                const localLoopTime = timeInClip % clip.duration;
+                for (let i = 0; i < clip.gifFrames.length; i++) {
+                    if (clip.gifFrames[i].time >= localLoopTime) {
+                        return clip.gifFrames[i].canvas;
+                    }
+                }
+                return clip.gifFrames[clip.gifFrames.length - 1].canvas;
+            }
+            return clip.element;
+        }
+
+        // Render Preview Frame
+        function renderPreview() {
+            const clip = mediaClips.find(c => c.id === selectedClipId);
+            if (!clip) return;
+
+            const w = mainCanvas.width;
+            const h = mainCanvas.height;
+
+            ctx.clearRect(0, 0, w, h);
+
+            const activeFrame = getActiveFrameElement(clip, playheadTime);
+
+            ctx.save();
+            ctx.translate(w / 2 + clip.positionX, h / 2 + clip.positionY);
+            ctx.scale(clip.scale, clip.scale);
+            ctx.translate(-w / 2, -h / 2);
+            ctx.drawImage(activeFrame, 0, 0, w, h);
+            ctx.restore();
+
+            const imgData = ctx.getImageData(0, 0, w, h);
+            applyChromaKeyAndFilters(imgData, hexToRgb(targetColorInput.value), parseFloat(toleranceInput.value), parseFloat(featherInput.value));
+            ctx.putImageData(imgData, 0, 0);
+
+            if (manualMaskCanvas) {
+                ctx.globalCompositeOperation = 'destination-out';
+                ctx.drawImage(manualMaskCanvas, 0, 0);
+                ctx.globalCompositeOperation = 'source-over';
+            }
+
+            ctx.filter = `blur(${filterBlur.value}px) grayscale(${filterGray.value}%) sepia(${filterSepia.value}%)`;
+
+            const total = getTotalTimelineDuration() || 1;
+            drawOverlayText(ctx, w, h, playheadTime / total);
+            ctx.filter = 'none';
+        }
+
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : { r: 255, g: 255, b: 255 };
+        }
+
+        function applyChromaKeyAndFilters(imgData, targetRgb, tolerance, feather) {
+            const data = imgData.data;
+            const bFactor = (parseFloat(brightnessInput.value) / 100) * 255;
+            const cFactor = (parseFloat(contrastInput.value) + 100) / 100;
+            const sFactor = (parseFloat(saturationInput.value) + 100) / 100;
+
+            for (let i = 0; i < data.length; i += 4) {
+                let r = data[i], g = data[i+1], b = data[i+2];
+
+                r += bFactor; g += bFactor; b += bFactor;
+                r = ((r / 255 - 0.5) * cFactor + 0.5) * 255;
+                g = ((g / 255 - 0.5) * cFactor + 0.5) * 255;
+                b = ((b / 255 - 0.5) * cFactor + 0.5) * 255;
+
+                const gray = 0.2989 * r + 0.5870 * g + 0.1140 * b;
+                r = gray + sFactor * (r - gray);
+                g = gray + sFactor * (g - gray);
+                b = gray + sFactor * (b - gray);
+
+                data[i] = Math.min(255, Math.max(0, r));
+                data[i+1] = Math.min(255, Math.max(0, g));
+                data[i+2] = Math.min(255, Math.max(0, b));
+
+                const dist = Math.sqrt((r - targetRgb.r)**2 + (g - targetRgb.g)**2 + (b - targetRgb.b)**2);
+                if (dist <= tolerance) {
+                    data[i + 3] = 0;
+                } else if (dist < tolerance + feather && feather > 0) {
+                    const alpha = ((dist - tolerance) / feather) * 255;
+                    data[i + 3] = Math.min(data[i + 3], alpha);
+                }
+            }
+        }
+
+        function drawOverlayText(targetCtx, w, h, progress = 1.0) {
+            const text = overlayTextInput.value;
+            if (!text) return;
+
+            const size = parseInt(textSizeInput.value) || 36;
+            const font = textFontSelect.value;
+            const posX = (parseInt(textPosX.value) / 100) * w;
+            let posY = (parseInt(textPosY.value) / 100) * h;
+
+            targetCtx.save();
+            targetCtx.font = `bold ${size}px ${font}`;
+            targetCtx.textAlign = 'center';
+            targetCtx.textBaseline = 'middle';
+
+            const animType = textAnimType.value;
+            let alpha = 1.0;
+            let scale = 1.0;
+
+            if (animType === 'fade') alpha = Math.min(1.0, progress * 2);
+            else if (animType === 'slide') posY -= (1.0 - Math.min(1.0, progress * 2)) * 40;
+            else if (animType === 'scale') scale = Math.min(1.0, progress * 1.5);
+
+            targetCtx.globalAlpha = alpha;
+            targetCtx.translate(posX, posY);
+            targetCtx.scale(scale, scale);
+
+            targetCtx.lineWidth = Math.max(2, size / 10);
+            targetCtx.strokeStyle = textStrokeColorInput.value;
+            targetCtx.strokeText(text, 0, 0);
+
+            targetCtx.fillStyle = textColorInput.value;
+            targetCtx.fillText(text, 0, 0);
+
+            targetCtx.restore();
+        }
+
+        // Tools switching
+        toolTransformBtn.addEventListener('click', () => {
+            activeTool = 'transform';
+            toolTransformBtn.className = "tool-btn bg-indigo-600 text-white p-2 rounded-lg border border-slate-700 flex items-center justify-center gap-1.5 text-xs";
+            toolBrushBtn.className = "tool-btn bg-slate-800 text-slate-300 p-2 rounded-lg border border-slate-700 flex items-center justify-center gap-1.5 text-xs";
+            toolSelectBtn.className = "tool-btn bg-slate-800 text-slate-300 p-2 rounded-lg border border-slate-700 flex items-center justify-center gap-1.5 text-xs";
+        });
+
+        toolBrushBtn.addEventListener('click', () => {
+            activeTool = 'brush';
+            toolBrushBtn.className = "tool-btn bg-indigo-600 text-white p-2 rounded-lg border border-slate-700 flex items-center justify-center gap-1.5 text-xs";
+            toolTransformBtn.className = "tool-btn bg-slate-800 text-slate-300 p-2 rounded-lg border border-slate-700 flex items-center justify-center gap-1.5 text-xs";
+            toolSelectBtn.className = "tool-btn bg-slate-800 text-slate-300 p-2 rounded-lg border border-slate-700 flex items-center justify-center gap-1.5 text-xs";
+        });
+
+        toolSelectBtn.addEventListener('click', () => {
+            activeTool = 'select';
+            toolSelectBtn.className = "tool-btn bg-indigo-600 text-white p-2 rounded-lg border border-slate-700 flex items-center justify-center gap-1.5 text-xs";
+            toolTransformBtn.className = "tool-btn bg-slate-800 text-slate-300 p-2 rounded-lg border border-slate-700 flex items-center justify-center gap-1.5 text-xs";
+            toolBrushBtn.className = "tool-btn bg-slate-800 text-slate-300 p-2 rounded-lg border border-slate-700 flex items-center justify-center gap-1.5 text-xs";
+        });
+
+        clearMaskBtn.addEventListener('click', () => {
+            if (manualMaskCanvas) {
+                const mCtx = manualMaskCanvas.getContext('2d');
+                mCtx.clearRect(0, 0, manualMaskCanvas.width, manualMaskCanvas.height);
+                renderPreview();
+            }
+        });
+
+        // Touch & Mouse Pointer Engine (Fixing Mask Brush / Erase / Restore on Mobile)
+        mainCanvas.addEventListener('pointerdown', (e) => {
+            mainCanvas.setPointerCapture(e.pointerId);
+            activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+            const clip = mediaClips.find(c => c.id === selectedClipId);
+            if (!clip) return;
+
+            if (activePointers.size === 1) {
+                isDrawing = true;
+                const rect = mainCanvas.getBoundingClientRect();
+                const scaleX = mainCanvas.width / rect.width;
+                const scaleY = mainCanvas.height / rect.height;
+                startX = (e.clientX - rect.left) * scaleX;
+                startY = (e.clientY - rect.top) * scaleY;
+                touchStartPos = { x: clip.positionX, y: clip.positionY };
+
+                if (activeTool === 'brush' && manualMaskCanvas) {
+                    const mCtx = manualMaskCanvas.getContext('2d');
+                    mCtx.beginPath();
+                    mCtx.arc(startX, startY, parseInt(brushSizeInput.value) / 2, 0, Math.PI * 2);
+                    mCtx.globalCompositeOperation = maskModeSelect.value === 'erase' ? 'source-over' : 'destination-out';
+                    mCtx.fillStyle = '#000000';
+                    mCtx.fill();
+                    renderPreview();
+                }
+            } else if (activePointers.size === 2) {
+                const pts = Array.from(activePointers.values());
+                touchStartDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+                touchStartScale = clip.scale;
+            }
+        });
+
+        mainCanvas.addEventListener('pointermove', (e) => {
+            if (!activePointers.has(e.pointerId)) return;
+            activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+            const clip = mediaClips.find(c => c.id === selectedClipId);
+            if (!clip) return;
+
+            const rect = mainCanvas.getBoundingClientRect();
+            const scaleX = mainCanvas.width / rect.width;
+            const scaleY = mainCanvas.height / rect.height;
+
+            if (activePointers.size === 1 && isDrawing) {
+                const currX = (e.clientX - rect.left) * scaleX;
+                const currY = (e.clientY - rect.top) * scaleY;
+
+                if (activeTool === 'transform') {
+                    clip.positionX = touchStartPos.x + (currX - startX);
+                    clip.positionY = touchStartPos.y + (currY - startY);
+                    renderPreview();
+                } else if (activeTool === 'brush' && manualMaskCanvas) {
+                    const mCtx = manualMaskCanvas.getContext('2d');
+                    mCtx.beginPath();
+                    mCtx.arc(currX, currY, parseInt(brushSizeInput.value) / 2, 0, Math.PI * 2);
+                    mCtx.globalCompositeOperation = maskModeSelect.value === 'erase' ? 'source-over' : 'destination-out';
+                    mCtx.fillStyle = '#000000';
+                    mCtx.fill();
+                    renderPreview();
+                }
+            } else if (activePointers.size === 2) {
+                const pts = Array.from(activePointers.values());
+                const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+                if (touchStartDist > 0) {
+                    clip.scale = Math.max(0.1, Math.min(10.0, touchStartScale * (dist / touchStartDist)));
+                    renderPreview();
+                }
+            }
+        });
+
+        const handlePointerUp = (e) => {
+            if (activePointers.has(e.pointerId)) {
+                mainCanvas.releasePointerCapture(e.pointerId);
+                activePointers.delete(e.pointerId);
+            }
+
+            if (activePointers.size < 2) touchStartDist = 0;
+
+            if (activePointers.size === 0 && isDrawing) {
+                isDrawing = false;
+                const clip = mediaClips.find(c => c.id === selectedClipId);
+                if (clip && activeTool === 'select' && manualMaskCanvas) {
+                    const rect = mainCanvas.getBoundingClientRect();
+                    const scaleX = mainCanvas.width / rect.width;
+                    const scaleY = mainCanvas.height / rect.height;
+                    const endX = (e.clientX - rect.left) * scaleX;
+                    const endY = (e.clientY - rect.top) * scaleY;
+
+                    const mCtx = manualMaskCanvas.getContext('2d');
+                    mCtx.globalCompositeOperation = maskModeSelect.value === 'erase' ? 'source-over' : 'destination-out';
+                    mCtx.fillStyle = '#000000';
+                    mCtx.fillRect(Math.min(startX, endX), Math.min(startY, endY), Math.abs(endX - startX), Math.abs(endY - startY));
+                    renderPreview();
+                }
+            }
+        };
+
+        mainCanvas.addEventListener('pointerup', handlePointerUp);
+        mainCanvas.addEventListener('pointercancel', handlePointerUp);
+
+        mainCanvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const clip = mediaClips.find(c => c.id === selectedClipId);
+            if (!clip) return;
+            clip.scale = Math.max(0.1, Math.min(10.0, clip.scale * (e.deltaY < 0 ? 1.08 : 0.92)));
+            renderPreview();
+        }, { passive: false });
+
+        [targetColorInput, toleranceInput, featherInput, brightnessInput, contrastInput, saturationInput, 
+         filterBlur, filterGray, filterSepia, overlayTextInput, textFontSelect, textSizeInput, textColorInput, 
+         textStrokeColorInput, textAnimType, textPosX, textPosY].forEach(el => {
+            el.addEventListener('input', () => renderPreview());
+        });
+
+        // Export Engine
+        convertBtn.addEventListener('click', async () => {
+            if (mediaClips.length === 0) {
+                alert("Загрузите файлы на монтажную шкалу перед экспортом.");
+                return;
+            }
+
+            const outFormat = document.querySelector('input[name="outFormat"]:checked').value;
+            const outW = parseInt(document.getElementById('frameWidth').value) || 800;
+            const outH = parseInt(document.getElementById('frameHeight').value) || 600;
+
+            progressOverlay.classList.remove('hidden');
+            progressText.textContent = "Сборка кадров и рендеринг...";
+
+            const renderCanvas = document.createElement('canvas');
+            renderCanvas.width = outW;
+            renderCanvas.height = outH;
+            const rCtx = renderCanvas.getContext('2d');
+
+            if (outFormat === 'png' || outFormat === 'webp') {
+                const clip = mediaClips[0];
+                const activeFrame = getActiveFrameElement(clip, playheadTime);
+
+                rCtx.save();
+                rCtx.translate(outW / 2 + clip.positionX, outH / 2 + clip.positionY);
+                rCtx.scale(clip.scale, clip.scale);
+                rCtx.translate(-outW / 2, -outH / 2);
+                rCtx.drawImage(activeFrame, 0, 0, outW, outH);
+                rCtx.restore();
+
+                const imgData = rCtx.getImageData(0, 0, outW, outH);
+                applyChromaKeyAndFilters(imgData, hexToRgb(targetColorInput.value), parseFloat(toleranceInput.value), parseFloat(featherInput.value));
+                rCtx.putImageData(imgData, 0, 0);
+
+                if (manualMaskCanvas) {
+                    rCtx.globalCompositeOperation = 'destination-out';
+                    rCtx.drawImage(manualMaskCanvas, 0, 0, outW, outH);
+                    rCtx.globalCompositeOperation = 'source-over';
+                }
+
+                drawOverlayText(rCtx, outW, outH, 1.0);
+
+                const mime = outFormat === 'webp' ? 'image/webp' : 'image/png';
+                renderCanvas.toBlob(blob => {
+                    downloadBtn.href = URL.createObjectURL(blob);
+                    downloadBtn.download = `rendered_studio.${outFormat}`;
+                    resultOutputArea.classList.remove('hidden');
+                    progressOverlay.classList.add('hidden');
+                }, mime);
+
+            } else if (outFormat === 'webm') {
+                progressText.textContent = "Запись WebM видео...";
+                const stream = renderCanvas.captureStream(30);
+                const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+                const chunks = [];
+
+                recorder.ondataavailable = e => chunks.push(e.data);
+                recorder.onstop = () => {
+                    downloadBtn.href = URL.createObjectURL(new Blob(chunks, { type: 'video/webm' }));
+                    downloadBtn.download = `studio_video_${Date.now()}.webm`;
+                    resultOutputArea.classList.remove('hidden');
+                    progressOverlay.classList.add('hidden');
+                };
+
+                recorder.start();
+
+                for (let i = 0; i < mediaClips.length; i++) {
+                    const clip = mediaClips[i];
+                    const steps = Math.floor(clip.clipDuration * 20);
+                    for (let step = 0; step < steps; step++) {
+                        const timeInClip = (step / steps) * clip.clipDuration;
+                        rCtx.clearRect(0, 0, outW, outH);
+
+                        if (clip.type === 'video') {
+                            clip.element.currentTime = clip.startOffset + timeInClip;
+                        }
+
+                        const activeFrame = getActiveFrameElement(clip, timeInClip);
+
+                        rCtx.save();
+                        rCtx.translate(outW / 2 + clip.positionX, outH / 2 + clip.positionY);
+                        rCtx.scale(clip.scale, clip.scale);
+                        rCtx.translate(-outW / 2, -outH / 2);
+                        rCtx.drawImage(activeFrame, 0, 0, outW, outH);
+                        rCtx.restore();
+                        
+                        const imgData = rCtx.getImageData(0, 0, outW, outH);
+                        applyChromaKeyAndFilters(imgData, hexToRgb(targetColorInput.value), parseFloat(toleranceInput.value), parseFloat(featherInput.value));
+                        rCtx.putImageData(imgData, 0, 0);
+
+                        if (manualMaskCanvas) {
+                            rCtx.globalCompositeOperation = 'destination-out';
+                            rCtx.drawImage(manualMaskCanvas, 0, 0, outW, outH);
+                            rCtx.globalCompositeOperation = 'source-over';
+                        }
+
+                        drawOverlayText(rCtx, outW, outH, step / steps);
+                        await new Promise(r => setTimeout(r, 50));
+                    }
+                }
+
+                recorder.stop();
+
+            } else if (outFormat === 'gif') {
+                progressText.textContent = "Кодирование GIF...";
+                const frames = [];
+                const clip = mediaClips[0];
+                const frameCount = 15;
+
+                for (let f = 0; f < frameCount; f++) {
+                    const timeInClip = (f / frameCount) * clip.clipDuration;
+                    rCtx.clearRect(0, 0, outW, outH);
+
+                    const activeFrame = getActiveFrameElement(clip, timeInClip);
+
+                    rCtx.save();
+                    rCtx.translate(outW / 2 + clip.positionX, outH / 2 + clip.positionY);
+                    rCtx.scale(clip.scale, clip.scale);
+                    rCtx.translate(-outW / 2, -outH / 2);
+                    rCtx.drawImage(activeFrame, 0, 0, outW, outH);
+                    rCtx.restore();
+                    
+                    const imgData = rCtx.getImageData(0, 0, outW, outH);
+                    applyChromaKeyAndFilters(imgData, hexToRgb(targetColorInput.value), parseFloat(toleranceInput.value), parseFloat(featherInput.value));
+                    rCtx.putImageData(imgData, 0, 0);
+
+                    if (manualMaskCanvas) {
+                        rCtx.globalCompositeOperation = 'destination-out';
+                        rCtx.drawImage(manualMaskCanvas, 0, 0, outW, outH);
+                        rCtx.globalCompositeOperation = 'source-over';
+                    }
+
+                    drawOverlayText(rCtx, outW, outH, f / frameCount);
+
+                    const frameCanvas = document.createElement('canvas');
+                    frameCanvas.width = outW;
+                    frameCanvas.height = outH;
+                    frameCanvas.getContext('2d').drawImage(renderCanvas, 0, 0);
+                    frames.push(frameCanvas);
+                }
+
+                const bufSize = outW * outH * frames.length * 5 + 1024 * 1024;
+                const buffer = new Uint8Array(bufSize);
+                const writer = new GifWriter(buffer, outW, outH, { loop: 0 });
+
+                for (let idx = 0; idx < frames.length; idx++) {
+                    const fCtx = frames[idx].getContext('2d', { willReadFrequently: true });
+                    const imgData = fCtx.getImageData(0, 0, outW, outH).data;
+
+                    const paletteMap = new Map();
+                    const palette = [];
+                    const indexedPixels = new Uint8Array(outW * outH);
+                    let transIndex = null;
+
+                    for (let i = 0, p = 0; i < imgData.length; i += 4, p++) {
+                        const a = imgData[i + 3];
+                        if (a < 128) {
+                            if (transIndex === null) { transIndex = palette.length; palette.push(0x000000); }
+                            indexedPixels[p] = transIndex;
+                        } else {
+                            const r = Math.round(imgData[i] / 51) * 51;
+                            const g = Math.round(imgData[i+1] / 51) * 51;
+                            const b = Math.round(imgData[i+2] / 51) * 51;
+                            const colorHex = (r << 16) | (g << 8) | b;
+
+                            let colorIdx = paletteMap.get(colorHex);
+                            if (colorIdx === undefined) {
+                                if (palette.length < 256) {
+                                    colorIdx = palette.length; palette.push(colorHex); paletteMap.set(colorHex, colorIdx);
+                                } else { colorIdx = 0; }
+                            }
+                            indexedPixels[p] = colorIdx;
+                        }
+                    }
+                    if (palette.length === 0) palette.push(0);
+
+                    writer.addFrame(0, 0, outW, outH, indexedPixels, { palette: palette, delay: 10, transIndex: transIndex });
+                }
+
+                const gifBytes = writer.end();
+                downloadBtn.href = URL.createObjectURL(new Blob([gifBytes], { type: 'image/gif' }));
+                downloadBtn.download = `animation_${Date.now()}.gif`;
+                resultOutputArea.classList.remove('hidden');
+                progressOverlay.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

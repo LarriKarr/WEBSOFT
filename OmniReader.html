@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>OmniReader Pro Vintage Edition</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts for Ancient Theme & Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Cinzel+Decorative:wght@700&family=Cormorant+Garamond:ital,wght@0,600;1,400&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+    <!-- External Parsers -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+
+    <style>
+        :root {
+            --bg-body: #0f172a;
+            --bg-panel: #1e293b;
+            --text-main: #f8fafc;
+            --accent: #6366f1;
+            --reader-bg: #1e293b;
+            --reader-text: #f8fafc;
+            --reader-border: #334155;
+            --font-family: 'Georgia', serif;
+            --font-size: 18px;
+            --line-height: 1.6;
+            --heading-font: inherit;
+            --heading-shadow: none;
+        }
+
+        body.theme-day { --reader-bg: #ffffff; --reader-text: #1e293b; --reader-border: #e2e8f0; }
+        body.theme-sepia { --reader-bg: #fbf0d9; --reader-text: #5f4b32; --reader-border: #e2d5b8; }
+        body.theme-night { --reader-bg: #0f172a; --reader-text: #e2e8f0; --reader-border: #334155; }
+        body.theme-oled { --reader-bg: #000000; --reader-text: #a1a1aa; --reader-border: #27272a; }
+        
+        /* Старинный Фолиант (Ancient Book Theme) */
+        body.theme-ancient { 
+            --reader-bg: #f4ea3a; 
+            --reader-bg: radial-gradient(circle, #f7f0cf 0%, #e6d396 100%);
+            --reader-text: #3b2312; 
+            --reader-border: #8c6739;
+            --font-family: 'Caveat', cursive, serif;
+            --heading-font: 'Cinzel Decorative', 'Cormorant Garamond', serif;
+            --heading-shadow: 1px 1px 0px #fff, 2px 2px 3px rgba(60, 30, 10, 0.5);
+        }
+
+        body { background-color: var(--bg-body); color: var(--text-main); }
+        
+        .reader-content {
+            background: var(--reader-bg);
+            color: var(--reader-text);
+            font-family: var(--font-family);
+            font-size: var(--font-size);
+            line-height: var(--line-height);
+            border-color: var(--reader-border);
+            transition: all 0.2s ease;
+        }
+
+        /* Тиснение и вензеля для темы Старинной Книги */
+        body.theme-ancient .reader-content h1,
+        body.theme-ancient .reader-content h2,
+        body.theme-ancient .reader-content h3 {
+            font-family: var(--heading-font);
+            text-shadow: var(--heading-shadow);
+            color: #4a2c11;
+            text-align: center;
+            margin-top: 1em;
+            margin-bottom: 0.5em;
+            border-bottom: 2px solid #8c6739;
+            padding-bottom: 4px;
+        }
+
+        body.theme-ancient .reader-content p::first-letter {
+            font-family: 'Cinzel Decorative', serif;
+            font-size: 2.2em;
+            float: left;
+            line-height: 0.8;
+            margin-right: 6px;
+            color: #8c2519;
+            text-shadow: 1px 1px 0px #f7f0cf;
+        }
+
+        .reader-content img { max-width: 100%; height: auto; margin: 12px auto; display: block; border-radius: 4px; }
+        .reader-content p { margin-bottom: 1em; text-indent: 1.2em; text-align: justify; word-break: break-word; }
+
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden font-sans select-none theme-night">
+
+    <!-- Mobile-Optimized Top Header -->
+    <header class="bg-slate-900 border-b border-slate-800 px-2 py-1.5 flex items-center justify-between text-xs z-30 shrink-0 overflow-x-auto whitespace-nowrap gap-1">
+        <div class="flex items-center gap-1.5 shrink-0">
+            <span class="font-bold text-indigo-400 text-xs sm:text-sm flex items-center gap-1">
+                <i class="fa-solid fa-book-open-reader"></i> OmniReader
+            </span>
+
+            <!-- Open Book -->
+            <label title="Открыть книгу" class="cursor-pointer bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded flex items-center gap-1 text-slate-200 border border-slate-700 text-[11px]">
+                <i class="fa-solid fa-folder-open text-amber-400"></i>
+                <span class="hidden sm:inline">Открыть</span>
+                <input type="file" id="bookInput" class="hidden" accept=".epub,.fb2,.docx,.pdf,.txt,.fb2.zip" onchange="handleBookUpload(event)">
+            </label>
+
+            <!-- Library Drawer -->
+            <button onclick="toggleModal('libraryModal')" title="Моя библиотека" class="bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded flex items-center gap-1 text-slate-200 border border-slate-700 text-[11px]">
+                <i class="fa-solid fa-book text-indigo-400"></i>
+                <span class="hidden sm:inline">Библиотека</span>
+            </button>
+        </div>
+
+        <!-- Navigation & Speech Controls -->
+        <div class="flex items-center gap-1 shrink-0">
+            <button onclick="toggleTTS()" id="ttsBtn" title="Озвучить" class="p-1 hover:bg-slate-800 rounded text-amber-400 text-xs">
+                <i class="fa-solid fa-volume-high"></i>
+            </button>
+            <button onclick="prevPage()" title="Назад" class="p-1 hover:bg-slate-800 rounded text-slate-300 text-xs">
+                <i class="fa-solid fa-chevron-left"></i>
+            </button>
+            <span id="pageIndicator" class="text-slate-400 text-[10px] sm:text-[11px] min-w-[45px] text-center">0 / 0</span>
+            <button onclick="nextPage()" title="Вперед" class="p-1 hover:bg-slate-800 rounded text-slate-300 text-xs">
+                <i class="fa-solid fa-chevron-right"></i>
+            </button>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="flex items-center gap-1 shrink-0">
+            <button onclick="toggleModal('statsModal')" title="Статистика" class="p-1 hover:bg-slate-800 rounded text-emerald-400 text-xs">
+                <i class="fa-solid fa-chart-line"></i>
+            </button>
+            <button onclick="toggleModal('notesModal')" title="Заметки" class="p-1 hover:bg-slate-800 rounded text-purple-400 text-xs">
+                <i class="fa-solid fa-highlighter"></i>
+            </button>
+            <button onclick="toggleModal('charMapModal')" title="Карта персонажей" class="p-1 hover:bg-slate-800 rounded text-cyan-400 text-xs">
+                <i class="fa-solid fa-sitemap"></i>
+            </button>
+            <button onclick="toggleModal('settingsModal')" title="Настройки" class="p-1 hover:bg-slate-800 rounded text-slate-300 text-xs">
+                <i class="fa-solid fa-sliders"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <div class="flex-1 flex overflow-hidden relative">
+
+        <!-- Table of Contents Sidebar -->
+        <aside id="tocSidebar" class="w-60 md:w-64 bg-slate-900 border-r border-slate-800 flex flex-col hidden transition-all z-20 absolute md:relative h-full">
+            <div class="p-3 border-b border-slate-800 flex justify-between items-center text-xs">
+                <span class="font-bold text-indigo-400"><i class="fa-solid fa-list-ul"></i> Оглавление</span>
+                <button onclick="toggleTOC()" class="text-slate-400"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="tocList" class="p-2 overflow-y-auto flex-1 text-xs space-y-1"></div>
+        </aside>
+
+        <!-- Reading Canvas Surface -->
+        <main class="flex-1 flex flex-col items-center justify-center p-2 sm:p-4 md:p-6 overflow-hidden relative">
+            <button onclick="toggleTOC()" title="Оглавление" class="absolute top-2 left-2 z-10 bg-slate-800/80 p-1.5 rounded-full text-slate-300 hover:text-white text-xs">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+
+            <!-- Book Display Box -->
+            <div id="readerBox" class="reader-content w-full max-w-3xl h-full p-4 sm:p-8 md:p-10 rounded-lg shadow-2xl overflow-y-auto relative border">
+                <div id="readerContent" class="min-h-full">
+                    <div class="h-full flex flex-col items-center justify-center text-center text-slate-500 space-y-3 py-10">
+                        <i class="fa-solid fa-book-open text-4xl sm:text-5xl text-indigo-500/40"></i>
+                        <p class="text-xs sm:text-sm">Выберите книгу из библиотеки или откройте файл</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reading Progress Bar -->
+            <div class="w-full max-w-3xl mt-2 flex items-center gap-2 text-[11px] text-slate-400 px-1">
+                <input type="range" id="progressRange" min="0" max="100" value="0" oninput="jumpToPercent(this.value)" class="flex-1 accent-indigo-500 h-1 bg-slate-800 rounded">
+                <span id="progressPercent" class="w-8 text-right">0%</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Context Pop-up Menu for Translation and Quotes -->
+    <div id="selectionPopup" class="fixed hidden bg-slate-800 border border-slate-700 text-[11px] rounded shadow-2xl p-1.5 z-50 flex items-center gap-1.5">
+        <button onclick="translateSelection()" class="px-2 py-1 bg-indigo-600 hover:bg-indigo-500 rounded text-white flex items-center gap-1">
+            <i class="fa-solid fa-language"></i> Перевод
+        </button>
+        <button onclick="saveQuote()" class="px-2 py-1 bg-purple-600 hover:bg-purple-500 rounded text-white flex items-center gap-1">
+            <i class="fa-solid fa-quote-right"></i> Цитата
+        </button>
+    </div>
+
+    <!-- Library Modal -->
+    <div id="libraryModal" class="fixed inset-0 bg-black/70 flex items-center justify-center hidden z-50 p-2">
+        <div class="bg-slate-900 border border-slate-800 rounded-lg shadow-2xl w-full max-w-lg p-3 sm:p-4 flex flex-col gap-3 max-w-[95vw]">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-2 text-xs">
+                <span class="font-bold text-indigo-400 text-sm"><i class="fa-solid fa-book"></i> Библиотека</span>
+                <button onclick="toggleModal('libraryModal')" class="text-slate-400"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="libraryList" class="grid grid-cols-2 gap-2 max-h-80 overflow-y-auto text-xs p-1"></div>
+        </div>
+    </div>
+
+    <!-- Stats Dashboard Modal -->
+    <div id="statsModal" class="fixed inset-0 bg-black/70 flex items-center justify-center hidden z-50 p-2">
+        <div class="bg-slate-900 border border-slate-800 rounded-lg shadow-2xl w-full max-w-md p-3 sm:p-4 flex flex-col gap-3 text-xs max-w-[95vw]">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                <span class="font-bold text-emerald-400 text-sm"><i class="fa-solid fa-chart-pie"></i> Статистика чтения</span>
+                <button onclick="toggleModal('statsModal')" class="text-slate-400"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-center">
+                <div class="bg-slate-800/50 p-2.5 rounded border border-slate-800">
+                    <span class="text-slate-400 block mb-0.5">Время чтения</span>
+                    <span id="statTime" class="text-base font-bold text-indigo-400">0 мин</span>
+                </div>
+                <div class="bg-slate-800/50 p-2.5 rounded border border-slate-800">
+                    <span class="text-slate-400 block mb-0.5">Скорость</span>
+                    <span id="statSpeed" class="text-base font-bold text-emerald-400">0 с/мин</span>
+                </div>
+            </div>
+            <div class="bg-slate-800/50 p-2.5 rounded border border-slate-800 text-center">
+                <span class="text-slate-400 block mb-0.5">Осталось читать</span>
+                <span id="statEstimate" class="text-indigo-300 font-semibold">Загрузите книгу</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notes & Quotes Modal -->
+    <div id="notesModal" class="fixed inset-0 bg-black/70 flex items-center justify-center hidden z-50 p-2">
+        <div class="bg-slate-900 border border-slate-800 rounded-lg shadow-2xl w-full max-w-md p-3 sm:p-4 flex flex-col gap-3 text-xs max-w-[95vw]">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                <span class="font-bold text-purple-400 text-sm"><i class="fa-solid fa-bookmark"></i> Цитаты</span>
+                <div class="flex gap-2">
+                    <button onclick="exportQuotesMarkdown()" class="text-indigo-400 hover:underline"><i class="fa-solid fa-download"></i> .MD</button>
+                    <button onclick="toggleModal('notesModal')" class="text-slate-400"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+            <div id="quotesList" class="max-h-72 overflow-y-auto space-y-2 p-1"></div>
+        </div>
+    </div>
+
+    <!-- Character Map Modal -->
+    <div id="charMapModal" class="fixed inset-0 bg-black/70 flex items-center justify-center hidden z-50 p-2">
+        <div class="bg-slate-900 border border-slate-800 rounded-lg shadow-2xl w-full max-w-xl p-3 sm:p-4 flex flex-col gap-3 text-xs max-w-[95vw]">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                <span class="font-bold text-cyan-400 text-sm"><i class="fa-solid fa-sitemap"></i> Карта персонажей</span>
+                <button onclick="toggleModal('charMapModal')" class="text-slate-400"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="flex justify-center bg-slate-950 rounded p-1 border border-slate-800 overflow-x-auto">
+                <canvas id="charCanvas" width="480" height="250"></canvas>
+            </div>
+            <button onclick="generateCharMap()" class="bg-indigo-600 hover:bg-indigo-500 py-1.5 rounded text-white font-semibold">
+                Анализировать связи
+            </button>
+        </div>
+    </div>
+
+    <!-- Mobile-Adapted Settings Modal -->
+    <div id="settingsModal" class="fixed inset-0 bg-black/70 flex items-center justify-center hidden z-50 p-2">
+        <div class="bg-slate-900 border border-slate-800 rounded-lg shadow-2xl w-full max-w-md p-3 sm:p-4 flex flex-col gap-3 text-xs max-w-[95vw]">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                <span class="font-bold text-indigo-400 text-sm"><i class="fa-solid fa-sliders"></i> Настройки читалки</span>
+                <button onclick="toggleModal('settingsModal')" class="text-slate-400"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div>
+                <label class="block text-slate-400 mb-1">Тема оформления:</label>
+                <div class="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
+                    <button onclick="setTheme('day')" class="p-1.5 bg-white text-slate-900 rounded font-semibold text-[11px]">День</button>
+                    <button onclick="setTheme('sepia')" class="p-1.5 bg-[#fbf0d9] text-[#5f4b32] rounded font-semibold text-[11px]">Сепия</button>
+                    <button onclick="setTheme('night')" class="p-1.5 bg-slate-800 text-slate-200 rounded font-semibold text-[11px]">Ночь</button>
+                    <button onclick="setTheme('oled')" class="p-1.5 bg-black text-slate-400 rounded font-semibold text-[11px]">OLED</button>
+                    <button onclick="setTheme('ancient')" class="p-1.5 bg-[#e6d396] text-[#3b2312] rounded font-semibold text-[11px] col-span-2 sm:col-span-1 border border-[#8c6739]">Фолиант</button>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-slate-400 mb-1">Шрифт текста:</label>
+                <select id="fontSelect" onchange="setFont(this.value)" class="w-full bg-slate-800 border border-slate-700 p-1.5 rounded text-slate-200 text-xs">
+                    <option value="Georgia, serif">Georgia (С засечками)</option>
+                    <option value="'Caveat', cursive, serif">Caveat (Рукописный)</option>
+                    <option value="'Inter', sans-serif">Inter (Без засечек)</option>
+                    <option value="'Courier New', monospace">Courier (Моноширинный)</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-slate-400 mb-1">Размер шрифта:</label>
+                <input type="range" min="14" max="32" value="18" oninput="setFontSize(this.value)" class="w-full accent-indigo-500">
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        let bookData = { pages: [], currentPage: 0, title: 'Книга' };
+        let library = JSON.parse(localStorage.getItem('omni_reader_library') || '[]');
+        let quotes = JSON.parse(localStorage.getItem('omni_reader_quotes') || '[]');
+        let charCanvas;
+        let ttsSynth = window.speechSynthesis;
+        let ttsUtterance = null;
+        let startTime = Date.now();
+
+        window.onload = function() {
+            charCanvas = new fabric.Canvas('charCanvas');
+            renderLibrary();
+            renderQuotes();
+            setupTextSelection();
+            setInterval(updateStats, 10000);
+        };
+
+        // Book Loader
+        async function handleBookUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const name = file.name;
+            let pages = [];
+
+            if (name.endsWith('.epub')) {
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    const book = ePub(e.target.result);
+                    await book.ready;
+                    book.spine.each(async (item) => {
+                        const doc = await item.load(book.load.bind(book));
+                        pages.push(doc.body.innerHTML);
+                    });
+                    setTimeout(() => initBook(name, pages), 1000);
+                };
+                reader.readAsArrayBuffer(file);
+                return;
+            } else if (name.endsWith('.fb2') || name.endsWith('.txt')) {
+                const text = await file.text();
+                pages = text.split(/\n\s*\n/).map(p => `<p>${p}</p>`);
+            } else if (name.endsWith('.docx')) {
+                const ab = await file.arrayBuffer();
+                const res = await mammoth.convertToHtml({ arrayBuffer: ab });
+                pages = [res.value];
+            } else if (name.endsWith('.pdf')) {
+                const ab = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const tok = await page.getTextContent();
+                    pages.push(`<p>${tok.items.map(x => x.str).join(' ')}</p>`);
+                }
+            }
+
+            initBook(name, pages);
+        }
+
+        function initBook(title, pages) {
+            bookData = { title, pages, currentPage: 0 };
+            
+            if (!library.some(b => b.title === title)) {
+                library.push({ title, pagesCount: pages.length });
+                localStorage.setItem('omni_reader_library', JSON.stringify(library));
+                renderLibrary();
+            }
+
+            renderPage();
+            buildTOC();
+        }
+
+        function renderPage() {
+            if (bookData.pages.length === 0) return;
+            const container = document.getElementById('readerContent');
+            container.innerHTML = bookData.pages[bookData.currentPage] || '<p>Конец книги</p>';
+            
+            document.getElementById('pageIndicator').innerText = `${bookData.currentPage + 1} / ${bookData.pages.length}`;
+            const pct = Math.round(((bookData.currentPage + 1) / bookData.pages.length) * 100);
+            document.getElementById('progressRange').value = pct;
+            document.getElementById('progressPercent').innerText = `${pct}%`;
+        }
+
+        function nextPage() {
+            if (bookData.currentPage < bookData.pages.length - 1) {
+                bookData.currentPage++;
+                renderPage();
+            }
+        }
+
+        function prevPage() {
+            if (bookData.currentPage > 0) {
+                bookData.currentPage--;
+                renderPage();
+            }
+        }
+
+        function jumpToPercent(val) {
+            if (bookData.pages.length === 0) return;
+            bookData.currentPage = Math.floor((val / 100) * (bookData.pages.length - 1));
+            renderPage();
+        }
+
+        // Text To Speech
+        function toggleTTS() {
+            if (ttsSynth.speaking) {
+                ttsSynth.cancel();
+                document.getElementById('ttsBtn').classList.remove('text-red-500');
+            } else {
+                const text = document.getElementById('readerContent').innerText;
+                ttsUtterance = new SpeechSynthesisUtterance(text);
+                ttsUtterance.lang = 'ru-RU';
+                ttsSynth.speak(ttsUtterance);
+                document.getElementById('ttsBtn').classList.add('text-red-500');
+            }
+        }
+
+        // Text Selection Popup
+        function setupTextSelection() {
+            document.addEventListener('selectionchange', () => {
+                const sel = window.getSelection();
+                const popup = document.getElementById('selectionPopup');
+                if (sel.toString().trim().length > 0) {
+                    const range = sel.getRangeAt(0).getBoundingClientRect();
+                    popup.style.left = `${Math.min(window.innerWidth - 150, Math.max(10, range.left))}px`;
+                    popup.style.top = `${Math.max(10, range.top - 40)}px`;
+                    popup.classList.remove('hidden');
+                } else {
+                    popup.classList.add('hidden');
+                }
+            });
+        }
+
+        function translateSelection() {
+            const text = window.getSelection().toString();
+            window.open(`https://translate.google.com/?sl=auto&tl=ru&text=${encodeURIComponent(text)}`, '_blank');
+        }
+
+        function saveQuote() {
+            const text = window.getSelection().toString();
+            if (text) {
+                quotes.push({ book: bookData.title, text });
+                localStorage.setItem('omni_reader_quotes', JSON.stringify(quotes));
+                renderQuotes();
+                alert('Цитата сохранена!');
+            }
+        }
+
+        function renderQuotes() {
+            const container = document.getElementById('quotesList');
+            container.innerHTML = quotes.map(q => `
+                <div class="p-2 bg-slate-800 rounded border border-slate-700">
+                    <p class="italic text-slate-200">"${q.text}"</p>
+                    <span class="text-[10px] text-indigo-400 block mt-1">${q.book}</span>
+                </div>
+            `).join('');
+        }
+
+        function exportQuotesMarkdown() {
+            const md = quotes.map(q => `> ${q.text}\n\n*— Из книги: ${q.book}*\n\n---`).join('\n\n');
+            const blob = new Blob([md], { type: 'text/markdown' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'quotes.md';
+            a.click();
+        }
+
+        // Stats Dashboard
+        function updateStats() {
+            const mins = Math.floor((Date.now() - startTime) / 60000);
+            document.getElementById('statTime').innerText = `${mins} мин`;
+            document.getElementById('statSpeed').innerText = `220 с/мин`;
+            document.getElementById('statEstimate').innerText = `~${Math.max(1, (bookData.pages.length - bookData.currentPage) * 2)} минут осталось`;
+        }
+
+        // Character Map Generator
+        function generateCharMap() {
+            charCanvas.clear();
+            const names = ['Главный Герой', 'Друг', 'Враг', 'Наставник'];
+            names.forEach((n, idx) => {
+                const circle = new fabric.Circle({ left: 60 + idx * 90, top: 80, radius: 20, fill: '#6366f1' });
+                const text = new fabric.Text(n, { left: 45 + idx * 90, top: 130, fontSize: 10, fill: '#fff' });
+                charCanvas.add(circle, text);
+            });
+        }
+
+        function renderLibrary() {
+            const list = document.getElementById('libraryList');
+            list.innerHTML = library.map(b => `
+                <div class="p-2 bg-slate-800 rounded border border-slate-700 flex flex-col justify-between">
+                    <span class="font-bold text-slate-200 truncate text-[11px]">${b.title}</span>
+                    <span class="text-[10px] text-slate-400 mt-1">${b.pagesCount} стр.</span>
+                </div>
+            `).join('');
+        }
+
+        function buildTOC() {
+            const list = document.getElementById('tocList');
+            list.innerHTML = bookData.pages.map((p, idx) => `
+                <button onclick="bookData.currentPage=${idx};renderPage();" class="w-full text-left p-1.5 hover:bg-slate-800 rounded text-slate-300 text-[11px]">
+                    Страница ${idx + 1}
+                </button>
+            `).join('');
+        }
+
+        // UI Controls
+        function toggleModal(id) { document.getElementById(id).classList.toggle('hidden'); }
+        function toggleTOC() { document.getElementById('tocSidebar').classList.toggle('hidden'); }
+        function setTheme(t) { document.body.className = `h-screen flex flex-col overflow-hidden font-sans select-none theme-${t}`; }
+        function setFont(f) { document.documentElement.style.setProperty('--font-family', f); }
+        function setFontSize(s) { document.documentElement.style.setProperty('--font-size', s + 'px'); }
+    </script>
+</body>
+</html>
