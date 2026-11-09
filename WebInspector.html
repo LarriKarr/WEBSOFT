@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Inspector and Downloader</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        :root {
+            --bg: #121214;
+            --card: #1c1c1f;
+            --border: #27272a;
+            --accent: #0070f3;
+            --accent-hover: #0051a8;
+            --danger: #ef4444;
+            --danger-hover: #dc2626;
+            --text: #f4f4f5;
+            --text-muted: #a1a1aa;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background: var(--bg); color: var(--text); padding: 12px; min-height: 100vh; display: flex; flex-direction: column; gap: 12px; }
+
+        header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        h1 { font-size: 1.1rem; font-weight: 600; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .icon-btn { background: var(--card); border: 1px solid var(--border); color: var(--text); width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+        .icon-btn:hover { background: #27272a; }
+
+        .search-box { display: flex; gap: 6px; width: 100%; }
+        .search-box input { flex-grow: 1; min-width: 0; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 0 12px; height: 42px; color: var(--text); font-size: 0.9rem; outline: none; }
+        .search-box input:focus { border-color: var(--accent); }
+        .search-box button { width: 42px; height: 42px; background: var(--accent); border: none; border-radius: 8px; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+        .search-box button:hover { background: var(--accent-hover); }
+
+        .panel { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+        .status { font-size: 0.8rem; color: var(--text-muted); word-break: break-all; }
+
+        .actions-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+        .btn { background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; text-align: center; display: inline-flex; align-items: center; justify-content: center; gap: 4px; text-decoration: none; }
+        .btn:hover { background: #27272a; }
+        .btn-primary { background: var(--accent); border-color: var(--accent); }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-danger { background: var(--danger); border-color: var(--danger); color: white; }
+        .btn-danger:hover { background: var(--danger-hover); }
+
+        .results-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 8px; }
+        .media-card { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px; display: flex; flex-direction: column; gap: 4px; align-items: center; }
+        .media-card img { width: 100%; height: 90px; object-fit: cover; border-radius: 4px; }
+        .media-title { font-size: 0.7rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; text-align: center; }
+
+        textarea { width: 100%; height: 200px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px; font-family: monospace; font-size: 0.75rem; outline: none; resize: vertical; }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.75); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+        .modal-overlay.open { opacity: 1; pointer-events: auto; }
+        .modal { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; width: 92%; max-width: 440px; display: flex; flex-direction: column; gap: 12px; max-height: 85vh; overflow-y: auto; }
+        .modal h2 { font-size: 1rem; color: var(--accent); }
+
+        .field { display: flex; flex-direction: column; gap: 4px; }
+        .field label { font-size: 0.75rem; color: var(--text-muted); }
+        .field input, .field select { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px; color: var(--text); font-size: 0.85rem; outline: none; }
+
+        .info-box { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px; font-size: 0.75rem; color: var(--text-muted); line-height: 1.4; }
+        .info-box a { color: var(--accent); text-decoration: none; }
+    </style>
+    <script>
+        const dynamicManifest = {
+            "name": document.title || "Web Inspector and Downloader",
+            "short_name": "Downloader",
+            "start_url": window.location.pathname.split('/').pop() || "./index.html",
+            "display": "standalone",
+            "background_color": "#121214",
+            "theme_color": "#0070f3",
+            "icons": [{ "src": "https://cdn-icons-png.flaticon.com/512/3076/3076137.png", "sizes": "192x192", "type": "image/png" }]
+        };
+        const blob = new Blob([JSON.stringify(dynamicManifest)], { type: 'application/manifest+json' });
+        const manifestTag = document.createElement('link');
+        manifestTag.rel = 'manifest';
+        manifestTag.href = URL.createObjectURL(blob);
+        document.head.appendChild(manifestTag);
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+        }
+    </script>
+		<script>
+  // 1. Динамическая генерация манифеста под каждый отдельный HTML файл
+  const dynamicManifest = {
+    "name": document.title || "Мое веб-приложение",
+    "short_name": document.title.split(' ')[0] || "App",
+    "start_url": window.location.pathname.split('/').pop() || "./index.html",
+    "display": "standalone",
+    "background_color": "#121214",
+    "theme_color": "#0070f3",
+    "icons": [
+      {
+        "src": "https://cdn-icons-png.flaticon.com/512/3076/3076137.png",
+        "sizes": "192x192",
+        "type": "image/png"
+      },
+      {
+        "src": "https://cdn-icons-png.flaticon.com/512/3076/3076137.png",
+        "sizes": "512x512",
+        "type": "image/png"
+      }
+    ]
+  };
+
+  const stringManifest = JSON.stringify(dynamicManifest);
+  const blob = new Blob([stringManifest], { type: 'application/manifest+json' });
+  const manifestURL = URL.createObjectURL(blob);
+  
+  const manifestTag = document.createElement('link');
+  manifestTag.rel = 'manifest';
+  manifestTag.href = manifestURL;
+  document.head.appendChild(manifestTag);
+
+  // 2. Регистрация универсального Service Worker из корня папки
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js')
+        .then(() => console.log('Универсальный SW зарегистрирован для:', document.title))
+        .catch((err) => console.log('Ошибка SW:', err));
+    });
+  }
+</script>
+</head>
+<body>
+
+    <header>
+        <h1>Web Inspector & Downloader</h1>
+        <button class="icon-btn" onclick="openSettings()" title="Настройки">⚙️</button>
+    </header>
+
+    <div class="search-box">
+        <input type="text" id="targetUrl" placeholder="Вставьте ссылку...">
+        <button onclick="analyzeUrl()" title="Запуск">▶</button>
+    </div>
+
+    <!-- Панель статуса -->
+    <div class="panel" id="statusPanel">
+        <div class="status" id="statusText">Готово к работе.</div>
+    </div>
+
+    <!-- Динамическая панель действий -->
+    <div class="panel" id="actionsPanel" style="display:none;">
+        <div class="actions-grid" id="actionsGrid"></div>
+    </div>
+
+    <!-- Контейнер результатов -->
+    <div class="panel" id="resultsPanel" style="display:none;">
+        <div id="resultsContent"></div>
+    </div>
+
+    <!-- Модальное окно настроек -->
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal">
+            <h2>⚙️ Настройки и Мониторинг</h2>
+            
+            <div class="field">
+                <label>⏱️ Частота сканирования изменений</label>
+                <select id="monitorIntervalSelect">
+                    <option value="1">Каждую 1 минуту</option>
+                    <option value="5">Каждые 5 минут</option>
+                    <option value="30">Каждые 30 минут</option>
+                    <option value="60" selected>Каждый 1 час</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label>🔑 RapidAPI Key (YouTube / Соцсети)</label>
+                <input type="password" id="rapidApiKey" placeholder="Вставьте ключ RapidAPI...">
+            </div>
+
+            <div class="info-box">
+                ℹ️ <b>Как получить бесплатный API ключ:</b><br>
+                1. Перейдите на сайт <a href="https://rapidapi.com" target="_blank">RapidAPI.com</a> и зарегистрируйтесь.<br>
+                2. Подключите бесплатный API загрузчика (например, <i>YouTube Media Downloader</i>).<br>
+                3. Скопируйте ваш <b>X-RapidAPI-Key</b> и вставьте в поле выше.
+            </div>
+
+            <div class="field">
+                <label>🌍 Регион прокси-шлюза</label>
+                <select id="proxyRegion">
+                    <option value="global">Авто (Глобальный шлюз)</option>
+                    <option value="eu">Европа (ЕС)</option>
+                    <option value="us">Соединенные Штаты (США)</option>
+                    <option value="asia">Азия / Сингапур</option>
+                    <option value="latam">Латинская Америка</option>
+                </select>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:6px; margin-top:6px;">
+                <button class="btn" onclick="closeSettings()">Отмена</button>
+                <button class="btn btn-primary" onclick="saveSettings()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentHtml = "";
+        let discoveredImages = [];
+        let monitorIntervalId = null;
+        let lastPageHash = "";
+        let isMonitoringActive = false;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const key = localStorage.getItem('wid_rapidapi_key');
+            if (key) document.getElementById('rapidApiKey').value = key;
+            
+            const savedRegion = localStorage.getItem('wid_proxy_region');
+            if (savedRegion) document.getElementById('proxyRegion').value = savedRegion;
+
+            const savedInterval = localStorage.getItem('wid_monitor_interval');
+            if (savedInterval) document.getElementById('monitorIntervalSelect').value = savedInterval;
+        });
+
+        function openSettings() { document.getElementById('settingsModal').classList.add('open'); }
+        function closeSettings() { document.getElementById('settingsModal').classList.remove('open'); }
+        
+        function saveSettings() {
+            const key = document.getElementById('rapidApiKey').value.trim();
+            const region = document.getElementById('proxyRegion').value;
+            const interval = document.getElementById('monitorIntervalSelect').value;
+
+            localStorage.setItem('wid_rapidapi_key', key);
+            localStorage.setItem('wid_proxy_region', region);
+            localStorage.setItem('wid_monitor_interval', interval);
+
+            closeSettings();
+            alert('Настройки успешно сохранены!');
+        }
+
+        async function analyzeUrl() {
+            let url = document.getElementById('targetUrl').value.trim();
+            if (!url) return alert('Введите URL!');
+            if (!url.startsWith('http')) url = 'https://' + url;
+            document.getElementById('targetUrl').value = url;
+
+            const status = document.getElementById('statusText');
+            const actionsPanel = document.getElementById('actionsPanel');
+            const actionsGrid = document.getElementById('actionsGrid');
+            const resultsPanel = document.getElementById('resultsPanel');
+
+            status.textContent = 'Анализ типа ссылки...';
+            actionsPanel.style.display = 'none';
+            resultsPanel.style.display = 'none';
+            actionsGrid.innerHTML = '';
+
+            const fileExt = url.split('.').pop().split('?')[0].toLowerCase();
+            const directMediaExts = ['mp3', 'mp4', 'webm', 'ogg', 'jpg', 'jpeg', 'png', 'gif', 'webp'];
+
+            if (directMediaExts.includes(fileExt)) {
+                status.textContent = `Обнаружен прямой медиафайл (.${fileExt})`;
+                actionsPanel.style.display = 'block';
+                actionsGrid.innerHTML = `
+                    <a href="${url}" target="_blank" download class="btn btn-primary">📥 Скачать файл</a>
+                    <button class="btn" onclick="previewDirectMedia('${url}', '${fileExt}')">👁️ Предпросмотр</button>
+                `;
+                return;
+            }
+
+            if (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('tiktok.com') || url.includes('instagram.com')) {
+                status.textContent = 'Обнаружена ссылка на медиаплатформу.';
+                actionsPanel.style.display = 'block';
+                actionsGrid.innerHTML = `
+                    <button class="btn btn-primary" onclick="downloadViaApi('${url}')">🎬 Скачать через API</button>
+                    <button class="btn" onclick="inspectWebPage('${url}')">🔍 Инспектировать HTML</button>
+                `;
+                return;
+            }
+
+            status.textContent = 'Обнаружена веб-страница. Доступны инструменты инспекции и мониторинга:';
+            actionsPanel.style.display = 'block';
+            
+            updateMonitoringButtonHtml(url);
+        }
+
+        function updateMonitoringButtonHtml(url) {
+            const actionsGrid = document.getElementById('actionsGrid');
+            const monitorBtnText = isMonitoringActive ? '⏹ Стоп мониторинг' : '👀 Начать мониторинг';
+            const monitorBtnClass = isMonitoringActive ? 'btn btn-danger' : 'btn';
+
+            actionsGrid.innerHTML = `
+                <button class="btn btn-primary" onclick="inspectWebPage('${url}')">🖼️ Найти медиа</button>
+                <button class="btn" onclick="saveHtmlPage()">💾 Скачать HTML</button>
+                <button class="btn" onclick="viewSourceCode()">📜 Исходный код</button>
+                <button class="${monitorBtnClass}" onclick="toggleMonitoring('${url}')">${monitorBtnText}</button>
+            `;
+        }
+
+        async function toggleMonitoring(url) {
+            if (isMonitoringActive) {
+                stopMonitoring();
+            } else {
+                await startMonitoring(url);
+            }
+            updateMonitoringButtonHtml(url);
+        }
+
+        async function startMonitoring(url) {
+            const status = document.getElementById('statusText');
+            const intervalMins = parseInt(localStorage.getItem('wid_monitor_interval') || '60', 10);
+            
+            if (Notification.permission !== "granted") {
+                await Notification.requestPermission();
+            }
+
+            status.textContent = `Инициализация мониторинга (интервал: ${intervalMins} мин)...`;
+            
+            // Первичный снимок страницы
+            lastPageHash = await fetchPageHash(url);
+            if (!lastPageHash) {
+                alert('Не удалось получить страницу для мониторинга.');
+                return;
+            }
+
+            isMonitoringActive = true;
+            status.textContent = `🟢 Мониторинг запущен. Проверка каждые ${intervalMins} мин.`;
+
+            const intervalMs = intervalMins * 60 * 1000;
+            monitorIntervalId = setInterval(async () => {
+                const newHash = await fetchPageHash(url);
+                if (!newHash) return;
+
+                if (newHash !== lastPageHash) {
+                    lastPageHash = newHash;
+                    alert('⚠️ Внимание! На отслеживаемой странице обнаружены изменения!');
+                    if (Notification.permission === "granted") {
+                        new Notification("Web Inspector", { body: "Страница изменила свое содержимое!" });
+                    }
+                } else {
+                    console.log("Изменений нет:", new Date().toLocaleTimeString());
+                }
+            }, intervalMs);
+        }
+
+        function stopMonitoring() {
+            if (monitorIntervalId) {
+                clearInterval(monitorIntervalId);
+                monitorIntervalId = null;
+            }
+            isMonitoringActive = false;
+            document.getElementById('statusText').textContent = '🔴 Мониторинг остановлен.';
+        }
+
+        async function fetchPageHash(url) {
+            try {
+                const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+                const data = await res.json();
+                const html = data.contents;
+                
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const pageText = doc.body.innerText || "";
+
+                const encoder = new TextEncoder();
+                const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(pageText));
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            } catch (e) {
+                console.error("Ошибка сканирования для мониторинга:", e);
+                return null;
+            }
+        }
+
+        function previewDirectMedia(url, ext) {
+            const resultsPanel = document.getElementById('resultsPanel');
+            const container = document.getElementById('resultsContent');
+            resultsPanel.style.display = 'block';
+
+            if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
+                container.innerHTML = `<img src="${url}" style="max-width:100%; border-radius:8px;">`;
+            } else if (['mp4', 'webm'].includes(ext)) {
+                container.innerHTML = `<video src="${url}" controls style="width:100%; border-radius:8px;"></video>`;
+            } else if (['mp3', 'ogg'].includes(ext)) {
+                container.innerHTML = `<audio src="${url}" controls style="width:100%;"></audio>`;
+            }
+        }
+
+        async function inspectWebPage(url) {
+            const status = document.getElementById('statusText');
+            status.textContent = 'Загрузка страницы через прокси...';
+
+            try {
+                const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+                const data = await res.json();
+                currentHtml = data.contents;
+
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(currentHtml, 'text/html');
+
+                const resultsPanel = document.getElementById('resultsPanel');
+                const container = document.getElementById('resultsContent');
+                resultsPanel.style.display = 'block';
+
+                discoveredImages = [];
+                let htmlStr = '<h3 style="font-size:0.85rem; margin-bottom:6px;">Найденные изображения:</h3><div class="results-grid">';
+
+                doc.querySelectorAll('img').forEach(img => {
+                    let src = img.getAttribute('src');
+                    if (!src) return;
+                    try { src = new URL(src, url).href; } catch(e) {}
+                    discoveredImages.push(src);
+
+                    htmlStr += `
+                        <div class="media-card">
+                            <img src="${src}" onerror="this.src='https://via.placeholder.com/150?text=Error'">
+                            <div class="media-title">${src.split('/').pop() || 'image'}</div>
+                            <a href="${src}" target="_blank" download style="font-size:0.75rem; color:var(--accent); text-decoration:none;">📥 Скачать</a>
+                        </div>
+                    `;
+                });
+
+                htmlStr += '</div>';
+                container.innerHTML = htmlStr;
+                status.textContent = `Инспекция завершена. Найдено картинок: ${discoveredImages.length}`;
+
+            } catch(e) {
+                status.textContent = 'Ошибка загрузки страницы.';
+            }
+        }
+
+        function saveHtmlPage() {
+            if (!currentHtml) return alert('Сначала выполните инспекцию страницы.');
+            const blob = new Blob([currentHtml], { type: 'text/html;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'page_offline.html';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        }
+
+        function viewSourceCode() {
+            if (!currentHtml) return alert('Сначала выполните инспекцию страницы.');
+            const resultsPanel = document.getElementById('resultsPanel');
+            const container = document.getElementById('resultsContent');
+            resultsPanel.style.display = 'block';
+            container.innerHTML = `<textarea readonly>${escapeHtml(currentHtml)}</textarea>`;
+        }
+
+        async function downloadViaApi(url) {
+            const key = localStorage.getItem('wid_rapidapi_key');
+            if (!key) {
+                openSettings();
+                return alert('Пожалуйста, укажите RapidAPI ключ в настройках!');
+            }
+
+            const status = document.getElementById('statusText');
+            status.textContent = 'Запрос к API загрузчику...';
+
+            try {
+                const res = await fetch(`https://youtube-media-downloader.p.rapidapi.com/v2/video/details?url=${encodeURIComponent(url)}`, {
+                    headers: { 'X-RapidAPI-Key': key, 'X-RapidAPI-Host': 'youtube-media-downloader.p.rapidapi.com' }
+                });
+                const data = await res.json();
+                
+                const resultsPanel = document.getElementById('resultsPanel');
+                const container = document.getElementById('resultsContent');
+                resultsPanel.style.display = 'block';
+                
+                container.innerHTML = `
+                    <div style="display:flex; flex-direction:column; gap:6px;">
+                        <div style="font-size:0.85rem; font-weight:600;">Ссылка готова:</div>
+                        <a href="${data.link || data.url || '#'}" target="_blank" download class="btn btn-primary">📥 Скачать обработанный видеофайл</a>
+                    </div>
+                `;
+                status.textContent = 'Готово!';
+            } catch(e) {
+                status.textContent = 'Ошибка выполнения API-запроса. Проверьте ключ.';
+            }
+        }
+
+        function escapeHtml(str) {
+            return str ? str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]) : '';
+        }
+    </script>
+</body>
+</html>

@@ -67,6 +67,48 @@
     .snap-line-v { position: absolute; top: 0; bottom: 0; width: 1px; background: #ef4444; z-index: 99; pointer-events: none; }
     .snap-line-h { position: absolute; left: 0; right: 0; height: 1px; background: #ef4444; z-index: 99; pointer-events: none; }
   </style>
+	<script>
+  // 1. Динамическая генерация манифеста под каждый отдельный HTML файл
+  const dynamicManifest = {
+    "name": document.title || "Мое веб-приложение",
+    "short_name": document.title.split(' ')[0] || "App",
+    "start_url": window.location.pathname.split('/').pop() || "./index.html",
+    "display": "standalone",
+    "background_color": "#121214",
+    "theme_color": "#0070f3",
+    "icons": [
+      {
+        "src": "https://cdn-icons-png.flaticon.com/512/3076/3076137.png",
+        "sizes": "192x192",
+        "type": "image/png"
+      },
+      {
+        "src": "https://cdn-icons-png.flaticon.com/512/3076/3076137.png",
+        "sizes": "512x512",
+        "type": "image/png"
+      }
+    ]
+  };
+
+  const stringManifest = JSON.stringify(dynamicManifest);
+  const blob = new Blob([stringManifest], { type: 'application/manifest+json' });
+  const manifestURL = URL.createObjectURL(blob);
+  
+  const manifestTag = document.createElement('link');
+  manifestTag.rel = 'manifest';
+  manifestTag.href = manifestURL;
+  document.head.appendChild(manifestTag);
+
+  // 2. Регистрация универсального Service Worker из корня папки
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js')
+        .then(() => console.log('Универсальный SW зарегистрирован для:', document.title))
+        .catch((err) => console.log('Ошибка SW:', err));
+    });
+  }
+</script>
+
 </head>
 <body class="bg-slate-950 text-slate-100 h-screen w-screen flex flex-col font-sans overflow-hidden">
 
