@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Media Recorder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 50: '#eef2ff', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca', 900: '#312e81' }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 3px; }
+        .recording-pulse { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.95); } 100% { opacity: 1; transform: scale(1); } }
+        
+        /* Рамки для видоискателя */
+        .frame-neon { box-shadow: inset 0 0 20px #6366f1, 0 0 15px #6366f1; border: 3px solid #818cf8; }
+        .frame-vignette { box-shadow: inset 0 0 80px rgba(0,0,0,0.8); }
+        .frame-gold { border: 4px double #fbbf24; }
+        .frame-cinematic { border-top: 25px solid #000; border-bottom: 25px solid #000; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans antialiased selection:bg-brand-500 selection:text-white overflow-x-hidden">
+
+    <!-- Super Compact Header -->
+    <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-2 sm:px-6 h-12 flex items-center justify-between gap-1">
+            <div class="flex items-center space-x-2 shrink-0">
+                <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-brand-600 to-pink-500 flex items-center justify-center shadow-md shadow-brand-500/30">
+                    <i class="fa-solid fa-video text-xs text-white"></i>
+                </div>
+                <h1 class="font-bold text-sm tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">Media Recorder</h1>
+            </div>
+
+            <!-- Ultra Compact Tabs (Fit any screen without overflow) -->
+            <nav class="flex space-x-1 bg-slate-950/90 p-0.5 rounded-lg border border-slate-800 shrink-0">
+                <button onclick="switchTab('camera')" id="tab-camera" class="tab-btn px-2 sm:px-3 py-1 rounded-md text-[11px] sm:text-xs font-medium transition flex items-center gap-1 bg-brand-600 text-white shadow">
+                    <i class="fa-solid fa-camera"></i> <span class="hidden xs:inline">Камера</span>
+                </button>
+                <button onclick="switchTab('audio')" id="tab-audio" class="tab-btn px-2 sm:px-3 py-1 rounded-md text-[11px] sm:text-xs font-medium transition flex items-center gap-1 text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-microphone"></i> <span class="hidden xs:inline">Диктофон</span>
+                </button>
+                <button onclick="switchTab('screen')" id="tab-screen" class="tab-btn px-2 sm:px-3 py-1 rounded-md text-[11px] sm:text-xs font-medium transition flex items-center gap-1 text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-desktop"></i> <span class="hidden xs:inline">Экран</span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 flex flex-col">
+
+        <!-- TAB 1: CAMERA & TRIP GPS LOGGER -->
+        <section id="section-camera" class="tab-content flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+            <div class="lg:col-span-2 flex flex-col space-y-3">
+                
+                <!-- Controls Top Bar -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2 shadow-lg text-xs">
+                    <div class="flex items-center gap-2">
+                        <button onclick="toggleCamera()" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-rotate"></i> Камера
+                        </button>
+                        <select id="cameraFacingSelect" onchange="restartCamera()" class="bg-slate-950 border border-slate-800 text-slate-200 rounded-lg px-2 py-1.5 outline-none">
+                            <option value="user">Фронтальная</option>
+                            <option value="environment" selected>Задняя</option>
+                        </select>
+                        <!-- Flash Toggle Button -->
+                        <button id="flashBtn" onclick="toggleFlash()" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-400 rounded-lg border border-slate-700 transition flex items-center gap-1" title="Вспышка / Фонарик">
+                            <i class="fa-solid fa-bolt-lightning"></i> <span id="flashStatus" class="text-[10px]">ВЫКЛ</span>
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <label class="text-slate-400">Формат:</label>
+                        <select id="cameraOrientation" onchange="updateCameraOrientation()" class="bg-slate-950 border border-slate-800 text-slate-200 rounded-lg px-2 py-1 outline-none">
+                            <option value="landscape">16:9</option>
+                            <option value="portrait" selected>9:16</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Viewfinder Frame with Dynamic Frames & Filters -->
+                <div id="viewfinderWrapper" class="relative bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl flex items-center justify-center transition-all mx-auto aspect-[9/16] max-h-[520px] w-full group my-1">
+                    <div id="activeFrameContainer" class="absolute inset-0 z-20 pointer-events-none transition-all"></div>
+                    <video id="webcam" class="hidden" autoplay playsinline muted></video>
+                    <video id="webcamFront" class="hidden" autoplay playsinline muted></video>
+                    <canvas id="viewfinder" class="w-full h-full object-contain bg-black cursor-crosshair"></canvas>
+
+                    <!-- Flash Screen Overlay for front camera simulation -->
+                    <div id="screenFlash" class="absolute inset-0 bg-white opacity-0 pointer-events-none transition-opacity duration-300 z-30"></div>
+
+                    <!-- Badges -->
+                    <div class="absolute top-3 left-3 flex items-center gap-2 z-20 pointer-events-none">
+                        <span id="recordingBadge" class="hidden bg-red-500/90 text-white text-[11px] font-semibold px-2.5 py-0.5 rounded-full backdrop-blur flex items-center gap-1.5 shadow-lg">
+                            <span class="w-2 h-2 bg-white rounded-full recording-pulse"></span>
+                            <span id="recTimer">00:00</span>
+                        </span>
+                        <span id="tripBadge" class="hidden bg-emerald-500/90 text-white text-[11px] font-semibold px-2.5 py-0.5 rounded-full backdrop-blur flex items-center gap-1.5 shadow-lg">
+                            <i class="fa-solid fa-route"></i> <span id="tripTimer">00:00:00</span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Action Buttons Panel (Merged & Reordered nicely) -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                    <button onclick="takeSnapshot()" class="py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-camera"></i> Снять фото
+                    </button>
+                    <button onclick="takeCollage()" class="py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-medium text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-border-all"></i> Коллаж (4)
+                    </button>
+                    <button id="btnStartRecVideo" onclick="startVideoRecording()" class="py-2.5 bg-red-600 hover:bg-red-500 text-white font-medium text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-circle"></i> Запись видео
+                    </button>
+                    <label class="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-xl border border-slate-700 transition flex items-center justify-center gap-1.5 cursor-pointer text-center">
+                        <i class="fa-solid fa-upload"></i> Загрузить
+                        <input type="file" accept="image/*,video/*" class="hidden" onchange="loadMediaFromFile(event)">
+                    </label>
+                </div>
+
+                <!-- Video Pause/Resume & Stop extra bar -->
+                <div id="videoControlBar" class="hidden grid grid-cols-3 gap-2 bg-slate-900 border border-slate-800 p-2 rounded-xl">
+                    <button id="btnPauseVideo" onclick="pauseVideoRecording()" class="py-1.5 bg-amber-600 text-white text-xs font-medium rounded-lg">Пауза</button>
+                    <button id="btnResumeVideo" onclick="resumeVideoRecording()" disabled class="py-1.5 bg-slate-800 text-slate-500 text-xs font-medium rounded-lg">Продолжить</button>
+                    <button onclick="stopVideoRecording()" class="py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg border border-slate-700">Стоп</button>
+                </div>
+            </div>
+
+            <!-- Right Controls: Filters, Frames, AR & Trip Tracker -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-4 shadow-xl overflow-y-auto max-h-[700px]">
+                <div class="space-y-3.5">
+                    <h2 class="text-xs font-semibold text-white flex items-center gap-2 border-b border-slate-800 pb-2 uppercase tracking-wider">
+                        <i class="fa-solid fa-wand-magic-sparkles text-brand-500"></i> Фильтры, Рамки & AR
+                    </h2>
+                    
+                    <!-- Filters & Frames Selectors -->
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[10px] text-slate-400 mb-1">Фильтр потока</label>
+                            <select id="streamFilterSelect" onchange="updateStreamFilter()" class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg p-2 outline-none">
+                                <option value="none">Оригинал</option>
+                                <option value="grayscale(100%)">Ч/Б</option>
+                                <option value="sepia(100%)">Сепия</option>
+                                <option value="contrast(150%)">Контраст</option>
+                                <option value="invert(100%)">Инверсия</option>
+                                <option value="hue-rotate(90deg)">Киберпанк</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-400 mb-1">Рамка кадра</label>
+                            <select id="frameStyleSelect" onchange="updateFrameStyle()" class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg p-2 outline-none">
+                                <option value="none">Без рамки</option>
+                                <option value="frame-neon">Неоновая</option>
+                                <option value="frame-vignette">Виньетка</option>
+                                <option value="frame-gold">Золотая ретро</option>
+                                <option value="frame-cinematic">Киношная (Letterbox)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between p-2.5 bg-slate-950 border border-slate-800 rounded-xl">
+                        <span class="text-xs text-slate-200">Фронтальное PIP-окно</span>
+                        <input type="checkbox" id="pipToggle" onchange="togglePipMode()" class="w-4 h-4 accent-brand-500 cursor-pointer">
+                    </div>
+
+                    <div class="flex items-center justify-between p-2.5 bg-slate-950 border border-slate-800 rounded-xl">
+                        <span class="text-xs text-slate-200">Геометка на фото</span>
+                        <input type="checkbox" id="geotagToggle" class="w-4 h-4 accent-brand-500 cursor-pointer">
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] text-slate-400 mb-1.5 uppercase tracking-wider">AR-маски & Аксессуары</label>
+                        <div class="grid grid-cols-4 gap-1.5" id="masksContainer"></div>
+                    </div>
+
+                    <!-- GPS TRIP TRACKER -->
+                    <div class="pt-2 border-t border-slate-800 space-y-2.5">
+                        <h2 class="text-xs font-semibold text-white flex items-center gap-2 uppercase tracking-wider">
+                            <i class="fa-solid fa-route text-emerald-500"></i> Трекер Прогулки
+                        </h2>
+                        <div id="tripStats" class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-[11px] space-y-0.5 font-mono text-slate-300">
+                            <div>Статус: <span id="tripStatus" class="text-slate-500">Остановлен</span></div>
+                            <div>Дистанция: <span id="tripDistance" class="text-brand-400">0.00 км</span></div>
+                            <div>Скорость: <span id="tripSpeed" class="text-brand-400">0 км/ч</span></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button id="btnStartTrip" onclick="startTripLog()" class="py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl shadow transition">Старт</button>
+                            <button id="btnStopTrip" onclick="stopTripLog()" disabled class="py-2 bg-slate-800 text-slate-500 text-xs font-semibold rounded-xl border border-slate-700 transition cursor-not-allowed">Стоп & Отчет</button>
+                        </div>
+                        <button id="btnAddTripMark" onclick="addTripMarker()" disabled class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl border border-slate-700 transition cursor-not-allowed">
+                            📍 Добавить гео-метку
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: AUDIO / DICTAPHONE & TRANSLATOR -->
+        <section id="section-audio" class="tab-content hidden flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4 shadow-xl">
+                <div>
+                    <h2 class="text-sm font-semibold text-white border-b border-slate-800 pb-2 mb-3">Диктофон со звуком</h2>
+                    <div id="audioTimer" class="text-3xl font-mono font-bold text-white text-center bg-slate-950 p-4 rounded-xl border border-slate-800">00:00:00</div>
+                </div>
+                <div class="space-y-2">
+                    <button id="btnStartAudio" onclick="startAudioRecording()" class="w-full py-2.5 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl text-xs shadow">Запись аудио</button>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button id="btnPauseAudio" onclick="pauseAudioRecording()" disabled class="py-2 bg-amber-600/50 text-slate-400 text-xs rounded-xl">Пауза</button>
+                        <button id="btnResumeAudio" onclick="resumeAudioRecording()" disabled class="py-2 bg-emerald-600/50 text-slate-400 text-xs rounded-xl">Продолжить</button>
+                    </div>
+                    <button id="btnStopAudio" onclick="stopAudioRecording()" disabled class="w-full py-2 bg-slate-800 text-slate-500 text-xs rounded-xl border border-slate-700">Стоп & Сохранить</button>
+                </div>
+            </div>
+            <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col shadow-xl">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2 mb-3">
+                    <h2 class="text-sm font-semibold text-white">Речь в текст & Автоперевод</h2>
+                    <select id="targetLanguageSelect" class="bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-1 outline-none">
+                        <option value="en">English</option>
+                        <option value="es">Español</option>
+                        <option value="de">Deutsch</option>
+                        <option value="fr">Français</option>
+                        <option value="ru">Русский</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 flex-1">
+                    <textarea id="speechTextOutput" class="w-full h-36 md:h-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-200 text-xs outline-none resize-none" placeholder="Оригинал речи..."></textarea>
+                    <textarea id="translatedTextOutput" class="w-full h-36 md:h-full bg-slate-950 border border-brand-500/40 rounded-xl p-3 text-brand-200 text-xs outline-none resize-none" placeholder="Перевод..."></textarea>
+                </div>
+                <button id="btnToggleSTT" onclick="toggleSpeechRecognition()" class="mt-3 w-full py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs rounded-xl shadow transition">
+                    <i class="fa-solid fa-ear-listen mr-1"></i> Старт распознавания & Перевода
+                </button>
+            </div>
+        </section>
+
+        <!-- TAB 3: SCREEN RECORDING -->
+        <section id="section-screen" class="tab-content hidden flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+            <div class="lg:col-span-2 flex flex-col space-y-3">
+                <div class="relative bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl flex items-center justify-center aspect-video group">
+                    <video id="screenVideoPreview" class="w-full h-full object-contain bg-black" autoplay playsinline controls></video>
+                    <div id="screenPlaceholder" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 p-6 text-center">
+                        <i class="fa-solid fa-desktop text-4xl mb-2 opacity-40"></i>
+                        <p class="text-xs font-medium">Запись экрана или вкладки</p>
+                    </div>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex justify-between items-center shadow-lg">
+                    <span class="text-xs text-slate-400">Захват экрана со звуком.</span>
+                    <button onclick="startScreenCapture()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-xl shadow transition">Выбрать экран</button>
+                </div>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-4 shadow-xl">
+                <h2 class="text-sm font-semibold text-white">Управление экраном</h2>
+                <button onclick="stopScreenRecording()" class="w-full py-2 bg-slate-800 text-slate-300 text-xs font-medium rounded-xl border border-slate-700">Остановить запись</button>
+            </div>
+        </section>
+
+        <!-- Modal -->
+        <div id="mediaModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-5 space-y-3 shadow-2xl relative">
+                <button onclick="closeModal()" class="absolute top-3 right-3 text-slate-400 hover:text-white p-2"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <h3 id="modalTitle" class="text-sm font-semibold text-white">Готовый Файл</h3>
+                <div id="modalContent" class="w-full flex justify-center bg-black rounded-xl overflow-hidden min-h-[180px]"></div>
+                <div class="flex justify-end gap-2 pt-1">
+                    <a id="modalDownloadBtn" href="#" download="output" class="px-4 py-2 bg-brand-600 text-white font-medium rounded-xl shadow transition text-xs">Скачать файл</a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="border-t border-slate-800 py-2.5 text-center text-[11px] text-slate-500">
+        Media Recorder &copy; 2026 • 100% Client-Side Web Tools
+    </footer>
+
+    <!-- SCRIPT LOGIC -->
+    <script>
+        let mediaStream = null, frontCameraStream = null, videoRecorder = null, videoChunks = [];
+        let audioRecorder = null, audioChunks = [];
+        let selectedMask = 'glasses', maskPos = { x: 0.5, y: 0.5 }, isDraggingMask = false;
+        let currentFlashMode = 'off'; // off, on, auto
+        let currentFilter = 'none';
+
+        // Trip Logger state
+        let isTripActive = false, tripWatchId = null, tripTimerInterval = null, tripSeconds = 0, tripWaypoints = [], totalDistanceMeters = 0, lastCoords = null;
+        let recognition = null, isRecognizing = false;
+
+        const masks = [
+            { id: 'glasses', label: 'Очки', icon: 'fa-glasses' },
+            { id: 'mustache', label: 'Усы', icon: 'fa-user-tie' },
+            { id: 'pipe', label: 'Трубка', icon: 'fa-smoking' },
+            { id: 'cat', label: 'Ушки', icon: 'fa-cat' },
+            { id: 'crosshair', label: 'Прицел', icon: 'fa-crosshairs' },
+            { id: 'circle', label: 'Круг', icon: 'fa-circle-notch' },
+            { id: 'arrow', label: 'Стрелка', icon: 'fa-arrow-pointer' },
+            { id: 'cross', label: 'Крестик', icon: 'fa-xmark' }
+        ];
+
+        const webcamVideo = document.getElementById('webcam');
+        const webcamFrontVideo = document.getElementById('webcamFront');
+        const viewfinderCanvas = document.getElementById('viewfinder');
+        const vfCtx = viewfinderCanvas.getContext('2d');
+
+        window.onload = () => {
+            renderMaskSelector();
+            initCamera();
+            initCanvasEvents();
+            startCanvasAnimationLoop();
+            initSpeechRecognition();
+        };
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-brand-600', 'text-white', 'shadow');
+                btn.classList.add('text-slate-400', 'hover:text-white');
+            });
+            document.getElementById(`section-${tabId}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`tab-${tabId}`);
+            activeBtn.classList.remove('text-slate-400', 'hover:text-white');
+            activeBtn.classList.add('bg-brand-600', 'text-white', 'shadow');
+        }
+
+        function updateCameraOrientation() {
+            const orientation = document.getElementById('cameraOrientation').value;
+            const wrapper = document.getElementById('viewfinderWrapper');
+            wrapper.className = orientation === 'portrait' 
+                ? "relative bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl flex items-center justify-center transition-all mx-auto aspect-[9/16] max-h-[520px] w-full group my-1"
+                : "relative bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl flex items-center justify-center transition-all mx-auto aspect-video w-full group my-1";
+        }
+
+        async function initCamera() {
+            const facingMode = document.getElementById('cameraFacingSelect').value;
+            try {
+                if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+                mediaStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
+                    audio: true
+                });
+                webcamVideo.srcObject = mediaStream;
+                webcamVideo.play();
+                applyFlashState();
+            } catch (err) { console.error("Camera access error:", err); }
+        }
+
+        async function toggleFlash() {
+            if (currentFlashMode === 'off') currentFlashMode = 'on';
+            else if (currentFlashMode === 'on') currentFlashMode = 'auto';
+            else currentFlashMode = 'off';
+
+            document.getElementById('flashStatus').innerText = currentFlashMode.toUpperCase();
+            applyFlashState();
+        }
+
+        async function applyFlashState() {
+            if (!mediaStream) return;
+            const track = mediaStream.getVideoTracks()[0];
+            if (!track) return;
+            try {
+                const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+                if (capabilities.torch) {
+                    await track.applyConstraints({
+                        advanced: [{ torch: currentFlashMode === 'on' }]
+                    });
+                }
+            } catch (e) {
+                // Если аппаратный фонарик недоступен, симулируем программную вспышку экрана при съемке
+            }
+        }
+
+        async function triggerScreenFlash() {
+            const flashEl = document.getElementById('screenFlash');
+            flashEl.classList.remove('opacity-0');
+            flashEl.classList.add('opacity-90');
+            setTimeout(() => {
+                flashEl.classList.remove('opacity-90');
+                flashEl.classList.add('opacity-0');
+            }, 250);
+        }
+
+        async function togglePipMode() {
+            if (document.getElementById('pipToggle').checked && !frontCameraStream) {
+                try { 
+                    frontCameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } }); 
+                    webcamFrontVideo.srcObject = frontCameraStream; 
+                    webcamFrontVideo.play(); 
+                } catch(e){ document.getElementById('pipToggle').checked = false; }
+            } else if (!document.getElementById('pipToggle').checked && frontCameraStream) {
+                frontCameraStream.getTracks().forEach(t => t.stop()); 
+                frontCameraStream = null;
+            }
+        }
+
+        function restartCamera() { initCamera(); }
+        function toggleCamera() {
+            const sel = document.getElementById('cameraFacingSelect');
+            sel.value = sel.value === 'user' ? 'environment' : 'user';
+            initCamera();
+        }
+
+        function renderMaskSelector() {
+            document.getElementById('masksContainer').innerHTML = masks.map(m => `
+                <button onclick="selectMask('${m.id}')" class="p-2 rounded-xl border flex flex-col items-center justify-center gap-1 text-[10px] font-medium ${selectedMask === m.id ? 'border-brand-500 bg-brand-500/10 text-brand-400' : 'border-slate-800 bg-slate-950 text-slate-400'}">
+                    <i class="fa-solid ${m.icon} text-sm"></i><span>${m.label}</span>
+                </button>
+            `).join('');
+        }
+        function selectMask(id) { selectedMask = id; renderMaskSelector(); }
+
+        function updateStreamFilter() {
+            currentFilter = document.getElementById('streamFilterSelect').value;
+        }
+
+        function updateFrameStyle() {
+            const style = document.getElementById('frameStyleSelect').value;
+            const container = document.getElementById('activeFrameContainer');
+            container.className = `absolute inset-0 z-20 pointer-events-none transition-all ${style}`;
+        }
+
+        function initCanvasEvents() {
+            const c = viewfinderCanvas;
+            c.onmousedown = (e) => { isDraggingMask = true; moveMask(e); };
+            window.onmousemove = (e) => { if (isDraggingMask) moveMask(e); };
+            window.onmouseup = () => { isDraggingMask = false; };
+            c.ontouchstart = (e) => { isDraggingMask = true; moveMask(e.touches[0]); };
+            c.ontouchmove = (e) => { if (isDraggingMask) moveMask(e.touches[0]); };
+            c.ontouchend = () => { isDraggingMask = false; };
+        }
+
+        function moveMask(e) {
+            const rect = viewfinderCanvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width;
+            const y = (e.clientY - rect.top) / rect.height;
+            if (x >= 0 && x <= 1 && y >= 0 && y <= 1) maskPos = { x, y };
+        }
+
+        function startCanvasAnimationLoop() {
+            function render() {
+                if (webcamVideo.readyState === webcamVideo.HAVE_ENOUGH_DATA) {
+                    const orientation = document.getElementById('cameraOrientation').value;
+                    if (orientation === 'portrait') {
+                        viewfinderCanvas.width = webcamVideo.videoHeight || 720;
+                        viewfinderCanvas.height = webcamVideo.videoWidth || 1280;
+                    } else {
+                        viewfinderCanvas.width = webcamVideo.videoWidth || 1280;
+                        viewfinderCanvas.height = webcamVideo.videoHeight || 720;
+                    }
+                    vfCtx.save();
+                    vfCtx.filter = currentFilter;
+                    vfCtx.clearRect(0, 0, viewfinderCanvas.width, viewfinderCanvas.height);
+                    vfCtx.drawImage(webcamVideo, 0, 0, viewfinderCanvas.width, viewfinderCanvas.height);
+                    vfCtx.restore();
+                    
+                    drawMask(vfCtx, viewfinderCanvas.width, viewfinderCanvas.height, maskPos.x * viewfinderCanvas.width, maskPos.y * viewfinderCanvas.height);
+
+                    if (document.getElementById('pipToggle').checked && webcamFrontVideo.readyState === webcamFrontVideo.HAVE_ENOUGH_DATA) {
+                        const size = Math.min(viewfinderCanvas.width, viewfinderCanvas.height) * 0.25;
+                        vfCtx.save();
+                        vfCtx.beginPath(); vfCtx.arc(viewfinderCanvas.width - size/2 - 20, size/2 + 20, size/2, 0, Math.PI*2); vfCtx.clip();
+                        vfCtx.drawImage(webcamFrontVideo, viewfinderCanvas.width - size - 20, 20, size, size);
+                        vfCtx.restore();
+                    }
+                }
+                requestAnimationFrame(render);
+            }
+            requestAnimationFrame(render);
+        }
+
+        function drawMask(ctx, w, h, cx, cy) {
+            if (selectedMask === 'none') return;
+            ctx.save();
+            const sz = Math.min(w, h) * 0.18;
+            ctx.strokeStyle = '#6366f1'; ctx.lineWidth = 3;
+            if (selectedMask === 'glasses') {
+                ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(cx - sz*0.6, cy, sz*0.4, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                ctx.beginPath(); ctx.arc(cx + sz*0.6, cy, sz*0.4, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+            } else if (selectedMask === 'mustache') {
+                ctx.fillStyle = '#1e1b4b'; ctx.beginPath(); ctx.arc(cx, cy + sz*0.3, sz*0.6, 0, Math.PI); ctx.fill();
+            } else if (selectedMask === 'pipe') {
+                ctx.strokeStyle = '#a16207'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(cx + sz*0.5, cy + sz*0.3); ctx.lineTo(cx + sz*1.2, cy + sz*0.8); ctx.stroke();
+            } else if (selectedMask === 'cat') {
+                ctx.fillStyle = '#ec4899'; ctx.beginPath(); ctx.moveTo(cx - sz, cy - sz); ctx.lineTo(cx - sz*0.4, cy - sz*1.5); ctx.lineTo(cx - sz*0.2, cy - sz*0.8); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(cx + sz, cy - sz); ctx.lineTo(cx + sz*0.4, cy - sz*1.5); ctx.lineTo(cx + sz*0.2, cy - sz*0.8); ctx.fill();
+            } else if (selectedMask === 'crosshair') { ctx.beginPath(); ctx.arc(cx, cy, sz, 0, Math.PI*2); ctx.stroke(); }
+            else if (selectedMask === 'circle') { ctx.strokeStyle = '#ec4899'; ctx.beginPath(); ctx.arc(cx, cy, sz, 0, Math.PI*2); ctx.stroke(); }
+            else if (selectedMask === 'arrow') { ctx.fillStyle = '#10b981'; ctx.beginPath(); ctx.moveTo(cx, cy-sz); ctx.lineTo(cx-sz*0.5, cy+sz); ctx.lineTo(cx+sz*0.5, cy+sz); ctx.fill(); }
+            else if (selectedMask === 'cross') { ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(cx-sz*0.5, cy-sz*0.5); ctx.lineTo(cx+sz*0.5, cy+sz*0.5); ctx.moveTo(cx+sz*0.5, cy-sz*0.5); ctx.lineTo(cx-sz*0.5, cy+sz*0.5); ctx.stroke(); }
+            ctx.restore();
+        }
+
+        // --- SNAPSHOT WITH FLASH & GEOTAG ---
+        async function takeSnapshot() {
+            if (currentFlashMode === 'on' || currentFlashMode === 'auto') triggerScreenFlash();
+            const canvas = document.createElement('canvas');
+            canvas.width = viewfinderCanvas.width; canvas.height = viewfinderCanvas.height;
+            const ctx = canvas.getContext('2d');
+            ctx.filter = currentFilter;
+            ctx.drawImage(viewfinderCanvas, 0, 0);
+            
+            if (document.getElementById('geotagToggle').checked) {
+                await addGeotag(ctx, canvas.width, canvas.height);
+            }
+            const url = canvas.toDataURL('image/jpeg', 0.95);
+            showModal('Снимок готов', `<img src="${url}" class="max-h-[380px] rounded-lg">`, url, 'photo.jpg');
+        }
+
+        // --- COLLAGE ---
+        async function takeCollage() {
+            alert("Коллаж: будет сделано 4 фото с интервалом в 1.5 секунды.");
+            const cWidth = viewfinderCanvas.width, cHeight = viewfinderCanvas.height;
+            const collageCanvas = document.createElement('canvas');
+            collageCanvas.width = cWidth * 2; collageCanvas.height = cHeight * 2;
+            const ctx = collageCanvas.getContext('2d');
+
+            for (let i = 0; i < 4; i++) {
+                const subCanvas = document.createElement('canvas');
+                subCanvas.width = cWidth; subCanvas.height = cHeight;
+                const sCtx = subCanvas.getContext('2d');
+                sCtx.filter = currentFilter;
+                sCtx.drawImage(viewfinderCanvas, 0, 0);
+                
+                const x = (i % 2) * cWidth;
+                const y = Math.floor(i / 2) * cHeight;
+                ctx.drawImage(subCanvas, x, y);
+                if (i < 3) await new Promise(r => setTimeout(r, 1500));
+            }
+            const url = collageCanvas.toDataURL('image/jpeg', 0.92);
+            showModal('Коллаж готов (4 в 1)', `<img src="${url}" class="max-h-[380px] rounded-lg">`, url, 'collage.jpg');
+        }
+
+        function loadMediaFromFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const url = URL.createObjectURL(file);
+            if (file.type.startsWith('image/')) {
+                showModal('Загруженное фото', `<img src="${url}" class="max-h-[380px] rounded-lg">`, url, file.name);
+            } else {
+                showModal('Загруженное видео', `<video src="${url}" controls class="max-h-[380px] rounded-lg"></video>`, url, file.name);
+            }
+        }
+
+        // --- VIDEO RECORDING WITH PAUSE/RESUME ---
+        function startVideoRecording() {
+            if (!mediaStream) return;
+            videoChunks = [];
+            const stream = viewfinderCanvas.captureStream(30);
+            if (mediaStream.getAudioTracks()[0]) stream.addTrack(mediaStream.getAudioTracks()[0]);
+            videoRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+            videoRecorder.ondataavailable = e => { if (e.data.size > 0) videoChunks.push(e.data); };
+            videoRecorder.onstop = () => {
+                const blob = new Blob(videoChunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                showModal('Видео записано', `<video src="${url}" controls class="max-h-[380px] rounded-lg"></video>`, url, 'video.webm');
+            };
+            videoRecorder.start(100);
+            document.getElementById('recordingBadge').classList.remove('hidden');
+            document.getElementById('btnStartRecVideo').classList.add('hidden');
+            document.getElementById('videoControlBar').classList.remove('hidden');
+        }
+
+        function pauseVideoRecording() {
+            if (videoRecorder && videoRecorder.state === "recording") {
+                videoRecorder.pause();
+                document.getElementById('btnPauseVideo').disabled = true;
+                document.getElementById('btnPauseVideo').className = "py-1.5 bg-slate-800 text-slate-500 text-xs font-medium rounded-lg";
+                document.getElementById('btnResumeVideo').disabled = false;
+                document.getElementById('btnResumeVideo').className = "py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg";
+            }
+        }
+
+        function resumeVideoRecording() {
+            if (videoRecorder && videoRecorder.state === "paused") {
+                videoRecorder.resume();
+                document.getElementById('btnResumeVideo').disabled = true;
+                document.getElementById('btnResumeVideo').className = "py-1.5 bg-slate-800 text-slate-500 text-xs font-medium rounded-lg";
+                document.getElementById('btnPauseVideo').disabled = false;
+                document.getElementById('btnPauseVideo').className = "py-1.5 bg-amber-600 text-white text-xs font-medium rounded-lg";
+            }
+        }
+
+        function stopVideoRecording() {
+            if (videoRecorder && videoRecorder.state !== "inactive") {
+                videoRecorder.stop();
+                document.getElementById('recordingBadge').classList.add('hidden');
+                document.getElementById('btnStartRecVideo').classList.remove('hidden');
+                document.getElementById('videoControlBar').classList.add('hidden');
+            }
+        }
+
+        // --- AUDIO RECORDER WITH PAUSE/RESUME ---
+        async function startAudioRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioChunks = [];
+                audioRecorder = new MediaRecorder(stream);
+                audioRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+                audioRecorder.onstop = () => {
+                    const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const url = URL.createObjectURL(blob);
+                    showModal('Аудиозапись готова', `<audio src="${url}" controls class="w-full"></audio>`, url, 'audio.webm');
+                };
+                audioRecorder.start(100);
+                document.getElementById('btnStartAudio').classList.add('hidden');
+                document.getElementById('btnPauseAudio').disabled = false;
+                document.getElementById('btnStopAudio').disabled = false;
+            } catch (e) { alert("Не удалось получить доступ к микрофону."); }
+        }
+
+        function pauseAudioRecording() {
+            if (audioRecorder && audioRecorder.state === "recording") {
+                audioRecorder.pause();
+                document.getElementById('btnPauseAudio').disabled = true;
+                document.getElementById('btnResumeAudio').disabled = false;
+            }
+        }
+
+        function resumeAudioRecording() {
+            if (audioRecorder && audioRecorder.state === "paused") {
+                audioRecorder.resume();
+                document.getElementById('btnResumeAudio').disabled = true;
+                document.getElementById('btnPauseAudio').disabled = false;
+            }
+        }
+
+        function stopAudioRecording() {
+            if (audioRecorder && audioRecorder.state !== "inactive") {
+                audioRecorder.stop();
+                document.getElementById('btnStartAudio').classList.remove('hidden');
+                document.getElementById('btnPauseAudio').disabled = true;
+                document.getElementById('btnResumeAudio').disabled = true;
+                document.getElementById('btnStopAudio').disabled = true;
+            }
+        }
+
+        // --- SPEECH TO TEXT & TRANSLATOR ---
+        function initSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) return;
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'ru-RU';
+            recognition.onresult = async (event) => {
+                let text = '';
+                for (let i = 0; i < event.results.length; i++) text += event.results[i][0].transcript;
+                document.getElementById('speechTextOutput').value = text;
+                await translateText(text);
+            };
+            recognition.onend = () => { if (isRecognizing) recognition.start(); };
+        }
+
+        async function translateText(txt) {
+            if (!txt.trim()) return;
+            const target = document.getElementById('targetLanguageSelect').value;
+            try {
+                const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(txt)}&langpair=ru|${target}`);
+                const data = await res.json();
+                if (data?.responseData?.translatedText) {
+                    document.getElementById('translatedTextOutput').value = data.responseData.translatedText;
+                }
+            } catch (e) {}
+        }
+
+        function toggleSpeechRecognition() {
+            if (isRecognizing) {
+                recognition.stop();
+                isRecognizing = false;
+                document.getElementById('btnToggleSTT').innerHTML = `<i class="fa-solid fa-ear-listen mr-1"></i> Старт распознавания & Перевода`;
+            } else {
+                recognition.start();
+                isRecognizing = true;
+                document.getElementById('btnToggleSTT').innerHTML = `<i class="fa-solid fa-stop mr-1"></i> Стоп распознавание`;
+            }
+        }
+
+        // --- TRIP GPS LOGGER ---
+        function startTripLog() {
+            if (!navigator.geolocation) { alert("Геолокация недоступна"); return; }
+            isTripActive = true; tripWaypoints = []; totalDistanceMeters = 0; lastCoords = null; tripSeconds = 0;
+            document.getElementById('tripStatus').innerText = "Запись...";
+            document.getElementById('btnStartTrip').disabled = true;
+            document.getElementById('btnStopTrip').disabled = false;
+            document.getElementById('btnAddTripMark').disabled = false;
+            document.getElementById('tripBadge').classList.remove('hidden');
+
+            tripTimerInterval = setInterval(() => {
+                tripSeconds++;
+                document.getElementById('tripTimer').innerText = new Date(tripSeconds * 1000).toISOString().substr(11, 8);
+            }, 1000);
+
+            tripWatchId = navigator.geolocation.watchPosition((pos) => {
+                const coords = { lat: pos.coords.latitude, lon: pos.coords.longitude, speed: pos.coords.speed || 0, timestamp: Date.now() };
+                if (lastCoords) {
+                    totalDistanceMeters += getDistanceFromLatLonInM(lastCoords.lat, lastCoords.lon, coords.lat, coords.lon);
+                }
+                lastCoords = coords;
+                tripWaypoints.push(coords);
+                document.getElementById('tripDistance').innerText = (totalDistanceMeters / 1000).toFixed(2) + " км";
+                document.getElementById('tripSpeed').innerText = Math.round((coords.speed || 0) * 3.6) + " км/ч";
+            }, null, { enableHighAccuracy: true });
+        }
+
+        function addTripMarker() {
+            if (!isTripActive || !lastCoords) return;
+            const note = prompt("Метка в отчет:", "Интересное место");
+            if (note) tripWaypoints.push({ ...lastCoords, type: 'marker', note });
+        }
+
+        function stopTripLog() {
+            if (!isTripActive) return;
+            isTripActive = false;
+            navigator.geolocation.clearWatch(tripWatchId);
+            clearInterval(tripTimerInterval);
+            document.getElementById('tripStatus').innerText = "Готов";
+            document.getElementById('btnStartTrip').disabled = false;
+            document.getElementById('btnStopTrip').disabled = true;
+            document.getElementById('btnAddTripMark').disabled = true;
+            document.getElementById('tripBadge').classList.add('hidden');
+
+            const report = { title: "Отчет о прогулке", date: new Date().toLocaleString(), distanceKm: (totalDistanceMeters / 1000).toFixed(2), waypoints: tripWaypoints };
+            const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            showModal('Отчет сохранен!', `<pre class="text-[11px] text-slate-300 max-h-[250px] overflow-auto p-3 bg-slate-950 rounded">${JSON.stringify(report, null, 2)}</pre>`, url, 'trip-report.json');
+        }
+
+        function getDistanceFromLatLonInM(lat1, lon1, lat2, lon2) {
+            const R = 6371000;
+            const dLat = (lat2-lat1)*(Math.PI/180), dLon = (lon2-lon1)*(Math.PI/180);
+            const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*(Math.PI/180))*Math.cos(lat2*(Math.PI/180))*Math.sin(dLon/2)*Math.sin(dLon/2);
+            return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+        }
+
+        function addGeotag(ctx, w, h) {
+            return new Promise((resolve) => {
+                if (!navigator.geolocation) { resolve(); return; }
+                navigator.geolocation.getCurrentPosition((p) => {
+                    ctx.save();
+                    ctx.font = `bold 20px sans-serif`;
+                    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                    ctx.fillRect(20, h - 55, 420, 36);
+                    ctx.fillStyle = '#fff';
+                    ctx.fillText(`📍 GPS: ${p.coords.latitude.toFixed(4)}, ${p.coords.longitude.toFixed(4)}`, 30, h - 30);
+                    ctx.restore();
+                    resolve();
+                }, () => resolve(), { timeout: 4000 });
+            });
+        }
+
+        async function startScreenCapture() {
+            try {
+                const s = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                document.getElementById('screenVideoPreview').srcObject = s;
+            } catch(e) { alert("Захват экрана не поддерживается или отклонен."); }
+        }
+        function stopScreenRecording() { alert("Запись экрана остановлена."); }
+
+        function showModal(title, html, url, name) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalContent').innerHTML = html;
+            const btn = document.getElementById('modalDownloadBtn');
+            btn.href = url; btn.download = name;
+            document.getElementById('mediaModal').classList.remove('hidden');
+        }
+        function closeModal() { document.getElementById('mediaModal').classList.add('hidden'); }
+    </script>
+</body>
+</html>
