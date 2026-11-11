@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Dendy / Famicom 8-Bit Emulator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- jsnes Emulator CDN fallback -->
+    <script src="https://unpkg.com/jsnes/dist/jsnes.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        famicomRed: '#8b0000',
+                        famicomGold: '#c5a059',
+                        famicomCream: '#f4f1e8',
+                        famicomDarkRed: '#5c0000',
+                        dendyYellow: '#f5c518'
+                    },
+                    fontFamily: {
+                        pixel: ['"Press Start 2P"', 'monospace', 'Courier New']
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --vh: 100dvh;
+        }
+        body {
+            height: var(--vh);
+            overflow: hidden;
+            background-color: #121212;
+            font-family: 'Press Start 2P', monospace;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        
+        /* CRT Screen Effect */
+        .crt-container {
+            position: relative;
+            overflow: hidden;
+        }
+        .crt-container::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 20;
+            background-size: 100% 3px, 3px 100%;
+            pointer-events: none;
+        }
+
+        /* Retro Bevel Styles */
+        .famicom-bevel {
+            box-shadow: inset 2px 2px 0px rgba(255,255,255,0.4), inset -2px -2px 0px rgba(0,0,0,0.5);
+        }
+        .famicom-btn-bevel {
+            box-shadow: inset 1px 1px 0px rgba(255,255,255,0.5), 2px 2px 4px rgba(0,0,0,0.4);
+        }
+        .famicom-btn-bevel:active {
+            box-shadow: inset -1px -1px 0px rgba(255,255,255,0.5), 1px 1px 2px rgba(0,0,0,0.4);
+            transform: translateY(1px);
+        }
+
+        /* Custom Scrollbar for ROM selector */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #1a1a1a; }
+        ::-webkit-scrollbar-thumb { background: #8b0000; border-radius: 3px; }
+    </style>
+</head>
+<body class="w-full flex flex-col justify-between text-white">
+
+    <!-- TOP HEADER / CONSOLE STATUS -->
+    <header class="w-full bg-famicomRed border-b-4 border-famicomDarkRed px-3 py-2 flex items-center justify-between z-30 shadow-md">
+        <div class="flex items-center gap-2">
+            <div class="w-4 h-4 rounded-full bg-yellow-400 border border-black animate-pulse" id="power-led"></div>
+            <span class="text-xs sm:text-sm font-bold text-famicomGold tracking-wider drop-shadow">DENDY 8-BIT</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <button onclick="toggleAudio()" id="audio-btn" class="text-[10px] sm:text-xs bg-famicomGold text-black px-2 py-1 rounded famicom-btn-bevel font-bold">
+                🔊 ЗВУК: ВКИ
+            </button>
+            <label class="text-[10px] sm:text-xs bg-yellow-400 text-black px-2 py-1 rounded cursor-pointer famicom-btn-bevel font-bold">
+                📂 ROM
+                <input type="file" id="rom-file-input" accept=".nes" class="hidden" onchange="loadCustomRomFile(event)">
+            </label>
+            <button onclick="toggleFullscreen()" class="text-[10px] sm:text-xs bg-zinc-700 text-white px-2 py-1 rounded famicom-btn-bevel font-bold hidden sm:inline-block">
+                ⛶
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN CONSOLE & DISPLAY AREA -->
+    <main class="flex-1 flex flex-col items-center justify-center p-2 relative overflow-hidden">
+        
+        <!-- Dendy Console Body Frame -->
+        <div class="w-full max-w-2xl bg-famicomCream rounded-xl p-2 sm:p-4 border-4 border-amber-200/40 shadow-2xl flex flex-col items-center">
+            
+            <!-- Cassette Slot Header -->
+            <div class="w-full bg-famicomRed h-6 sm:h-8 rounded-t-lg border-2 border-black flex items-center justify-between px-4 mb-2">
+                <span class="text-[9px] sm:text-[11px] text-famicomGold">FAMILY COMPUTER SYSTEM</span>
+                <div class="flex gap-2">
+                    <span class="w-2 h-2 rounded-full bg-black"></span>
+                    <span class="w-2 h-2 rounded-full bg-black"></span>
+                </div>
+            </div>
+
+            <!-- TV Screen Frame -->
+            <div class="relative w-full aspect-[4/3] max-h-[50vh] sm:max-h-[55vh] bg-black rounded-lg border-4 border-zinc-800 crt-container flex items-center justify-center shadow-inner">
+                
+                <!-- Game Canvas -->
+                <canvas id="nes-canvas" width="256" height="240" class="w-full h-full object-contain cursor-crosshair"></canvas>
+
+                <!-- Embedded Game Menu Overlay (Active when no ROM running or in Menu) -->
+                <div id="game-menu-overlay" class="absolute inset-0 bg-black/90 p-3 flex flex-col justify-between z-10 text-center">
+                    <div class="my-2">
+                        <h1 class="text-yellow-400 text-xs sm:text-base animate-bounce mb-1">9999 in 1</h1>
+                        <p class="text-red-500 text-[9px] sm:text-[11px]">SUPER CARTRIDGE</p>
+                    </div>
+
+                    <!-- ROM Selection List -->
+                    <div class="flex-1 overflow-y-auto my-2 space-y-1.5 px-2 text-left" id="rom-list-container">
+                        <div onclick="selectBuiltinGame('mario')" class="rom-item bg-zinc-900 border border-famicomGold p-2 rounded cursor-pointer hover:bg-famicomRed flex justify-between items-center text-[10px] sm:text-xs">
+                            <span class="text-white">1. SUPER MARIO BROS</span>
+                            <span class="text-yellow-400">CLASSIC</span>
+                        </div>
+                        <div onclick="selectBuiltinGame('tanks')" class="rom-item bg-zinc-900 border border-famicomGold p-2 rounded cursor-pointer hover:bg-famicomRed flex justify-between items-center text-[10px] sm:text-xs">
+                            <span class="text-white">2. BATTLE CITY (ТАНЧИКИ)</span>
+                            <span class="text-yellow-400">ACTION</span>
+                        </div>
+                        <div onclick="selectBuiltinGame('contra')" class="rom-item bg-zinc-900 border border-famicomGold p-2 rounded cursor-pointer hover:bg-famicomRed flex justify-between items-center text-[10px] sm:text-xs">
+                            <span class="text-white">3. CONTRA 8-BIT</span>
+                            <span class="text-yellow-400">SHOOTER</span>
+                        </div>
+                        <div onclick="selectBuiltinGame('duckhunt')" class="rom-item bg-zinc-900 border border-famicomGold p-2 rounded cursor-pointer hover:bg-famicomRed flex justify-between items-center text-[10px] sm:text-xs">
+                            <span class="text-white">4. DUCK HUNT (LIGHT GUN)</span>
+                            <span class="text-yellow-400">GUN</span>
+                        </div>
+                        <div onclick="selectBuiltinGame('pacman')" class="rom-item bg-zinc-900 border border-famicomGold p-2 rounded cursor-pointer hover:bg-famicomRed flex justify-between items-center text-[10px] sm:text-xs">
+                            <span class="text-white">5. PAC-MAN ARCADE</span>
+                            <span class="text-yellow-400">MAZE</span>
+                        </div>
+                    </div>
+
+                    <div class="text-[8px] sm:text-[10px] text-zinc-400 py-1 border-t border-zinc-800">
+                        НАЖМИТЕ НА ИГРУ ИЛИ ЗАГРУЗИТЕ СВОЙ .NES ФАЙЛ
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Console Controls Strip -->
+            <div class="w-full flex justify-between items-center mt-2 px-2">
+                <button onclick="returnToMenu()" class="text-[9px] bg-red-700 text-white px-3 py-1.5 rounded famicom-btn-bevel border border-black font-bold">
+                    RESET / МЕНЮ
+                </button>
+                <div class="text-[8px] sm:text-[10px] text-zinc-600 font-bold">
+                    DENDY CLASSIC EDITION
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- ON-SCREEN VIRTUAL GAMEPAD (TOUCH & MOBILE COMPATIBLE) -->
+    <footer class="w-full bg-zinc-900 border-t-4 border-famicomRed p-2 sm:p-4 select-none z-30">
+        <div class="max-w-xl mx-auto flex justify-between items-center gap-2">
+            
+            <!-- LEFT: D-PAD JOYSTICK -->
+            <div class="relative w-28 h-28 sm:w-36 sm:h-36 flex items-center justify-center">
+                <!-- D-Pad Background Cross -->
+                <div class="absolute inset-0 m-auto w-24 h-8 sm:w-32 sm:h-10 bg-zinc-800 rounded border-2 border-black"></div>
+                <div class="absolute inset-0 m-auto w-8 h-24 sm:w-10 sm:h-32 bg-zinc-800 rounded border-2 border-black"></div>
+
+                <!-- Touch Buttons -->
+                <button id="btn-up" class="absolute top-0 w-8 h-10 sm:w-10 sm:h-12 bg-zinc-700 active:bg-zinc-500 rounded-t border-t-2 border-x-2 border-black flex items-center justify-center text-xs">▲</button>
+                <button id="btn-down" class="absolute bottom-0 w-8 h-10 sm:w-10 sm:h-12 bg-zinc-700 active:bg-zinc-500 rounded-b border-b-2 border-x-2 border-black flex items-center justify-center text-xs">▼</button>
+                <button id="btn-left" class="absolute left-0 w-10 h-8 sm:w-12 sm:h-10 bg-zinc-700 active:bg-zinc-500 rounded-l border-l-2 border-y-2 border-black flex items-center justify-center text-xs">◄</button>
+                <button id="btn-right" class="absolute right-0 w-10 h-8 sm:w-12 sm:h-10 bg-zinc-700 active:bg-zinc-500 rounded-r border-r-2 border-y-2 border-black flex items-center justify-center text-xs">►</button>
+
+                <div class="w-6 h-6 bg-zinc-900 rounded-full z-10 pointer-events-none"></div>
+            </div>
+
+            <!-- CENTER: SELECT & START BUTTONS -->
+            <div class="flex flex-col gap-3 items-center my-auto">
+                <div class="flex gap-2">
+                    <div class="flex flex-col items-center">
+                        <button id="btn-select" class="w-10 h-3.5 sm:w-12 sm:h-4 bg-zinc-800 active:bg-zinc-600 rounded-full border border-black shadow"></button>
+                        <span class="text-[7px] sm:text-[9px] text-zinc-400 font-bold mt-1">SELECT</span>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <button id="btn-start" class="w-10 h-3.5 sm:w-12 sm:h-4 bg-zinc-800 active:bg-zinc-600 rounded-full border border-black shadow"></button>
+                        <span class="text-[7px] sm:text-[9px] text-zinc-400 font-bold mt-1">START</span>
+                    </div>
+                </div>
+                <div class="text-[7px] text-zinc-500 hidden sm:block text-center">
+                    КЛАВИАТУРА: WASD/Стрелки<br>Z/X = A/B | Shift/Enter = Select/Start
+                </div>
+            </div>
+
+            <!-- RIGHT: A, B, TURBO BUTTONS -->
+            <div class="grid grid-cols-2 gap-2 sm:gap-3">
+                <div class="flex flex-col items-center">
+                    <button id="btn-tb" class="w-10 h-10 sm:w-12 sm:h-12 bg-red-700 active:bg-red-500 rounded-full border-2 border-black text-[9px] font-bold shadow-md">T-B</button>
+                    <span class="text-[7px] text-zinc-400 mt-0.5">TURBO B</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <button id="btn-ta" class="w-10 h-10 sm:w-12 sm:h-12 bg-red-700 active:bg-red-500 rounded-full border-2 border-black text-[9px] font-bold shadow-md">T-A</button>
+                    <span class="text-[7px] text-zinc-400 mt-0.5">TURBO A</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <button id="btn-b" class="w-11 h-11 sm:w-14 sm:h-14 bg-famicomRed active:bg-red-600 rounded-full border-2 border-black text-xs font-bold shadow-lg text-yellow-300">B</button>
+                </div>
+                <div class="flex flex-col items-center">
+                    <button id="btn-a" class="w-11 h-11 sm:w-14 sm:h-14 bg-famicomRed active:bg-red-600 rounded-full border-2 border-black text-xs font-bold shadow-lg text-yellow-300">A</button>
+                </div>
+            </div>
+
+        </div>
+    </footer>
+
+    <!-- JAVASCRIPT EMULATION & GAME ENGINE LOGIC -->
+    <script>
+        // Set dynamic dvh
+        function setViewportHeight() {
+            let vh = window.innerHeight;
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
+        }
+        window.addEventListener('resize', setViewportHeight);
+        setViewportHeight();
+
+        // -------------------------------------------------------------
+        // WEB AUDIO API SYNTHESIZER FOR 8-BIT NES APU SOUND EFFECT
+        // -------------------------------------------------------------
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+        let soundEnabled = true;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function toggleAudio() {
+            soundEnabled = !soundEnabled;
+            document.getElementById('audio-btn').innerText = `🔊 ЗВУК: ${soundEnabled ? 'ВКЛ' : 'ВЫКЛ'}`;
+            if (soundEnabled) initAudio();
+        }
+
+        // Synthesize NES Square Wave / Noise Sounds
+        function playNesSound(type) {
+            if (!soundEnabled) return;
+            initAudio();
+            try {
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'jump') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.exponentialRampToValueAtTime(600, now + 0.15);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                } else if (type === 'coin') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(987.77, now); // B5
+                    osc.frequency.setValueAtTime(1318.51, now + 0.08); // E6
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+                } else if (type === 'shoot') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.1);
+                    osc.start(now);
+                    osc.stop(now + 0.1);
+                } else if (type === 'explode') {
+                    // Noise Generator
+                    const bufferSize = audioCtx.sampleRate * 0.2;
+                    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        data[i] = Math.random() * 2 - 1;
+                    }
+                    const noise = audioCtx.createBufferSource();
+                    noise.buffer = buffer;
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                    noise.connect(gain);
+                    noise.start(now);
+                } else if (type === 'duck') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(800, now);
+                    osc.frequency.setValueAtTime(400, now + 0.05);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.1);
+                    osc.start(now);
+                    osc.stop(now + 0.1);
+                }
+            } catch(e) {}
+        }
+
+        // -------------------------------------------------------------
+        // CANVAS & CONTROLS STATE
+        // -------------------------------------------------------------
+        const canvas = document.getElementById('nes-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let currentGame = null; // 'mario', 'tanks', 'contra', 'duckhunt', 'pacman', 'nes'
+        let gameLoopId = null;
+        let nesInstance = null;
+
+        // Controller input state
+        const keys = {
+            up: false, down: false, left: false, right: false,
+            a: false, b: false, ta: false, tb: false,
+            select: false, start: false
+        };
+
+        // Turbo repeat counters
+        let turboCounter = 0;
+
+        // -------------------------------------------------------------
+        // BUILT-IN 8-BIT ENGINE & GAMES IMPLEMENTATION
+        // -------------------------------------------------------------
+
+        // 1. MARIO GAME ENGINE
+        const marioState = {
+            x: 40, y: 170, vx: 0, vy: 0,
+            grounded: false, score: 0, coins: 0,
+            cameraX: 0, enemies: [{x: 200, y: 180, vx: -1, alive: true}],
+            coinsList: [{x: 120, y: 140, taken: false}, {x: 160, y: 140, taken: false}, {x: 280, y: 120, taken: false}]
+        };
+
+        function updateMario() {
+            // Horizontal Movement
+            if (keys.left) marioState.vx = -2.5;
+            else if (keys.right) marioState.vx = 2.5;
+            else marioState.vx *= 0.8;
+
+            // Jump
+            if ((keys.a || keys.ta) && marioState.grounded) {
+                marioState.vy = -8.5;
+                marioState.grounded = false;
+                playNesSound('jump');
+            }
+
+            // Gravity
+            marioState.vy += 0.45;
+            marioState.x += marioState.vx;
+            marioState.y += marioState.vy;
+
+            // Ground Floor Collision
+            if (marioState.y >= 180) {
+                marioState.y = 180;
+                marioState.vy = 0;
+                marioState.grounded = true;
+            }
+
+            // Scroll Camera
+            if (marioState.x - marioState.cameraX > 140) {
+                marioState.cameraX = marioState.x - 140;
+            }
+
+            // Coin Collect
+            marioState.coinsList.forEach(c => {
+                if (!c.taken && Math.abs(marioState.x - c.x) < 12 && Math.abs(marioState.y - c.y) < 16) {
+                    c.taken = true;
+                    marioState.coins++;
+                    marioState.score += 200;
+                    playNesSound('coin');
+                }
+            });
+
+            // Enemy Collision
+            marioState.enemies.forEach(e => {
+                if (e.alive) {
+                    e.x += e.vx;
+                    if (e.x < 100 || e.x > 350) e.vx *= -1;
+
+                    if (Math.abs(marioState.x - e.x) < 12 && Math.abs(marioState.y - e.y) < 12) {
+                        if (marioState.vy > 0) { // Stomp
+                            e.alive = false;
+                            marioState.vy = -4;
+                            marioState.score += 100;
+                            playNesSound('explode');
+                        }
+                    }
+                }
+            });
+        }
+
+        function drawMario() {
+            ctx.fillStyle = '#5c94fc'; // NES Blue Sky
+            ctx.fillRect(0, 0, 256, 240);
+
+            ctx.save();
+            ctx.translate(-marioState.cameraX, 0);
+
+            // Ground
+            ctx.fillStyle = '#e75910';
+            ctx.fillRect(-100, 196, 800, 44);
+            ctx.fillStyle = '#00a800';
+            ctx.fillRect(-100, 196, 800, 6);
+
+            // Question Blocks
+            ctx.fillStyle = '#fcb040';
+            ctx.fillRect(120, 140, 16, 16);
+            ctx.fillRect(160, 140, 16, 16);
+            ctx.fillRect(280, 120, 16, 16);
+
+            // Coins
+            ctx.fillStyle = '#fce4a0';
+            marioState.coinsList.forEach(c => {
+                if (!c.taken) ctx.fillRect(c.x, c.y, 8, 12);
+            });
+
+            // Enemies (Goomba)
+            ctx.fillStyle = '#a81000';
+            marioState.enemies.forEach(e => {
+                if (e.alive) ctx.fillRect(e.x, e.y, 14, 14);
+            });
+
+            // Mario Sprite
+            ctx.fillStyle = '#fc1000';
+            ctx.fillRect(marioState.x, marioState.y, 12, 16); // Body
+            ctx.fillStyle = '#00a800';
+            ctx.fillRect(marioState.x, marioState.y + 6, 12, 6); // Overalls
+
+            ctx.restore();
+
+            // HUD
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '8px "Press Start 2P"';
+            ctx.fillText(`MARIO`, 10, 16);
+            ctx.fillText(`${String(marioState.score).padStart(6,'0')}`, 10, 26);
+            ctx.fillText(`🪙x${marioState.coins}`, 120, 16);
+            ctx.fillText(`WORLD 1-1`, 180, 16);
+        }
+
+        // 2. BATTLE CITY (ТАНЧИКИ) ENGINE
+        const tanksState = {
+            px: 100, py: 200, pDir: 'UP', bullets: [], enemies: [{x: 40, y: 20, dir: 'DOWN'}],
+            score: 0, bricks: []
+        };
+        // Initialize Brick Map
+        for(let r=0; r<6; r++) {
+            for(let c=0; c<8; c++) {
+                tanksState.bricks.push({x: 30 + c*24, y: 60 + r*20, alive: true});
+            }
+        }
+
+        function updateTanks() {
+            if (keys.up) { tanksState.py -= 1.5; tanksState.pDir = 'UP'; }
+            else if (keys.down) { tanksState.py += 1.5; tanksState.pDir = 'DOWN'; }
+            else if (keys.left) { tanksState.px -= 1.5; tanksState.pDir = 'LEFT'; }
+            else if (keys.right) { tanksState.px += 1.5; tanksState.pDir = 'RIGHT'; }
+
+            // Shoot
+            if ((keys.b || keys.tb) && tanksState.bullets.length < 2) {
+                tanksState.bullets.push({
+                    x: tanksState.px + 6, y: tanksState.py + 6, dir: tanksState.pDir
+                });
+                playNesSound('shoot');
+            }
+
+            // Move Bullets
+            tanksState.bullets.forEach((b, idx) => {
+                if (b.dir === 'UP') b.y -= 4;
+                if (b.dir === 'DOWN') b.y += 4;
+                if (b.dir === 'LEFT') b.x -= 4;
+                if (b.dir === 'RIGHT') b.x += 4;
+
+                // Hit Bricks
+                tanksState.bricks.forEach(br => {
+                    if (br.alive && Math.abs(b.x - br.x) < 12 && Math.abs(b.y - br.y) < 12) {
+                        br.alive = false;
+                        tanksState.bullets.splice(idx, 1);
+                        playNesSound('explode');
+                    }
+                });
+            });
+
+            // Filter Offscreen bullets
+            tanksState.bullets = tanksState.bullets.filter(b => b.x > 0 && b.x < 256 && b.y > 0 && b.y < 240);
+        }
+
+        function drawTanks() {
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, 256, 240);
+
+            // Base Eagle
+            ctx.fillStyle = '#fce4a0';
+            ctx.fillRect(120, 216, 16, 16);
+
+            // Bricks
+            ctx.fillStyle = '#a81000';
+            tanksState.bricks.forEach(br => {
+                if (br.alive) ctx.fillRect(br.x, br.y, 16, 12);
+            });
+
+            // Player Tank (Yellow)
+            ctx.fillStyle = '#fcb040';
+            ctx.fillRect(tanksState.px, tanksState.py, 16, 16);
+
+            // Bullets
+            ctx.fillStyle = '#ffffff';
+            tanksState.bullets.forEach(b => ctx.fillRect(b.x, b.y, 4, 4));
+
+            // HUD
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '8px "Press Start 2P"';
+            ctx.fillText(`STAGE 1  SCORE:${tanksState.score}`, 10, 16);
+        }
+
+        // 3. CONTRA ENGINE
+        const contraState = {
+            px: 30, py: 170, bullets: [], enemies: [{x: 220, y: 170}], score: 0
+        };
+        function updateContra() {
+            if (keys.left) contraState.px -= 2;
+            if (keys.right) contraState.px += 2;
+            
+            if ((keys.b || keys.tb) && contraState.bullets.length < 5) {
+                contraState.bullets.push({x: contraState.px + 12, y: contraState.py + 4});
+                playNesSound('shoot');
+            }
+
+            contraState.bullets.forEach((b, idx) => {
+                b.x += 5;
+                contraState.enemies.forEach(e => {
+                    if (Math.abs(b.x - e.x) < 12 && Math.abs(b.y - e.y) < 12) {
+                        e.x = 250;
+                        contraState.score += 500;
+                        playNesSound('explode');
+                    }
+                });
+            });
+            contraState.bullets = contraState.bullets.filter(b => b.x < 256);
+        }
+        function drawContra() {
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, 256, 240);
+            
+            // Jungle ground
+            ctx.fillStyle = '#00a800';
+            ctx.fillRect(0, 186, 256, 54);
+
+            // Player Blue Commando
+            ctx.fillStyle = '#5c94fc';
+            ctx.fillRect(contraState.px, contraState.py, 12, 16);
+
+            // Red Enemy
+            ctx.fillStyle = '#fc1000';
+            contraState.enemies.forEach(e => ctx.fillRect(e.x, e.y, 12, 16));
+
+            // Bullets
+            ctx.fillStyle = '#fce4a0';
+            contraState.bullets.forEach(b => ctx.fillRect(b.x, b.y, 4, 4));
+
+            // HUD
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '8px "Press Start 2P"';
+            ctx.fillText(`1P REST 3  SCORE:${contraState.score}`, 10, 16);
+        }
+
+        // 4. DUCK HUNT (LIGHT GUN) ENGINE
+        const duckState = {
+            x: 50, y: 100, vx: 2, vy: -1.5, shot: false, score: 0, ducksHit: 0
+        };
+
+        function updateDuckHunt() {
+            if (!duckState.shot) {
+                duckState.x += duckState.vx;
+                duckState.y += duckState.vy;
+
+                if (duckState.x < 10 || duckState.x > 230) duckState.vx *= -1;
+                if (duckState.y < 20 || duckState.y > 140) duckState.vy *= -1;
+            } else {
+                duckState.y += 3;
+                if (duckState.y > 180) {
+                    duckState.shot = false;
+                    duckState.x = 40 + Math.random() * 160;
+                    duckState.y = 120;
+                }
+            }
+        }
+
+        function drawDuckHunt() {
+            ctx.fillStyle = '#5c94fc';
+            ctx.fillRect(0, 0, 256, 240);
+
+            // Grass & Trees
+            ctx.fillStyle = '#00a800';
+            ctx.fillRect(0, 170, 256, 70);
+            ctx.fillStyle = '#a81000';
+            ctx.fillRect(30, 90, 20, 80); // Tree trunk
+
+            // Duck
+            if (!duckState.shot) ctx.fillStyle = '#fce4a0';
+            else ctx.fillStyle = '#fc1000';
+            ctx.fillRect(duckState.x, duckState.y, 16, 14);
+
+            // HUD
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '8px "Press Start 2P"';
+            ctx.fillText(`SHOT 3   DUCKS:${duckState.ducksHit}`, 10, 220);
+            ctx.fillText(`SCORE:${duckState.score}`, 160, 220);
+        }
+
+        // Canvas Click Light Gun Trigger
+        canvas.addEventListener('click', (e) => {
+            if (currentGame === 'duckhunt') {
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = 256 / rect.width;
+                const scaleY = 240 / rect.height;
+                const clickX = (e.clientX - rect.left) * scaleX;
+                const clickY = (e.clientY - rect.top) * scaleY;
+
+                playNesSound('duck');
+
+                if (!duckState.shot && Math.abs(clickX - duckState.x) < 20 && Math.abs(clickY - duckState.y) < 20) {
+                    duckState.shot = true;
+                    duckState.score += 800;
+                    duckState.ducksHit++;
+                }
+            }
+        });
+
+        // 5. PAC-MAN ENGINE
+        const pacState = { x: 120, y: 120, dir: 'RIGHT', score: 0 };
+        function updatePacman() {
+            if (keys.left) pacState.x -= 1.5;
+            if (keys.right) pacState.x += 1.5;
+            if (keys.up) pacState.y -= 1.5;
+            if (keys.down) pacState.y += 1.5;
+        }
+        function drawPacman() {
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, 256, 240);
+
+            // Yellow Pac-Man
+            ctx.fillStyle = '#fce4a0';
+            ctx.beginPath();
+            ctx.arc(pacState.x, pacState.y, 8, 0.2 * Math.PI, 1.8 * Math.PI);
+            ctx.lineTo(pacState.x, pacState.y);
+            ctx.fill();
+
+            // Ghosts
+            ctx.fillStyle = '#fc1000';
+            ctx.fillRect(60, 60, 12, 12);
+            ctx.fillStyle = '#fcb040';
+            ctx.fillRect(180, 60, 12, 12);
+
+            // Dots
+            ctx.fillStyle = '#ffffff';
+            for(let i=20; i<240; i+=30) {
+                ctx.fillRect(i, 120, 3, 3);
+            }
+
+            // HUD
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '8px "Press Start 2P"';
+            ctx.fillText(`HIGH SCORE 10000`, 50, 16);
+            ctx.fillText(`SCORE:${pacState.score}`, 10, 230);
+        }
+
+        // -------------------------------------------------------------
+        // MAIN GAME ENGINE LOOP CONTROLLER
+        // -------------------------------------------------------------
+        function gameLoop() {
+            // Turbo Button Triggering
+            turboCounter++;
+            if (turboCounter % 4 === 0) {
+                if (keys.ta) keys.a = !keys.a;
+                if (keys.tb) keys.b = !keys.b;
+            }
+
+            if (currentGame === 'mario') {
+                updateMario();
+                drawMario();
+            } else if (currentGame === 'tanks') {
+                updateTanks();
+                drawTanks();
+            } else if (currentGame === 'contra') {
+                updateContra();
+                drawContra();
+            } else if (currentGame === 'duckhunt') {
+                updateDuckHunt();
+                drawDuckHunt();
+            } else if (currentGame === 'pacman') {
+                updatePacman();
+                drawPacman();
+            }
+
+            gameLoopId = requestAnimationFrame(gameLoop);
+        }
+
+        function selectBuiltinGame(gameId) {
+            initAudio();
+            document.getElementById('game-menu-overlay').classList.add('hidden');
+            currentGame = gameId;
+
+            if (gameLoopId) cancelAnimationFrame(gameLoopId);
+            gameLoopId = requestAnimationFrame(gameLoop);
+        }
+
+        function returnToMenu() {
+            if (gameLoopId) cancelAnimationFrame(gameLoopId);
+            currentGame = null;
+            document.getElementById('game-menu-overlay').classList.remove('hidden');
+        }
+
+        // -------------------------------------------------------------
+        // CUSTOM .NES ROM FILE LOAD & JSNES EMULATOR INTEGRATION
+        // -------------------------------------------------------------
+        function loadCustomRomFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const romData = e.target.result;
+                if (typeof jsnes !== 'undefined') {
+                    startJsnesEmulator(romData);
+                } else {
+                    alert('JSnes библиотеки не загружена. Проверьте интернет-соединение.');
+                }
+            };
+            reader.readAsBinaryString(file);
+        }
+
+        function startJsnesEmulator(romBuffer) {
+            document.getElementById('game-menu-overlay').classList.add('hidden');
+            if (gameLoopId) cancelAnimationFrame(gameLoopId);
+
+            const canvasImageData = ctx.createImageData(256, 240);
+            const buf = new ArrayBuffer(canvasImageData.data.length);
+            const buf8 = new Uint8ClampedArray(buf);
+            const buf32 = new Uint32Array(buf);
+
+            nesInstance = new jsnes.NES({
+                onFrame: function(frameBuffer) {
+                    for (let i = 0; i < 256 * 240; i++) {
+                        buf32[i] = 0xFF000000 | frameBuffer[i];
+                    }
+                    canvasImageData.data.set(buf8);
+                    ctx.putImageData(canvasImageData, 0, 0);
+                },
+                onAudioSample: function(left, right) {}
+            });
+
+            nesInstance.loadROM(romBuffer);
+
+            function nesLoop() {
+                nesInstance.frame();
+                gameLoopId = requestAnimationFrame(nesLoop);
+            }
+            gameLoopId = requestAnimationFrame(nesLoop);
+        }
+
+        // -------------------------------------------------------------
+        // CONTROLLER INPUT BINDINGS (KEYBOARD & TOUCH GAMEPAD)
+        // -------------------------------------------------------------
+        const keyMap = {
+            'KeyW': 'up', 'ArrowUp': 'up',
+            'KeyS': 'down', 'ArrowDown': 'down',
+            'KeyA': 'left', 'ArrowLeft': 'left',
+            'KeyD': 'right', 'ArrowRight': 'right',
+            'KeyZ': 'a', 'KeyX': 'b',
+            'ShiftLeft': 'select', 'Enter': 'start'
+        };
+
+        window.addEventListener('keydown', (e) => {
+            if (keyMap[e.code]) {
+                keys[keyMap[e.code]] = true;
+            }
+        });
+        window.addEventListener('keyup', (e) => {
+            if (keyMap[e.code]) {
+                keys[keyMap[e.code]] = false;
+            }
+        });
+
+        // Touch Gamepad Event Listeners
+        function bindTouchBtn(elementId, actionKey) {
+            const btn = document.getElementById(elementId);
+            if (!btn) return;
+            
+            const startPress = (e) => {
+                e.preventDefault();
+                keys[actionKey] = true;
+                initAudio();
+            };
+            const endPress = (e) => {
+                e.preventDefault();
+                keys[actionKey] = false;
+            };
+
+            btn.addEventListener('touchstart', startPress, {passive: false});
+            btn.addEventListener('touchend', endPress, {passive: false});
+            btn.addEventListener('mousedown', startPress);
+            btn.addEventListener('mouseup', endPress);
+        }
+
+        bindTouchBtn('btn-up', 'up');
+        bindTouchBtn('btn-down', 'down');
+        bindTouchBtn('btn-left', 'left');
+        bindTouchBtn('btn-right', 'right');
+        bindTouchBtn('btn-a', 'a');
+        bindTouchBtn('btn-b', 'b');
+        bindTouchBtn('btn-ta', 'ta');
+        bindTouchBtn('btn-tb', 'tb');
+        bindTouchBtn('btn-select', 'select');
+        bindTouchBtn('btn-start', 'start');
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+    </script>
+</body>
+</html>

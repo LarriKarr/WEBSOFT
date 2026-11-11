@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full select-none">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Macintosh System 7.5 / Mac OS 8 Simulator</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        macGray: '#c0c0c0',
+                        macDark: '#808080',
+                        macLight: '#ffffff',
+                        macBorder: '#404040',
+                        macHeader: '#d4d4d4',
+                        macBlue: '#000080',
+                        macTeal: '#008080',
+                        macPink: '#800080'
+                    },
+                    fontFamily: {
+                        chicago: ['Geneva', 'Charcoal', 'Chicago', 'Segoe UI', 'sans-serif'],
+                        mono: ['Courier', 'Courier New', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* System 7 / Mac OS 8 Platinum Theme CSS */
+        :root {
+            --mac-bg-color: #008080;
+            --vh: 100dvh;
+        }
+
+        body {
+            height: var(--vh);
+            overflow: hidden;
+            font-family: 'Geneva', 'Chicago', sans-serif;
+            background-color: var(--mac-bg-color);
+            touch-action: none;
+        }
+
+        /* Retro Bevel Borders */
+        .mac-bevel-out {
+            border: 2px solid;
+            border-color: #ffffff #404040 #404040 #ffffff;
+            background-color: #c0c0c0;
+        }
+
+        .mac-bevel-in {
+            border: 2px solid;
+            border-color: #404040 #ffffff #ffffff #404040;
+            background-color: #ffffff;
+        }
+
+        .mac-bevel-button {
+            border: 2px solid;
+            border-color: #ffffff #404040 #404040 #ffffff;
+            background: linear-gradient(180deg, #eeeeee 0%, #c0c0c0 100%);
+        }
+        .mac-bevel-button:active {
+            border-color: #404040 #ffffff #ffffff #404040;
+            background: #a0a0a0;
+        }
+
+        /* Pinstripe header */
+        .mac-pinstripes {
+            background: repeating-linear-gradient(
+                0deg,
+                #c0c0c0,
+                #c0c0c0 1px,
+                #ffffff 1px,
+                #ffffff 2px
+            );
+        }
+
+        /* Classic Scrollbar Styling */
+        .mac-scrollbar::-webkit-scrollbar {
+            width: 14px;
+            height: 14px;
+        }
+        .mac-scrollbar::-webkit-scrollbar-track {
+            background: #e0e0e0;
+            border-left: 1px solid #808080;
+        }
+        .mac-scrollbar::-webkit-scrollbar-thumb {
+            background: #c0c0c0;
+            border: 1px solid #ffffff;
+            box-shadow: inset -1px -1px 0 #404040;
+        }
+
+        /* Window animations */
+        .mac-window {
+            box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.4);
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            border: 2px solid #000000;
+            background-color: #c0c0c0;
+            min-width: 260px;
+            min-height: 180px;
+        }
+
+        .mac-window.active {
+            box-shadow: 5px 5px 16px rgba(0, 0, 0, 0.6);
+        }
+
+        /* Responsive Window Maximized inside workspace */
+        .mac-window.maximized {
+            top: 28px !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: calc(var(--vh) - 28px) !important;
+            border-radius: 0;
+        }
+
+        /* Mobile specific adjustments */
+        @media (max-width: 640px) {
+            .desktop-icon-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+    </style>
+</head>
+<body class="w-full text-black antialiased relative overflow-hidden flex flex-col justify-between">
+
+    <!-- TOP APPLE MENU BAR -->
+    <header id="top-menu-bar" class="w-full h-7 bg-macGray border-b-2 border-black flex items-center justify-between px-2 z-50 text-xs font-bold select-none relative">
+        <!-- Left Menu Items -->
+        <div class="flex items-center space-x-3">
+            <!-- Apple Logo Dropdown -->
+            <div class="relative group cursor-pointer px-2 py-0.5 hover:bg-black hover:text-white rounded-sm" id="apple-menu-btn">
+                <span class="text-sm">🍎</span>
+                <div id="apple-menu-dropdown" class="hidden absolute left-0 top-6 w-48 bg-macGray border-2 border-black shadow-lg py-1 text-black font-normal z-50">
+                    <button onclick="openApp('about')" class="w-full text-left px-4 py-1 hover:bg-black hover:text-white flex items-center justify-between">
+                        <span>About This Macintosh</span>
+                        <span class="text-[10px] text-gray-500 group-hover:text-white">⌘I</span>
+                    </button>
+                    <div class="border-t border-gray-400 my-1"></div>
+                    <button onclick="openApp('control-panel')" class="w-full text-left px-4 py-1 hover:bg-black hover:text-white">Control Panels</button>
+                    <button onclick="openApp('calculator')" class="w-full text-left px-4 py-1 hover:bg-black hover:text-white">Calculator</button>
+                    <button onclick="openApp('notepad')" class="w-full text-left px-4 py-1 hover:bg-black hover:text-white">Key Caps / Notepad</button>
+                    <button onclick="openApp('paint')" class="w-full text-left px-4 py-1 hover:bg-black hover:text-white">MacPaint</button>
+                    <button onclick="openApp('game')" class="w-full text-left px-4 py-1 hover:bg-black hover:text-white">Brick Buster Game</button>
+                    <div class="border-t border-gray-400 my-1"></div>
+                    <button onclick="playStartupChime()" class="w-full text-left px-4 py-1 hover:bg-black hover:text-white">Play Chime 🔊</button>
+                </div>
+            </div>
+
+            <!-- Standard Menus -->
+            <div class="relative cursor-pointer px-2 py-0.5 hover:bg-black hover:text-white rounded-sm" onclick="toggleMenu('file-menu')">
+                <span>File</span>
+                <div id="file-menu" class="hidden absolute left-0 top-6 w-40 bg-macGray border-2 border-black shadow-lg py-1 text-black font-normal z-50">
+                    <button onclick="openApp('notepad')" class="w-full text-left px-4 py-1 hover:bg-black hover:text-white">New Text Doc</button>
+                    <button onclick="openApp('hd')" class="w-full text-left px-4 py-1 hover:bg-black hover:text-white">Open HD</button>
+                    <div class="border-t border-gray-400 my-1"></div>
+                    <button onclick="closeActiveWindow()" class="w-full text-left px-4 py-1 hover:bg-black hover:text-white">Close Window</button>
+                </div>
+            </div>
+
+            <div class="relative cursor-pointer px-2 py-0.5 hover:bg-black hover:text-white rounded-sm" onclick="toggleMenu('edit-menu')">
+                <span>Edit</span>
+                <div id="edit-menu" class="hidden absolute left-0 top-6 w-36 bg-macGray border-2 border-black shadow-lg py-1 text-black font-normal z-50">
+                    <button class="w-full text-left px-4 py-1 hover:bg-black hover:text-white opacity-50 cursor-not-allowed">Undo</button>
+                    <div class="border-t border-gray-400 my-1"></div>
+                    <button class="w-full text-left px-4 py-1 hover:bg-black hover:text-white opacity-50 cursor-not-allowed">Cut</button>
+                    <button class="w-full text-left px-4 py-1 hover:bg-black hover:text-white opacity-50 cursor-not-allowed">Copy</button>
+                    <button class="w-full text-left px-4 py-1 hover:bg-black hover:text-white opacity-50 cursor-not-allowed">Paste</button>
+                </div>
+            </div>
+
+            <div class="relative cursor-pointer px-2 py-0.5 hover:bg-black hover:text-white rounded-sm" onclick="toggleMenu('special-menu')">
+                <span>Special</span>
+                <div id="special-menu" class="hidden absolute left-0 top-6 w-44 bg-macGray border-2 border-black shadow-lg py-1 text-black font-normal z-50">
+                    <button onclick="emptyTrash()" class="w-full text-left px-4 py-1 hover:bg-black hover:text-white">Empty Trash...</button>
+                    <button onclick="openApp('control-panel')" class="w-full text-left px-4 py-1 hover:bg-black hover:text-white">Clean Desktop</button>
+                    <div class="border-t border-gray-400 my-1"></div>
+                    <button onclick="restartSim()" class="w-full text-left px-4 py-1 hover:bg-black hover:text-white">Restart System</button>
+                    <button onclick="shutDownSim()" class="w-full text-left px-4 py-1 hover:bg-black hover:text-white">Shut Down</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Clock & Active App Title -->
+        <div class="flex items-center space-x-3">
+            <span id="active-app-name" class="hidden sm:inline-block font-semibold">Finder</span>
+            <span class="text-xs">💾</span>
+            <span id="mac-clock" class="font-mono text-xs">09:41 AM</span>
+        </div>
+    </header>
+
+    <!-- MAIN DESKTOP AREA -->
+    <main id="desktop-space" class="relative flex-1 w-full h-full overflow-hidden">
+        
+        <!-- Desktop Grid Shortcuts -->
+        <div class="desktop-icon-grid absolute top-4 right-4 sm:top-6 sm:right-6 grid grid-cols-1 sm:grid-cols-1 gap-6 text-center select-none z-10">
+            
+            <!-- Macintosh HD -->
+            <div onclick="openApp('hd')" class="group flex flex-col items-center cursor-pointer w-20">
+                <div class="w-12 h-12 bg-macGray border-2 border-black mac-bevel-out flex items-center justify-center p-1 group-active:scale-95 transition-transform">
+                    <svg class="w-8 h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path>
+                    </svg>
+                </div>
+                <span class="mt-1 text-xs text-white bg-black/60 px-1 rounded font-semibold group-hover:bg-black">Macintosh HD</span>
+            </div>
+
+            <!-- MacPaint App -->
+            <div onclick="openApp('paint')" class="group flex flex-col items-center cursor-pointer w-20">
+                <div class="w-12 h-12 bg-yellow-100 border-2 border-black mac-bevel-out flex items-center justify-center p-1 group-active:scale-95 transition-transform">
+                    <span class="text-2xl">🎨</span>
+                </div>
+                <span class="mt-1 text-xs text-white bg-black/60 px-1 rounded font-semibold group-hover:bg-black">MacPaint</span>
+            </div>
+
+            <!-- Retro Calculator -->
+            <div onclick="openApp('calculator')" class="group flex flex-col items-center cursor-pointer w-20">
+                <div class="w-12 h-12 bg-gray-200 border-2 border-black mac-bevel-out flex items-center justify-center p-1 group-active:scale-95 transition-transform">
+                    <span class="text-2xl">🧮</span>
+                </div>
+                <span class="mt-1 text-xs text-white bg-black/60 px-1 rounded font-semibold group-hover:bg-black">Calculator</span>
+            </div>
+
+            <!-- Notepad Text Edit -->
+            <div onclick="openApp('notepad')" class="group flex flex-col items-center cursor-pointer w-20">
+                <div class="w-12 h-12 bg-white border-2 border-black mac-bevel-out flex items-center justify-center p-1 group-active:scale-95 transition-transform">
+                    <span class="text-2xl">📝</span>
+                </div>
+                <span class="mt-1 text-xs text-white bg-black/60 px-1 rounded font-semibold group-hover:bg-black">SimpleText</span>
+            </div>
+
+            <!-- Retro Brick Game -->
+            <div onclick="openApp('game')" class="group flex flex-col items-center cursor-pointer w-20">
+                <div class="w-12 h-12 bg-red-200 border-2 border-black mac-bevel-out flex items-center justify-center p-1 group-active:scale-95 transition-transform">
+                    <span class="text-2xl">🕹️</span>
+                </div>
+                <span class="mt-1 text-xs text-white bg-black/60 px-1 rounded font-semibold group-hover:bg-black">BrickBuster</span>
+            </div>
+
+            <!-- Control Panel -->
+            <div onclick="openApp('control-panel')" class="group flex flex-col items-center cursor-pointer w-20">
+                <div class="w-12 h-12 bg-blue-100 border-2 border-black mac-bevel-out flex items-center justify-center p-1 group-active:scale-95 transition-transform">
+                    <span class="text-2xl">⚙️</span>
+                </div>
+                <span class="mt-1 text-xs text-white bg-black/60 px-1 rounded font-semibold group-hover:bg-black">Control Panel</span>
+            </div>
+
+            <!-- Trash Bin -->
+            <div onclick="openApp('trash')" class="group flex flex-col items-center cursor-pointer w-20">
+                <div class="w-12 h-12 bg-macGray border-2 border-black mac-bevel-out flex items-center justify-center p-1 group-active:scale-95 transition-transform">
+                    <span class="text-2xl">🗑️</span>
+                </div>
+                <span class="mt-1 text-xs text-white bg-black/60 px-1 rounded font-semibold group-hover:bg-black">Trash</span>
+            </div>
+        </div>
+
+        <!-- ================= APP WINDOWS CONTAINER ================= -->
+
+        <!-- 1. MACINTOSH HD / FINDER WINDOW -->
+        <div id="win-hd" class="mac-window hidden" style="top: 50px; left: 20px; width: 340px; height: 260px;">
+            <div class="mac-window-header mac-pinstripes h-6 border-b-2 border-black flex items-center justify-between px-1 cursor-move" onmousedown="dragStart(event, 'win-hd')" touchesstart="dragStart(event, 'win-hd')">
+                <button onclick="closeApp('hd')" class="w-4 h-4 bg-macGray border border-black mac-bevel-button flex items-center justify-center text-[9px] font-bold">□</button>
+                <span class="font-bold text-xs px-2 truncate">Macintosh HD</span>
+                <div class="flex items-center space-x-1">
+                    <button onclick="minimizeApp('hd')" class="w-4 h-4 bg-macGray border border-black mac-bevel-button text-[9px] font-bold">_</button>
+                    <button onclick="maximizeApp('hd')" class="w-4 h-4 bg-macGray border border-black mac-bevel-button text-[9px] font-bold">⧉</button>
+                </div>
+            </div>
+            <div class="flex-1 bg-white p-3 mac-scrollbar overflow-auto flex flex-col">
+                <div class="text-xs text-gray-600 mb-2 border-b pb-1 flex justify-between">
+                    <span>5 items, 42.8 MB available</span>
+                    <span>System 7.5</span>
+                </div>
+                <div class="grid grid-cols-3 gap-3">
+                    <div onclick="openApp('notepad')" class="flex flex-col items-center cursor-pointer p-1 hover:bg-blue-100 rounded">
+                        <span class="text-2xl">📄</span>
+                        <span class="text-xs mt-1 text-center">ReadMe.txt</span>
+                    </div>
+                    <div onclick="openApp('paint')" class="flex flex-col items-center cursor-pointer p-1 hover:bg-blue-100 rounded">
+                        <span class="text-2xl">🎨</span>
+                        <span class="text-xs mt-1 text-center">MacPaint</span>
+                    </div>
+                    <div onclick="openApp('calculator')" class="flex flex-col items-center cursor-pointer p-1 hover:bg-blue-100 rounded">
+                        <span class="text-2xl">🧮</span>
+                        <span class="text-xs mt-1 text-center">Calculator</span>
+                    </div>
+                    <div onclick="openApp('game')" class="flex flex-col items-center cursor-pointer p-1 hover:bg-blue-100 rounded">
+                        <span class="text-2xl">🎮</span>
+                        <span class="text-xs mt-1 text-center">Games</span>
+                    </div>
+                    <div onclick="openApp('control-panel')" class="flex flex-col items-center cursor-pointer p-1 hover:bg-blue-100 rounded">
+                        <span class="text-2xl">⚙️</span>
+                        <span class="text-xs mt-1 text-center">System Folder</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. MACPAINT WINDOW -->
+        <div id="win-paint" class="mac-window hidden" style="top: 40px; left: 40px; width: 360px; height: 380px;">
+            <div class="mac-window-header mac-pinstripes h-6 border-b-2 border-black flex items-center justify-between px-1 cursor-move" onmousedown="dragStart(event, 'win-paint')">
+                <button onclick="closeApp('paint')" class="w-4 h-4 bg-macGray border border-black mac-bevel-button text-[9px] font-bold">□</button>
+                <span class="font-bold text-xs truncate">MacPaint 1.0</span>
+                <div class="flex items-center space-x-1">
+                    <button onclick="maximizeApp('paint')" class="w-4 h-4 bg-macGray border border-black mac-bevel-button text-[9px] font-bold">⧉</button>
+                </div>
+            </div>
+            <!-- Paint Toolbar & Canvas -->
+            <div class="flex-1 bg-macGray p-1 flex flex-col justify-between overflow-hidden">
+                <div class="flex items-center justify-between bg-macHeader p-1 border border-black mb-1 text-xs">
+                    <div class="flex space-x-1">
+                        <button onclick="setPaintTool('pencil')" id="btn-tool-pencil" class="px-2 py-0.5 mac-bevel-button text-xs font-bold bg-white">✏️ Pencil</button>
+                        <button onclick="setPaintTool('eraser')" id="btn-tool-eraser" class="px-2 py-0.5 mac-bevel-button text-xs font-bold">🧹 Eraser</button>
+                        <button onclick="setPaintTool('rect')" id="btn-tool-rect" class="px-2 py-0.5 mac-bevel-button text-xs font-bold">🔳 Rect</button>
+                    </div>
+                    <button onclick="clearPaintCanvas()" class="px-2 py-0.5 mac-bevel-button text-xs text-red-700">Clear</button>
+                </div>
+                <!-- Color Palette -->
+                <div class="flex items-center space-x-1 mb-1 px-1">
+                    <span class="text-[10px] font-bold">Color:</span>
+                    <button onclick="setPaintColor('#000000')" class="w-5 h-5 bg-black border border-black"></button>
+                    <button onclick="setPaintColor('#ffffff')" class="w-5 h-5 bg-white border border-black"></button>
+                    <button onclick="setPaintColor('#ff0000')" class="w-5 h-5 bg-red-600 border border-black"></button>
+                    <button onclick="setPaintColor('#0000ff')" class="w-5 h-5 bg-blue-600 border border-black"></button>
+                    <button onclick="setPaintColor('#008000')" class="w-5 h-5 bg-green-600 border border-black"></button>
+                </div>
+                <div class="flex-1 bg-white border-2 border-black mac-bevel-in overflow-hidden relative">
+                    <canvas id="paintCanvas" class="w-full h-full cursor-crosshair"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. RETRO CALCULATOR WINDOW -->
+        <div id="win-calculator" class="mac-window hidden" style="top: 70px; left: 80px; width: 240px; height: 300px;">
+            <div class="mac-window-header mac-pinstripes h-6 border-b-2 border-black flex items-center justify-between px-1 cursor-move" onmousedown="dragStart(event, 'win-calculator')">
+                <button onclick="closeApp('calculator')" class="w-4 h-4 bg-macGray border border-black mac-bevel-button text-[9px] font-bold">□</button>
+                <span class="font-bold text-xs truncate">Calculator</span>
+                <div></div>
+            </div>
+            <div class="flex-1 bg-macGray p-3 flex flex-col justify-between">
+                <!-- Display -->
+                <div class="mac-bevel-in p-2 mb-3 text-right">
+                    <div id="calc-display" class="font-mono text-xl font-bold truncate">0</div>
+                </div>
+                <!-- Keypad Grid -->
+                <div class="grid grid-cols-4 gap-2 flex-1">
+                    <button onclick="calcCmd('C')" class="mac-bevel-button font-bold text-xs text-red-600">C</button>
+                    <button onclick="calcCmd('+/-')" class="mac-bevel-button font-bold text-xs">±</button>
+                    <button onclick="calcCmd('%')" class="mac-bevel-button font-bold text-xs">%</button>
+                    <button onclick="calcCmd('/')" class="mac-bevel-button font-bold text-sm bg-yellow-100">÷</button>
+
+                    <button onclick="calcNum('7')" class="mac-bevel-button font-bold">7</button>
+                    <button onclick="calcNum('8')" class="mac-bevel-button font-bold">8</button>
+                    <button onclick="calcNum('9')" class="mac-bevel-button font-bold">9</button>
+                    <button onclick="calcCmd('*')" class="mac-bevel-button font-bold text-sm bg-yellow-100">×</button>
+
+                    <button onclick="calcNum('4')" class="mac-bevel-button font-bold">4</button>
+                    <button onclick="calcNum('5')" class="mac-bevel-button font-bold">5</button>
+                    <button onclick="calcNum('6')" class="mac-bevel-button font-bold">6</button>
+                    <button onclick="calcCmd('-')" class="mac-bevel-button font-bold text-sm bg-yellow-100">-</button>
+
+                    <button onclick="calcNum('1')" class="mac-bevel-button font-bold">1</button>
+                    <button onclick="calcNum('2')" class="mac-bevel-button font-bold">2</button>
+                    <button onclick="calcNum('3')" class="mac-bevel-button font-bold">3</button>
+                    <button onclick="calcCmd('+')" class="mac-bevel-button font-bold text-sm bg-yellow-100">+</button>
+
+                    <button onclick="calcNum('0')" class="col-span-2 mac-bevel-button font-bold">0</button>
+                    <button onclick="calcNum('.')" class="mac-bevel-button font-bold">.</button>
+                    <button onclick="calcCmd('=')" class="mac-bevel-button font-bold text-sm bg-blue-200">=</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. SIMPLETEXT / NOTEPAD WINDOW -->
+        <div id="win-notepad" class="mac-window hidden" style="top: 60px; left: 100px; width: 340px; height: 320px;">
+            <div class="mac-window-header mac-pinstripes h-6 border-b-2 border-black flex items-center justify-between px-1 cursor-move" onmousedown="dragStart(event, 'win-notepad')">
+                <button onclick="closeApp('notepad')" class="w-4 h-4 bg-macGray border border-black mac-bevel-button text-[9px] font-bold">□</button>
+                <span class="font-bold text-xs truncate">SimpleText - ReadMe.txt</span>
+                <button onclick="maximizeApp('notepad')" class="w-4 h-4 bg-macGray border border-black mac-bevel-button text-[9px] font-bold">⧉</button>
+            </div>
+            <div class="flex-1 bg-white p-1 flex flex-col">
+                <textarea id="notepad-editor" oninput="saveNoteText()" class="w-full flex-1 p-2 font-mono text-xs border-none outline-none resize-none mac-scrollbar" placeholder="Type notes here..."></textarea>
+                <div class="h-5 bg-macGray border-t border-black flex items-center justify-between px-2 text-[10px] text-gray-700">
+                    <span>Saved to LocalStorage</span>
+                    <span id="note-char-count">0 chars</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. RETRO BRICK BUSTING GAME -->
+        <div id="win-game" class="mac-window hidden" style="top: 45px; left: 30px; width: 340px; height: 380px;">
+            <div class="mac-window-header mac-pinstripes h-6 border-b-2 border-black flex items-center justify-between px-1 cursor-move" onmousedown="dragStart(event, 'win-game')">
+                <button onclick="closeApp('game')" class="w-4 h-4 bg-macGray border border-black mac-bevel-button text-[9px] font-bold">□</button>
+                <span class="font-bold text-xs truncate">Brick Buster Arcade</span>
+                <div></div>
+            </div>
+            <div class="flex-1 bg-black p-2 flex flex-col justify-between items-center">
+                <div class="w-full flex justify-between text-xs text-green-400 font-mono px-2 mb-1">
+                    <span>SCORE: <span id="game-score">0</span></span>
+                    <button onclick="startBrickGame()" class="text-yellow-300 underline text-xs">New Game</button>
+                </div>
+                <canvas id="gameCanvas" width="300" height="280" class="border border-green-500 bg-black cursor-pointer"></canvas>
+                <div class="text-[10px] text-gray-400 mt-1">Move mouse/finger to control paddle</div>
+            </div>
+        </div>
+
+        <!-- 6. CONTROL PANEL & SYSTEM INFO -->
+        <div id="win-control-panel" class="mac-window hidden" style="top: 80px; left: 50px; width: 350px; height: 320px;">
+            <div class="mac-window-header mac-pinstripes h-6 border-b-2 border-black flex items-center justify-between px-1 cursor-move" onmousedown="dragStart(event, 'win-control-panel')">
+                <button onclick="closeApp('control-panel')" class="w-4 h-4 bg-macGray border border-black mac-bevel-button text-[9px] font-bold">□</button>
+                <span class="font-bold text-xs truncate">Control Panel & Settings</span>
+                <div></div>
+            </div>
+            <div class="flex-1 bg-macGray p-3 mac-scrollbar overflow-auto text-xs space-y-4">
+                
+                <!-- Wallpaper selector -->
+                <div class="mac-bevel-in p-2">
+                    <div class="font-bold mb-1">Desktop Pattern / Theme</div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="setWallpaper('#008080')" class="mac-bevel-button p-1 flex items-center space-x-2">
+                            <span class="w-4 h-4 rounded-full bg-[#008080] inline-block border"></span>
+                            <span>Classic Teal</span>
+                        </button>
+                        <button onclick="setWallpaper('#4b0082')" class="mac-bevel-button p-1 flex items-center space-x-2">
+                            <span class="w-4 h-4 rounded-full bg-[#4b0082] inline-block border"></span>
+                            <span>System 7 Purple</span>
+                        </button>
+                        <button onclick="setWallpaper('#1f2937')" class="mac-bevel-button p-1 flex items-center space-x-2">
+                            <span class="w-4 h-4 rounded-full bg-[#1f2937] inline-block border"></span>
+                            <span>Dark Charcoal</span>
+                        </button>
+                        <button onclick="setWallpaper('#556b2f')" class="mac-bevel-button p-1 flex items-center space-x-2">
+                            <span class="w-4 h-4 rounded-full bg-[#556b2f] inline-block border"></span>
+                            <span>Retro Olive</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Sound Controls -->
+                <div class="mac-bevel-in p-2">
+                    <div class="font-bold mb-1">Sound & Feedback</div>
+                    <div class="flex items-center justify-between">
+                        <span>Audio Chimes:</span>
+                        <button onclick="playStartupChime()" class="mac-bevel-button px-2 py-0.5 text-xs">Test Startup Chime 🔔</button>
+                    </div>
+                </div>
+
+                <!-- System Specs -->
+                <div class="mac-bevel-in p-2">
+                    <div class="font-bold mb-1">System Specs</div>
+                    <div class="space-y-1 text-[11px] text-gray-700 font-mono">
+                        <div>Model: Power Macintosh 8500 / 120</div>
+                        <div>Processor: PowerPC 604 @ 120 MHz</div>
+                        <div>Built-in Memory: 64 MB RAM</div>
+                        <div>System Software: Mac OS 8.1 / System 7.5</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- 7. ABOUT THIS MACINTOSH MODAL -->
+        <div id="win-about" class="mac-window hidden" style="top: 100px; left: 60px; width: 300px; height: 200px;">
+            <div class="mac-window-header mac-pinstripes h-6 border-b-2 border-black flex items-center justify-between px-1 cursor-move" onmousedown="dragStart(event, 'win-about')">
+                <button onclick="closeApp('about')" class="w-4 h-4 bg-macGray border border-black mac-bevel-button text-[9px] font-bold">□</button>
+                <span class="font-bold text-xs truncate">About This Macintosh</span>
+                <div></div>
+            </div>
+            <div class="flex-1 bg-macGray p-4 flex flex-col justify-between items-center text-center">
+                <div class="flex items-center space-x-2">
+                    <span class="text-4xl">🍎</span>
+                    <div class="text-left">
+                        <div class="font-bold text-sm">System 7.5.5</div>
+                        <div class="text-xs text-gray-600">Apple Computer, Inc. 1983-1996</div>
+                    </div>
+                </div>
+                <div class="w-full mac-bevel-in p-2 text-xs text-left font-mono">
+                    <div>Built-in Memory: 64,536K</div>
+                    <div>Largest Unused Block: 42,108K</div>
+                </div>
+                <button onclick="closeApp('about')" class="mac-bevel-button px-4 py-1 text-xs font-bold">OK</button>
+            </div>
+        </div>
+
+        <!-- 8. TRASH WINDOW -->
+        <div id="win-trash" class="mac-window hidden" style="top: 90px; left: 70px; width: 280px; height: 200px;">
+            <div class="mac-window-header mac-pinstripes h-6 border-b-2 border-black flex items-center justify-between px-1 cursor-move" onmousedown="dragStart(event, 'win-trash')">
+                <button onclick="closeApp('trash')" class="w-4 h-4 bg-macGray border border-black mac-bevel-button text-[9px] font-bold">□</button>
+                <span class="font-bold text-xs truncate">Trash</span>
+                <div></div>
+            </div>
+            <div class="flex-1 bg-white p-3 mac-scrollbar overflow-auto flex flex-col items-center justify-between">
+                <div id="trash-content-status" class="text-xs text-gray-500">Trash is empty.</div>
+                <button onclick="emptyTrash()" class="mac-bevel-button px-3 py-1 text-xs font-bold text-red-700">Empty Trash</button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- BOTTOM CONTROL STRIP / QUICK DOCK -->
+    <footer class="w-full h-8 bg-macGray border-t-2 border-black flex items-center justify-between px-2 z-40 text-xs select-none">
+        <div class="flex items-center space-x-1 overflow-x-auto py-1" id="taskbar-apps">
+            <!-- Active running app buttons populate dynamically -->
+        </div>
+        <div class="flex items-center space-x-2">
+            <button onclick="openApp('control-panel')" class="mac-bevel-button px-2 py-0.5 text-xs font-semibold">Controls ⚙️</button>
+        </div>
+    </footer>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // Set dynamic height for mobile viewports
+        function setViewportHeight() {
+            let vh = window.innerHeight;
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
+        }
+        window.addEventListener('resize', setViewportHeight);
+        setViewportHeight();
+
+        // Web Audio API Synthesizer
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new AudioContext();
+            }
+        }
+
+        function playClickSound() {
+            try {
+                initAudio();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.03);
+                gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.03);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.03);
+            } catch (e) {}
+        }
+
+        function playStartupChime() {
+            try {
+                initAudio();
+                const now = audioCtx.currentTime;
+                // Macintosh F-major triadic chime simulation
+                const freqs = [349.23, 440.00, 523.25, 698.46]; 
+                freqs.forEach(freq => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now);
+                    gain.gain.setValueAtTime(0.12, now);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.5);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + 2.5);
+                });
+            } catch (e) {}
+        }
+
+        // System Clock
+        function updateClock() {
+            const now = new Date();
+            let hours = now.getHours();
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12 || 12;
+            document.getElementById('mac-clock').innerText = `${hours}:${minutes} ${ampm}`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // App Window Management & Z-Index
+        let activeZIndex = 20;
+        const openApps = new Set();
+
+        function openApp(appId) {
+            playClickSound();
+            const win = document.getElementById(`win-${appId}`);
+            if (win) {
+                win.classList.remove('hidden');
+                focusWindow(win);
+                openApps.add(appId);
+                updateTaskbar();
+            }
+            closeAllMenus();
+        }
+
+        function closeApp(appId) {
+            playClickSound();
+            const win = document.getElementById(`win-${appId}`);
+            if (win) {
+                win.classList.add('hidden');
+                openApps.delete(appId);
+                updateTaskbar();
+            }
+        }
+
+        function focusWindow(win) {
+            activeZIndex++;
+            win.style.zIndex = activeZIndex;
+            document.querySelectorAll('.mac-window').forEach(w => w.classList.remove('active'));
+            win.classList.add('active');
+            
+            const titleEl = win.querySelector('.mac-window-header span');
+            if (titleEl) {
+                document.getElementById('active-app-name').innerText = titleEl.innerText;
+            }
+        }
+
+        function maximizeApp(appId) {
+            playClickSound();
+            const win = document.getElementById(`win-${appId}`);
+            if (win) {
+                win.classList.toggle('maximized');
+            }
+        }
+
+        function minimizeApp(appId) {
+            closeApp(appId);
+        }
+
+        function updateTaskbar() {
+            const container = document.getElementById('taskbar-apps');
+            container.innerHTML = '';
+            openApps.forEach(appId => {
+                const btn = document.createElement('button');
+                btn.className = 'mac-bevel-button px-2 py-0.5 text-xs font-semibold capitalize flex items-center space-x-1';
+                btn.innerHTML = `<span>${appId}</span>`;
+                btn.onclick = () => openApp(appId);
+                container.appendChild(btn);
+            });
+        }
+
+        // Window Dragging Logic (Mouse & Touch)
+        let draggedWin = null;
+        let offsetX = 0, offsetY = 0;
+
+        function dragStart(e, winId) {
+            draggedWin = document.getElementById(winId);
+            focusWindow(draggedWin);
+            
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            const rect = draggedWin.getBoundingClientRect();
+            offsetX = clientX - rect.left;
+            offsetY = clientY - rect.top;
+
+            document.addEventListener('mousemove', dragMove);
+            document.addEventListener('mouseup', dragEnd);
+            document.addEventListener('touchmove', dragMove, { passive: false });
+            document.addEventListener('touchend', dragEnd);
+        }
+
+        function dragMove(e) {
+            if (!draggedWin || draggedWin.classList.contains('maximized')) return;
+            e.preventDefault();
+
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            let newX = clientX - offsetX;
+            let newY = clientY - offsetY;
+
+            // Keep within topbar bounds
+            newY = Math.max(28, newY);
+
+            draggedWin.style.left = `${newX}px`;
+            draggedWin.style.top = `${newY}px`;
+        }
+
+        function dragEnd() {
+            draggedWin = null;
+            document.removeEventListener('mousemove', dragMove);
+            document.removeEventListener('mouseup', dragEnd);
+            document.removeEventListener('touchmove', dragMove);
+            document.removeEventListener('touchend', dragEnd);
+        }
+
+        // Topbar Dropdown Menus
+        function toggleMenu(menuId) {
+            playClickSound();
+            const menu = document.getElementById(menuId);
+            const isHidden = menu.classList.contains('hidden');
+            closeAllMenus();
+            if (isHidden) {
+                menu.classList.remove('hidden');
+            }
+        }
+
+        function closeAllMenus() {
+            document.querySelectorAll('#top-menu-bar [id$="-menu"], #apple-menu-dropdown').forEach(m => m.classList.add('hidden'));
+        }
+
+        document.getElementById('apple-menu-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            playClickSound();
+            const dropdown = document.getElementById('apple-menu-dropdown');
+            const isHidden = dropdown.classList.contains('hidden');
+            closeAllMenus();
+            if (isHidden) dropdown.classList.remove('hidden');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#top-menu-bar')) {
+                closeAllMenus();
+            }
+        });
+
+        // App Logic 1: MacPaint Canvas
+        const paintCanvas = document.getElementById('paintCanvas');
+        const ctx = paintCanvas.getContext('2d');
+        let painting = false;
+        let paintColor = '#000000';
+        let paintTool = 'pencil';
+
+        function resizePaintCanvas() {
+            if (paintCanvas) {
+                paintCanvas.width = paintCanvas.parentElement.clientWidth;
+                paintCanvas.height = paintCanvas.parentElement.clientHeight;
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(0, 0, paintCanvas.width, paintCanvas.height);
+            }
+        }
+
+        function setPaintTool(tool) {
+            paintTool = tool;
+            document.querySelectorAll('#win-paint button[id^="btn-tool-"]').forEach(b => b.classList.remove('bg-white'));
+            document.getElementById(`btn-tool-${tool}`).classList.add('bg-white');
+        }
+
+        function setPaintColor(color) {
+            paintColor = color;
+        }
+
+        function clearPaintCanvas() {
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, paintCanvas.width, paintCanvas.height);
+        }
+
+        function startPaint(e) {
+            painting = true;
+            drawPaint(e);
+        }
+
+        function stopPaint() {
+            painting = false;
+            ctx.beginPath();
+        }
+
+        function drawPaint(e) {
+            if (!painting) return;
+            const rect = paintCanvas.getBoundingClientRect();
+            const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+            const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+
+            ctx.lineWidth = paintTool === 'eraser' ? 14 : 3;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = paintTool === 'eraser' ? '#ffffff' : paintColor;
+
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        }
+
+        paintCanvas.addEventListener('mousedown', startPaint);
+        paintCanvas.addEventListener('mouseup', stopPaint);
+        paintCanvas.addEventListener('mousemove', drawPaint);
+        paintCanvas.addEventListener('touchstart', startPaint);
+        paintCanvas.addEventListener('touchend', stopPaint);
+        paintCanvas.addEventListener('touchmove', drawPaint);
+
+        // App Logic 2: Retro Calculator
+        let calcVal = '0';
+        let calcOp = null;
+        let prevVal = null;
+
+        function updateCalcDisplay() {
+            document.getElementById('calc-display').innerText = calcVal;
+        }
+
+        function calcNum(n) {
+            playClickSound();
+            if (calcVal === '0' || calcVal === 'Error') {
+                calcVal = n;
+            } else {
+                calcVal += n;
+            }
+            updateCalcDisplay();
+        }
+
+        function calcCmd(cmd) {
+            playClickSound();
+            if (cmd === 'C') {
+                calcVal = '0';
+                calcOp = null;
+                prevVal = null;
+            } else if (cmd === '=') {
+                if (calcOp && prevVal !== null) {
+                    try {
+                        const a = parseFloat(prevVal);
+                        const b = parseFloat(calcVal);
+                        let res = 0;
+                        if (calcOp === '+') res = a + b;
+                        if (calcOp === '-') res = a - b;
+                        if (calcOp === '*') res = a * b;
+                        if (calcOp === '/') res = b !== 0 ? a / b : 'Error';
+                        calcVal = String(res);
+                    } catch {
+                        calcVal = 'Error';
+                    }
+                    calcOp = null;
+                    prevVal = null;
+                }
+            } else {
+                calcOp = cmd;
+                prevVal = calcVal;
+                calcVal = '0';
+            }
+            updateCalcDisplay();
+        }
+
+        // App Logic 3: SimpleText Notepad with localStorage
+        const notepadEditor = document.getElementById('notepad-editor');
+        const defaultNote = "Welcome to Macintosh System 7 Simulator!\n\nFeatures:\n- Fully draggable & responsive windows\n- Dynamic Viewport height for Mobile Browsers\n- MacPaint canvas drawing tool\n- Retro Brick Buster game\n- Synthesized retro audio feedback";
+
+        notepadEditor.value = localStorage.getItem('mac_note') || defaultNote;
+        document.getElementById('note-char-count').innerText = `${notepadEditor.value.length} chars`;
+
+        function saveNoteText() {
+            localStorage.setItem('mac_note', notepadEditor.value);
+            document.getElementById('note-char-count').innerText = `${notepadEditor.value.length} chars`;
+        }
+
+        // App Logic 4: Brick Buster Game
+        const gameCanvas = document.getElementById('gameCanvas');
+        const gCtx = gameCanvas.getContext('2d');
+        let ballX, ballY, dx, dy, paddleX, score, gameInterval;
+
+        function startBrickGame() {
+            ballX = gameCanvas.width / 2;
+            ballY = gameCanvas.height - 30;
+            dx = 2;
+            dy = -2;
+            paddleX = (gameCanvas.width - 60) / 2;
+            score = 0;
+            document.getElementById('game-score').innerText = score;
+            clearInterval(gameInterval);
+            gameInterval = setInterval(updateGame, 10);
+        }
+
+        function updateGame() {
+            gCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+            
+            // Draw Ball
+            gCtx.beginPath();
+            gCtx.arc(ballX, ballY, 5, 0, Math.PI * 2);
+            gCtx.fillStyle = '#00ff00';
+            gCtx.fill();
+            gCtx.closePath();
+
+            // Draw Paddle
+            gCtx.beginPath();
+            gCtx.rect(paddleX, gameCanvas.height - 12, 60, 8);
+            gCtx.fillStyle = '#ffffff';
+            gCtx.fill();
+            gCtx.closePath();
+
+            // Wall Collision
+            if (ballX + dx > gameCanvas.width - 5 || ballX + dx < 5) dx = -dx;
+            if (ballY + dy < 5) dy = -dy;
+            else if (ballY + dy > gameCanvas.height - 12) {
+                if (ballX > paddleX && ballX < paddleX + 60) {
+                    dy = -dy;
+                    score += 10;
+                    document.getElementById('game-score').innerText = score;
+                } else {
+                    // Game Over
+                    clearInterval(gameInterval);
+                    gCtx.fillStyle = '#ff0000';
+                    gCtx.font = '16px monospace';
+                    gCtx.fillText('GAME OVER', 105, 140);
+                }
+            }
+
+            ballX += dx;
+            ballY += dy;
+        }
+
+        gameCanvas.addEventListener('mousemove', (e) => {
+            const rect = gameCanvas.getBoundingClientRect();
+            paddleX = e.clientX - rect.left - 30;
+        });
+
+        gameCanvas.addEventListener('touchmove', (e) => {
+            const rect = gameCanvas.getBoundingClientRect();
+            paddleX = e.touches[0].clientX - rect.left - 30;
+        });
+
+        // App Logic 5: Control Panel Theme Changer
+        function setWallpaper(color) {
+            playClickSound();
+            document.documentElement.style.setProperty('--mac-bg-color', color);
+        }
+
+        // Special Menu Options
+        function emptyTrash() {
+            playClickSound();
+            document.getElementById('trash-content-status').innerText = 'Trash is empty.';
+            alert('Trash has been emptied.');
+        }
+
+        function restartSim() {
+            playStartupChime();
+            location.reload();
+        }
+
+        function shutDownSim() {
+            playClickSound();
+            document.body.innerHTML = `
+                <div class="w-full h-full bg-black text-white flex flex-col items-center justify-center p-4 text-center font-mono">
+                    <div class="text-4xl mb-4">🍎</div>
+                    <div class="text-lg">It is now safe to turn off your computer.</div>
+                    <button onclick="location.reload()" class="mt-6 px-4 py-2 bg-gray-800 border border-white text-xs">Restart Simulator</button>
+                </div>
+            `;
+        }
+
+        // Init App Windows
+        window.addEventListener('load', () => {
+            openApp('hd');
+            resizePaintCanvas();
+            startBrickGame();
+        });
+    </script>
+</body>
+</html>

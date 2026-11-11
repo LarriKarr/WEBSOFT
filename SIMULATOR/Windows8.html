@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Windows 8.1 Pro Simulator</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+        }
+
+        /* --- BOOT SCREEN --- */
+        #boot-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #000000;
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            transition: opacity 0.6s ease;
+        }
+
+        .win8-logo-boot {
+            width: 80px;
+            height: 80px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 4px;
+            margin-bottom: 35px;
+            transform: perspective(200px) rotateY(-18deg);
+        }
+
+        .win8-pane-boot { background: #0078d7; }
+
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid rgba(255,255,255,0.2);
+            border-top: 3px solid #fff;
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* --- DESKTOP --- */
+        #desktop {
+            width: 100vw;
+            height: calc(100vh - 40px);
+            background: radial-gradient(circle at center, #004e92 0%, #000428 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Перетаскиваемые ярлыки */
+        .shortcut {
+            position: absolute;
+            width: 80px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            color: white;
+            font-size: 11px;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
+            cursor: grab;
+            padding: 6px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            z-index: 2;
+        }
+
+        .shortcut:active { cursor: grabbing; }
+
+        .shortcut:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .shortcut-icon {
+            font-size: 32px;
+            margin-bottom: 4px;
+            pointer-events: none;
+        }
+
+        /* --- ДЕСКТОПНЫЕ ВИДЖЕТЫ В ПРАВОМ ВЕРХНЕМ УГЛУ --- */
+        .desktop-widgets-panel {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .widget-box {
+            width: 220px;
+            background: rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 6px;
+            padding: 12px;
+            color: #fff;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.4);
+            pointer-events: auto;
+        }
+
+        .widget-clock-time {
+            font-size: 30px;
+            font-weight: 300;
+            text-align: center;
+        }
+
+        .widget-clock-date {
+            font-size: 12px;
+            text-align: center;
+            color: #bbb;
+            margin-top: 2px;
+        }
+
+        .widget-weather-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            font-weight: bold;
+            border-bottom: 1px solid rgba(255,255,255,0.15);
+            padding-bottom: 5px;
+            margin-bottom: 8px;
+        }
+
+        .widget-weather-main {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .widget-temp {
+            font-size: 26px;
+            font-weight: 300;
+        }
+
+        /* --- METRO START SCREEN --- */
+        #metro-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: calc(100vh - 40px);
+            background: linear-gradient(135deg, #111111, #003366);
+            z-index: 9990;
+            display: none;
+            padding: 30px;
+            overflow-y: auto;
+            color: white;
+        }
+
+        .metro-header {
+            font-size: 38px;
+            font-weight: 300;
+            margin-bottom: 25px;
+        }
+
+        .metro-grid {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: flex-start;
+        }
+
+        /* Динамические размеры Metro-плиток */
+        .metro-tile {
+            position: relative;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: transform 0.1s, border 0.1s, width 0.2s, height 0.2s;
+            border: 2px solid transparent;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .metro-tile.small { width: 70px; height: 70px; padding: 6px; }
+        .metro-tile.medium { width: 130px; height: 130px; }
+        .metro-tile.wide { width: 272px; height: 130px; }
+
+        .metro-tile.small .tile-icon { font-size: 24px; }
+        .metro-tile.small .tile-label { font-size: 10px; }
+
+        .metro-tile:hover {
+            border: 2px solid #fff;
+            transform: scale(1.02);
+        }
+
+        .tile-icon { font-size: 34px; }
+        .tile-label { font-size: 12px; font-weight: 500; }
+
+        .t-blue { background-color: #0078d7; }
+        .t-green { background-color: #107c10; }
+        .t-orange { background-color: #d83b01; }
+        .t-purple { background-color: #5c2d91; }
+        .t-teal { background-color: #008272; }
+
+        /* Контекстное меню изменения размера плиток */
+        #tile-context-menu {
+            position: fixed;
+            background: #fff;
+            color: #333;
+            border: 1px solid #ccc;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            display: none;
+            flex-direction: column;
+            z-index: 10000;
+            border-radius: 4px;
+            overflow: hidden;
+            font-size: 12px;
+        }
+
+        .context-item {
+            padding: 8px 15px;
+            cursor: pointer;
+        }
+
+        .context-item:hover {
+            background: #0078d7;
+            color: #fff;
+        }
+
+        /* --- SUPERBAR WINDOWS 8.1 --- */
+        #taskbar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100vw;
+            height: 40px;
+            background: rgba(0, 0, 0, 0.88);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            z-index: 9999;
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        /* Оригинальный белая эмблема Windows 8.1 */
+        #start-button-8 {
+            height: 100%;
+            padding: 0 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.2s;
+            flex-shrink: 0;
+        }
+
+        #start-button-8:hover {
+            background: rgba(0, 120, 215, 0.7);
+        }
+
+        .win8-icon-flag {
+            width: 18px;
+            height: 18px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 2px;
+            transform: perspective(100px) rotateY(-20deg) skewY(-2deg);
+        }
+
+        .win8-icon-flag .pane {
+            background: #ffffff;
+        }
+
+        .taskbar-apps {
+            flex: 1;
+            display: flex;
+            gap: 4px;
+            padding: 0 5px;
+            align-items: center;
+            height: 100%;
+            overflow-x: auto;
+        }
+
+        .task-app-btn {
+            height: 32px;
+            padding: 0 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: white;
+            font-size: 12px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.1);
+            border-bottom: 2px solid #0078d7;
+            white-space: nowrap;
+        }
+
+        #system-tray {
+            padding: 0 12px;
+            color: white;
+            font-size: 11px;
+            flex-shrink: 0;
+            border-left: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* --- WINDOWS --- */
+        .window {
+            position: absolute;
+            background: #ffffff;
+            border: 1px solid #107c10;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+            display: flex;
+            flex-direction: column;
+            min-width: 340px;
+            min-height: 240px;
+            overflow: hidden;
+        }
+
+        .window-header {
+            height: 34px;
+            background: #f0f0f0;
+            padding: 0 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: move;
+            border-bottom: 1px solid #e5e5e5;
+        }
+
+        .window-title {
+            font-size: 12px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .window-controls { display: flex; }
+
+        .w-btn {
+            width: 36px;
+            height: 24px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 12px;
+            cursor: pointer;
+            color: #333;
+        }
+
+        .w-btn:hover { background: rgba(0,0,0,0.1); }
+        .w-btn-close:hover { background: #e81123; color: white; }
+
+        .window-body {
+            flex: 1;
+            position: relative;
+            overflow: auto;
+            background: #fff;
+        }
+
+        /* Explorer */
+        .explorer-toolbar {
+            padding: 6px 10px;
+            background: #f5f5f5;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+        }
+        .explorer-btn {
+            padding: 3px 8px;
+            background: #fff;
+            border: 1px solid #ccc;
+            cursor: pointer;
+            border-radius: 2px;
+        }
+        .explorer-path {
+            flex: 1;
+            background: #fff;
+            border: 1px solid #ccc;
+            padding: 3px 6px;
+        }
+        .explorer-grid {
+            padding: 15px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .disk-item, .folder-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 180px;
+        }
+        .disk-item:hover, .folder-item:hover {
+            background: #e5f3ff;
+            border: 1px solid #70c0e8;
+        }
+
+        .notepad-textarea {
+            width: 100%;
+            height: 100%;
+            border: none;
+            outline: none;
+            resize: none;
+            padding: 10px;
+            font-family: 'Segoe UI', monospace;
+            font-size: 13px;
+        }
+
+        .cmd-body {
+            background-color: #0c0c0c;
+            color: #cccccc;
+            font-family: 'Consolas', monospace;
+            padding: 10px;
+            height: 100%;
+            overflow-y: auto;
+            font-size: 13px;
+        }
+
+        .cmd-input-line { display: flex; }
+        .cmd-input {
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-family: inherit;
+            outline: none;
+            flex: 1;
+            margin-left: 6px;
+        }
+
+        .paint-toolbar {
+            padding: 5px;
+            background: #eceef4;
+            border-bottom: 1px solid #ccc;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            font-size: 12px;
+        }
+        .paint-canvas {
+            display: block;
+            cursor: crosshair;
+            background: #fff;
+        }
+
+        .calc-container {
+            padding: 10px;
+            background: #f0f4f8;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .calc-screen {
+            width: 100%;
+            height: 40px;
+            background: #fff;
+            border: 1px solid #999;
+            text-align: right;
+            padding: 8px;
+            font-size: 18px;
+            font-family: monospace;
+        }
+        .calc-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 5px;
+            flex: 1;
+        }
+        .calc-btn {
+            background: linear-gradient(to bottom, #f9f9f9, #e2e8f0);
+            border: 1px solid #adb5bd;
+            border-radius: 3px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        @media (max-width: 600px) {
+            .window {
+                width: 100% !important;
+                height: calc(100vh - 40px) !important;
+                top: 0 !important;
+                left: 0 !important;
+            }
+            .desktop-widgets-panel { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- BOOT SCREEN -->
+    <div id="boot-screen">
+        <div class="win8-logo-boot">
+            <div class="win8-pane-boot"></div>
+            <div class="win8-pane-boot"></div>
+            <div class="win8-pane-boot"></div>
+            <div class="win8-pane-boot"></div>
+        </div>
+        <div class="spinner"></div>
+    </div>
+
+    <!-- DESKTOP -->
+    <div id="desktop">
+        
+        <!-- ВИДЖЕТЫ В ПРАВОМ ВЕРХНЕМ УГЛУ -->
+        <div class="desktop-widgets-panel">
+            <div class="widget-box">
+                <div class="widget-clock-time" id="w-clock">00:00:00</div>
+                <div class="widget-clock-date" id="w-date">Вторник, 10 Ноября</div>
+            </div>
+            <div class="widget-box">
+                <div class="widget-weather-header">
+                    <span>📍 Погода Кишинёв</span>
+                    <span>Обновлено</span>
+                </div>
+                <div class="widget-weather-main">
+                    <div style="font-size:32px;">🌤️</div>
+                    <div class="widget-temp">+17°C</div>
+                    <div style="font-size:11px; text-align:right; color:#ccc;">Облачно<br>Влажность: 65%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ПЕРЕТАСКИВАЕМЫЕ ЯРЛЫКИ -->
+        <div class="shortcut" style="top:20px; left:20px;" onclick="openApp('computer')">
+            <div class="shortcut-icon">💻</div>
+            <div>Этот компьютер</div>
+        </div>
+        <div class="shortcut" style="top:110px; left:20px;" onclick="openApp('weather')">
+            <div class="shortcut-icon">🌤️</div>
+            <div>Погода</div>
+        </div>
+        <div class="shortcut" style="top:200px; left:20px;" onclick="openApp('notepad')">
+            <div class="shortcut-icon">📝</div>
+            <div>Блокнот</div>
+        </div>
+        <div class="shortcut" style="top:290px; left:20px;" onclick="openApp('paint')">
+            <div class="shortcut-icon">🎨</div>
+            <div>Paint</div>
+        </div>
+        <div class="shortcut" style="top:380px; left:20px;" onclick="openApp('calc')">
+            <div class="shortcut-icon">🧮</div>
+            <div>Калькулятор</div>
+        </div>
+        <div class="shortcut" style="top:20px; left:120px;" onclick="openApp('cmd')">
+            <div class="shortcut-icon">⬛</div>
+            <div>Командная строка</div>
+        </div>
+        <div class="shortcut" style="top:110px; left:120px;" onclick="openApp('ie')">
+            <div class="shortcut-icon">🌐</div>
+            <div>Internet Explorer</div>
+        </div>
+
+        <!-- METRO START SCREEN -->
+        <div id="metro-screen">
+            <div class="metro-header">Пуск</div>
+            <div class="metro-grid" id="metro-grid">
+                
+                <!-- Плитки (Drag & Drop + Изменение размера) -->
+                <div class="metro-tile wide t-blue" draggable="true" id="tile-weather" onclick="openApp('weather'); toggleMetro();" oncontextmenu="openTileMenu(event, 'tile-weather')">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:28px;">🌤️</span>
+                        <span style="font-size:24px; font-weight:300;">+17°C</span>
+                    </div>
+                    <div>
+                        <div style="font-size:14px; font-weight:bold;">Кишинёв</div>
+                        <div class="tile-label">Погода Metro</div>
+                    </div>
+                </div>
+
+                <div class="metro-tile medium t-teal" draggable="true" id="tile-comp" onclick="openApp('computer'); toggleMetro();" oncontextmenu="openTileMenu(event, 'tile-comp')">
+                    <div class="tile-icon">💻</div>
+                    <div class="tile-label">Этот компьютер</div>
+                </div>
+
+                <div class="metro-tile medium t-green" draggable="true" id="tile-note" onclick="openApp('notepad'); toggleMetro();" oncontextmenu="openTileMenu(event, 'tile-note')">
+                    <div class="tile-icon">📝</div>
+                    <div class="tile-label">Блокнот</div>
+                </div>
+
+                <div class="metro-tile medium t-orange" draggable="true" id="tile-paint" onclick="openApp('paint'); toggleMetro();" oncontextmenu="openTileMenu(event, 'tile-paint')">
+                    <div class="tile-icon">🎨</div>
+                    <div class="tile-label">Paint</div>
+                </div>
+
+                <div class="metro-tile medium t-purple" draggable="true" id="tile-calc" onclick="openApp('calc'); toggleMetro();" oncontextmenu="openTileMenu(event, 'tile-calc')">
+                    <div class="tile-icon">🧮</div>
+                    <div class="tile-label">Калькулятор</div>
+                </div>
+
+                <div class="metro-tile medium t-blue" draggable="true" id="tile-cmd" onclick="openApp('cmd'); toggleMetro();" oncontextmenu="openTileMenu(event, 'tile-cmd')">
+                    <div class="tile-icon">⬛</div>
+                    <div class="tile-label">Командная строка</div>
+                </div>
+
+                <div class="metro-tile medium t-teal" draggable="true" id="tile-ie" onclick="openApp('ie'); toggleMetro();" oncontextmenu="openTileMenu(event, 'tile-ie')">
+                    <div class="tile-icon">🌐</div>
+                    <div class="tile-label">Internet Explorer</div>
+                </div>
+
+                <div class="metro-tile medium t-orange" draggable="true" id="tile-reboot" onclick="rebootSystem()" oncontextmenu="openTileMenu(event, 'tile-reboot')">
+                    <div class="tile-icon">🔄</div>
+                    <div class="tile-label">Перезагрузка</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- КОНТЕКСТНОЕ МЕНЮ ИЗМЕНЕНИЯ РАЗМЕРА ПЛИТКИ -->
+        <div id="tile-context-menu">
+            <div class="context-item" onclick="resizeSelectedTile('small')">Маленький</div>
+            <div class="context-item" onclick="resizeSelectedTile('medium')">Средний</div>
+            <div class="context-item" onclick="resizeSelectedTile('wide')">Широкий</div>
+        </div>
+
+        <!-- SUPERBAR -->
+        <div id="taskbar">
+            <!-- Кнопка Пуск Win 8.1 с наклоном -->
+            <div id="start-button-8" onclick="toggleMetro()" title="Пуск">
+                <div class="win8-icon-flag">
+                    <div class="pane"></div>
+                    <div class="pane"></div>
+                    <div class="pane"></div>
+                    <div class="pane"></div>
+                </div>
+            </div>
+            
+            <div class="taskbar-apps" id="taskbar-apps"></div>
+
+            <div id="system-tray">
+                <span id="tray-clock">00:00</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                const bootScreen = document.getElementById('boot-screen');
+                bootScreen.style.opacity = '0';
+                setTimeout(() => bootScreen.style.display = 'none', 600);
+            }, 2500);
+            
+            updateClock();
+            setInterval(updateClock, 1000);
+            initShortcutDrag();
+            initMetroTileDrag();
+        });
+
+        function updateClock() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const fullTimeStr = now.toLocaleTimeString();
+            
+            document.getElementById('tray-clock').innerText = timeStr;
+            document.getElementById('w-clock').innerText = fullTimeStr;
+
+            const options = { weekday: 'long', day: 'numeric', month: 'long' };
+            document.getElementById('w-date').innerText = now.toLocaleDateString('ru-RU', options);
+        }
+
+        function toggleMetro() {
+            const metro = document.getElementById('metro-screen');
+            metro.style.display = metro.style.display === 'block' ? 'none' : 'block';
+            closeTileMenu();
+        }
+
+        function rebootSystem() {
+            toggleMetro();
+            const bootScreen = document.getElementById('boot-screen');
+            bootScreen.style.display = 'flex';
+            bootScreen.style.opacity = '1';
+            setTimeout(() => {
+                bootScreen.style.opacity = '0';
+                setTimeout(() => bootScreen.style.display = 'none', 600);
+            }, 2500);
+        }
+
+        /* --- DRAG & DROP ЯРЛЫКОВ РАБОЧЕГО СТОЛА --- */
+        function initShortcutDrag() {
+            document.querySelectorAll('.shortcut').forEach(shortcut => {
+                shortcut.onmousedown = function(e) {
+                    let shiftX = e.clientX - shortcut.getBoundingClientRect().left;
+                    let shiftY = e.clientY - shortcut.getBoundingClientRect().top;
+
+                    function moveAt(pageX, pageY) {
+                        shortcut.style.left = pageX - shiftX + 'px';
+                        shortcut.style.top = pageY - shiftY + 'px';
+                    }
+
+                    function onMouseMove(e) {
+                        moveAt(e.pageX, e.pageY);
+                    }
+
+                    document.addEventListener('mousemove', onMouseMove);
+
+                    document.onmouseup = function() {
+                        document.removeEventListener('mousemove', onMouseMove);
+                        document.onmouseup = null;
+                    };
+                };
+            });
+        }
+
+        /* --- DRAG & DROP И ИЗМЕНЕНИЕ РАЗМЕРА METRO-ПЛИТОК --- */
+        let activeTileId = null;
+
+        function initMetroTileDrag() {
+            const grid = document.getElementById('metro-grid');
+            let draggedTile = null;
+
+            grid.addEventListener('dragstart', (e) => {
+                if (e.target.classList.contains('metro-tile')) {
+                    draggedTile = e.target;
+                    e.dataTransfer.effectAllowed = 'move';
+                }
+            });
+
+            grid.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                const target = e.target.closest('.metro-tile');
+                if (target && target !== draggedTile) {
+                    const rect = target.getBoundingClientRect();
+                    const next = (e.clientX - rect.left)/(rect.right - rect.left) > 0.5;
+                    grid.insertBefore(draggedTile, next && target.nextSibling || target);
+                }
+            });
+        }
+
+        function openTileMenu(e, tileId) {
+            e.preventDefault();
+            e.stopPropagation();
+            activeTileId = tileId;
+            const menu = document.getElementById('tile-context-menu');
+            menu.style.left = e.clientX + 'px';
+            menu.style.top = e.clientY + 'px';
+            menu.style.display = 'flex';
+        }
+
+        function closeTileMenu() {
+            document.getElementById('tile-context-menu').style.display = 'none';
+        }
+
+        document.addEventListener('click', closeTileMenu);
+
+        function resizeSelectedTile(sizeClass) {
+            if (activeTileId) {
+                const tile = document.getElementById(activeTileId);
+                if (tile) {
+                    tile.classList.remove('small', 'medium', 'wide');
+                    tile.classList.add(sizeClass);
+                }
+            }
+            closeTileMenu();
+        }
+
+        /* --- УПРАВЛЕНИЕ ОКНАМИ --- */
+        let zIndexCounter = 100;
+
+        function updateTaskbar() {
+            const container = document.getElementById('taskbar-apps');
+            container.innerHTML = '';
+            const windows = document.querySelectorAll('.window');
+            
+            windows.forEach(win => {
+                if (win.style.display !== 'none') {
+                    const btn = document.createElement('div');
+                    btn.className = 'task-app-btn';
+                    const titleText = win.querySelector('.window-title').innerText;
+                    btn.innerHTML = titleText;
+                    btn.onclick = () => focusWindow(win);
+                    container.appendChild(btn);
+                }
+            });
+        }
+
+        function openApp(appId) {
+            let win = document.getElementById(`win-${appId}`);
+            if (win) {
+                win.style.display = 'flex';
+                focusWindow(win);
+                updateTaskbar();
+                return;
+            }
+
+            win = document.createElement('div');
+            win.id = `win-${appId}`;
+            win.className = 'window';
+            win.style.top = '40px';
+            win.style.left = '50px';
+            win.style.width = '520px';
+            win.style.height = '350px';
+
+            let title = 'Приложение';
+            let icon = '⚙️';
+            let content = '';
+
+            if (appId === 'computer') {
+                title = 'Этот компьютер';
+                icon = '💻';
+                content = getExplorerHTML('root');
+            } else if (appId === 'weather') {
+                title = 'Погода Metro';
+                icon = '🌤️';
+                content = `<div style="padding:20px; background:linear-gradient(to bottom, #0078d7, #004e92); color:#fff; height:100%;">
+                    <h2>Кишинёв, Молдова</h2>
+                    <div style="font-size:48px; margin:15px 0;">🌤️ +17°C</div>
+                    <p>Прогноз: Преимущественно облачно</p>
+                    <p>Ветер: 4 м/с | Влажность: 65%</p>
+                    <hr style="margin:15px 0; border:0; border-top:1px solid rgba(255,255,255,0.3);">
+                    <p>Прогноз на 3 дня: Завтра +19°C ☀️ | Четверг +15°C 🌧️</p>
+                </div>`;
+            } else if (appId === 'notepad') {
+                title = 'Блокнот';
+                icon = '📝';
+                content = '<textarea class="notepad-textarea" placeholder="Введите текст..."></textarea>';
+            } else if (appId === 'paint') {
+                title = 'Paint';
+                icon = '🎨';
+                content = `<div style="display:flex; flex-direction:column; height:100%;">
+                    <div class="paint-toolbar">
+                        <span>Цвет: <input type="color" id="paint-color" value="#000000"></span>
+                        <span>Кисть: <input type="range" id="paint-size" min="1" max="20" value="3"></span>
+                        <button onclick="clearCanvas()" style="padding:2px 6px;">Очистить</button>
+                    </div>
+                    <canvas id="paint-canvas" class="paint-canvas" style="flex:1; width:100%; height:100%;"></canvas>
+                </div>`;
+            } else if (appId === 'calc') {
+                title = 'Калькулятор';
+                icon = '🧮';
+                content = `<div class="calc-container">
+                    <input type="text" id="calc-screen" class="calc-screen" value="0" readonly>
+                    <div class="calc-grid">
+                        <button class="calc-btn" onclick="calcAppend('7')">7</button>
+                        <button class="calc-btn" onclick="calcAppend('8')">8</button>
+                        <button class="calc-btn" onclick="calcAppend('9')">9</button>
+                        <button class="calc-btn" onclick="calcAppend('/')">/</button>
+                        <button class="calc-btn" onclick="calcAppend('4')">4</button>
+                        <button class="calc-btn" onclick="calcAppend('5')">5</button>
+                        <button class="calc-btn" onclick="calcAppend('6')">6</button>
+                        <button class="calc-btn" onclick="calcAppend('*')">*</button>
+                        <button class="calc-btn" onclick="calcAppend('1')">1</button>
+                        <button class="calc-btn" onclick="calcAppend('2')">2</button>
+                        <button class="calc-btn" onclick="calcAppend('3')">3</button>
+                        <button class="calc-btn" onclick="calcAppend('-')">-</button>
+                        <button class="calc-btn" onclick="calcAppend('0')">0</button>
+                        <button class="calc-btn" onclick="calcClear()">C</button>
+                        <button class="calc-btn" onclick="calcEval()">=</button>
+                        <button class="calc-btn" onclick="calcAppend('+')">+</button>
+                    </div>
+                </div>`;
+            } else if (appId === 'cmd') {
+                title = 'Командная строка';
+                icon = '⬛';
+                content = `<div class="cmd-body" id="cmd-body">
+                    <div>Microsoft Windows [Version 6.3.9600]</div><br>
+                    <div id="cmd-output"></div>
+                    <div class="cmd-input-line">
+                        <span>C:\\Users\\User></span>
+                        <input type="text" class="cmd-input" onkeydown="handleCmd(event, this)">
+                    </div>
+                </div>`;
+            } else if (appId === 'ie') {
+                title = 'Internet Explorer 11';
+                icon = '🌐';
+                content = `<div style="display:flex; flex-direction:column; height:100%;">
+                    <div style="padding:4px; background:#f0f0f0; border-bottom:1px solid #ccc;">
+                        <input type="text" value="https://html5test.com" style="width:100%; padding:3px;" readonly>
+                    </div>
+                    <iframe src="https://html5test.com" style="flex:1; border:none;"></iframe>
+                </div>`;
+            }
+
+            win.innerHTML = `
+                <div class="window-header" onmousedown="dragWindow(event, '${win.id}')">
+                    <div class="window-title"><span>${icon}</span> ${title}</div>
+                    <div class="window-controls">
+                        <div class="w-btn" onclick="closeWindow('${win.id}')">🗕</div>
+                        <div class="w-btn w-btn-close" onclick="closeWindow('${win.id}')">✕</div>
+                    </div>
+                </div>
+                <div class="window-body">${content}</div>
+            `;
+
+            document.getElementById('desktop').appendChild(win);
+            win.addEventListener('mousedown', () => focusWindow(win));
+            focusWindow(win);
+            updateTaskbar();
+
+            if (appId === 'paint') setTimeout(initPaint, 50);
+        }
+
+        function getExplorerHTML(location) {
+            if (location === 'root') {
+                return `
+                <div class="explorer-toolbar">
+                    <button class="explorer-btn" disabled>← Назад</button>
+                    <div class="explorer-path">Этот компьютер</div>
+                </div>
+                <div class="explorer-grid">
+                    <div class="disk-item" onclick="navigateExplorer('C')">
+                        <span style="font-size:28px;">💽</span>
+                        <div><b>Локальный диск (C:)</b><br><small>120 ГБ свободно из 256 ГБ</small></div>
+                    </div>
+                    <div class="disk-item" onclick="navigateExplorer('D')">
+                        <span style="font-size:28px;">💽</span>
+                        <div><b>Локальный диск (D:)</b><br><small>450 ГБ свободно из 1 ТБ</small></div>
+                    </div>
+                </div>`;
+            } else if (location === 'C') {
+                return `
+                <div class="explorer-toolbar">
+                    <button class="explorer-btn" onclick="navigateExplorer('root')">← Назад</button>
+                    <div class="explorer-path">Этот компьютер > Локальный диск (C:)</div>
+                </div>
+                <div class="explorer-grid">
+                    <div class="folder-item"><span style="font-size:24px;">📁</span> <b>Windows</b></div>
+                    <div class="folder-item"><span style="font-size:24px;">📁</span> <b>Program Files</b></div>
+                    <div class="folder-item"><span style="font-size:24px;">📁</span> <b>Users</b></div>
+                </div>`;
+            } else if (location === 'D') {
+                return `
+                <div class="explorer-toolbar">
+                    <button class="explorer-btn" onclick="navigateExplorer('root')">← Назад</button>
+                    <div class="explorer-path">Этот компьютер > Локальный диск (D:)</div>
+                </div>
+                <div class="explorer-grid">
+                    <div class="folder-item"><span style="font-size:24px;">📁</span> <b>Games</b></div>
+                    <div class="folder-item"><span style="font-size:24px;">📁</span> <b>Documents</b></div>
+                    <div class="folder-item"><span style="font-size:24px;">📁</span> <b>Downloads</b></div>
+                </div>`;
+            }
+        }
+
+        function navigateExplorer(location) {
+            const winBody = document.querySelector('#win-computer .window-body');
+            if (winBody) winBody.innerHTML = getExplorerHTML(location);
+        }
+
+        function closeWindow(id) {
+            const win = document.getElementById(id);
+            if (win) win.remove();
+            updateTaskbar();
+        }
+
+        function focusWindow(win) {
+            zIndexCounter++;
+            win.style.zIndex = zIndexCounter;
+        }
+
+        function dragWindow(e, id) {
+            const win = document.getElementById(id);
+            focusWindow(win);
+            let shiftX = e.clientX - win.getBoundingClientRect().left;
+            let shiftY = e.clientY - win.getBoundingClientRect().top;
+
+            function moveAt(pageX, pageY) {
+                win.style.left = pageX - shiftX + 'px';
+                win.style.top = pageY - shiftY + 'px';
+            }
+
+            function onMouseMove(e) { moveAt(e.pageX, e.pageY); }
+
+            document.addEventListener('mousemove', onMouseMove);
+            document.onmouseup = function() {
+                document.removeEventListener('mousemove', onMouseMove);
+                document.onmouseup = null;
+            };
+        }
+
+        // Paint
+        let canvasCtx = null;
+        let isDrawing = false;
+        function initPaint() {
+            const canvas = document.getElementById('paint-canvas');
+            if(!canvas) return;
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight - 35;
+            canvasCtx = canvas.getContext('2d');
+            canvasCtx.fillStyle = '#ffffff';
+            canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+            canvas.onmousedown = (e) => { isDrawing = true; draw(e); };
+            canvas.onmousemove = (e) => { if(isDrawing) draw(e); };
+            canvas.onmouseup = () => { isDrawing = false; canvasCtx.beginPath(); };
+        }
+        function draw(e) {
+            const canvas = document.getElementById('paint-canvas');
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const color = document.getElementById('paint-color').value;
+            const size = document.getElementById('paint-size').value;
+
+            canvasCtx.lineWidth = size;
+            canvasCtx.lineCap = 'round';
+            canvasCtx.strokeStyle = color;
+
+            canvasCtx.lineTo(x, y);
+            canvasCtx.stroke();
+            canvasCtx.beginPath();
+            canvasCtx.moveTo(x, y);
+        }
+        function clearCanvas() {
+            const canvas = document.getElementById('paint-canvas');
+            canvasCtx.fillStyle = '#ffffff';
+            canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // Calc
+        let calcVal = "0";
+        function calcAppend(char) {
+            if(calcVal === "0" && !isNaN(char)) calcVal = char;
+            else calcVal += char;
+            document.getElementById('calc-screen').value = calcVal;
+        }
+        function calcClear() {
+            calcVal = "0";
+            document.getElementById('calc-screen').value = calcVal;
+        }
+        function calcEval() {
+            try {
+                calcVal = eval(calcVal).toString();
+                document.getElementById('calc-screen').value = calcVal;
+            } catch(e) {
+                calcVal = "Ошибка";
+                document.getElementById('calc-screen').value = calcVal;
+                calcVal = "0";
+            }
+        }
+
+        function handleCmd(e, input) {
+            if (e.key === 'Enter') {
+                const val = input.value.trim();
+                const output = document.getElementById('cmd-output');
+                output.innerHTML += `<div>C:\\Users\\User>${val}</div>`;
+                if (val.toLowerCase() === 'ver') {
+                    output.innerHTML += '<div>Windows 8.1 Build 9600</div>';
+                } else if (val.toLowerCase() === 'cls') {
+                    output.innerHTML = '';
+                } else if (val !== '') {
+                    output.innerHTML += `<div>"${val}" не распознана как команда.</div>`;
+                }
+                input.value = '';
+                document.getElementById('cmd-body').scrollTop = document.getElementById('cmd-body').scrollHeight;
+            }
+        }
+    </script>
+</body>
+</html>

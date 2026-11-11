@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full select-none">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Kali Linux Web OS Simulator</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Font: JetBrains Mono & Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            kali: {
+              bg: '#0d1117',
+              dark: '#161b22',
+              panel: '#0f141c',
+              border: '#1f2937',
+              blue: '#2062af',
+              lightBlue: '#1793d1',
+              accent: '#3b82f6',
+              text: '#f0f6fc',
+              subtext: '#8b949e',
+              danger: '#f85149',
+              warning: '#d29922',
+              success: '#3fb950'
+            }
+          },
+          fontFamily: {
+            mono: ['"JetBrains Mono"', 'monospace'],
+            sans: ['Inter', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Scrollbar for XFCE Aesthetics */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0d1117;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #21262d;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #30363d;
+    }
+
+    /* Scanline effect optional subtle overlay */
+    .crt-overlay {
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+      background-size: 100% 4px;
+      z-index: 999;
+      pointer-events: none;
+    }
+
+    .window-shadow {
+      box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.8), 0 0 1px 1px rgba(255, 255, 255, 0.05);
+    }
+
+    /* Touch optimizations */
+    .touch-none {
+      touch-action: none;
+    }
+  </style>
+</head>
+<body class="h-full w-full bg-kali-bg text-kali-text font-sans overflow-hidden flex flex-col justify-between relative antialiased">
+
+  <!-- Desktop Environment -->
+  <div id="desktop" class="relative flex-1 w-full h-full overflow-hidden bg-cover bg-center" style="background-image: radial-gradient(circle at 50% 50%, #172436 0%, #080c10 100%);">
+    
+    <!-- Kali Dragon Background Watermark (SVG) -->
+    <div class="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
+      <svg class="w-96 h-96 md:w-[500px] md:h-[500px] text-kali-lightBlue" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8 0-1.82.62-3.49 1.64-4.83 1.03 1.83 2.9 3.14 5.12 3.39-1.39 1.14-2.26 2.87-2.26 4.79 0 3.31 2.69 6 6 6s6-2.69 6-6c0-1.92-.87-3.65-2.26-4.79 2.22-.25 4.09-1.56 5.12-3.39C21.38 8.51 22 10.18 22 12c0 4.41-3.59 8-8 8z"/>
+      </svg>
+    </div>
+
+    <!-- Desktop Shortcuts Grid -->
+    <div class="absolute top-12 left-4 grid grid-cols-1 gap-4 z-10 w-24">
+      <button onclick="openApp('terminal')" class="flex flex-col items-center justify-center p-2 rounded-lg hover:bg-white/10 transition-all text-center group">
+        <div class="w-12 h-12 bg-kali-dark border border-kali-border rounded-lg flex items-center justify-center text-kali-accent group-hover:scale-105 shadow-md transition-transform">
+          <i class="fa-solid fa-terminal text-2xl"></i>
+        </div>
+        <span class="text-xs text-kali-text mt-1 group-hover:text-kali-lightBlue font-medium shadow-sm">Terminal</span>
+      </button>
+
+      <button onclick="openApp('wireshark')" class="flex flex-col items-center justify-center p-2 rounded-lg hover:bg-white/10 transition-all text-center group">
+        <div class="w-12 h-12 bg-kali-dark border border-kali-border rounded-lg flex items-center justify-center text-cyan-400 group-hover:scale-105 shadow-md transition-transform">
+          <i class="fa-solid fa-network-wired text-2xl"></i>
+        </div>
+        <span class="text-xs text-kali-text mt-1 group-hover:text-kali-lightBlue font-medium shadow-sm">Wireshark</span>
+      </button>
+
+      <button onclick="openApp('browser')" class="flex flex-col items-center justify-center p-2 rounded-lg hover:bg-white/10 transition-all text-center group">
+        <div class="w-12 h-12 bg-kali-dark border border-kali-border rounded-lg flex items-center justify-center text-orange-500 group-hover:scale-105 shadow-md transition-transform">
+          <i class="fa-brands fa-firefox-browser text-2xl"></i>
+        </div>
+        <span class="text-xs text-kali-text mt-1 group-hover:text-kali-lightBlue font-medium shadow-sm">Firefox</span>
+      </button>
+
+      <button onclick="openApp('editor')" class="flex flex-col items-center justify-center p-2 rounded-lg hover:bg-white/10 transition-all text-center group">
+        <div class="w-12 h-12 bg-kali-dark border border-kali-border rounded-lg flex items-center justify-center text-emerald-400 group-hover:scale-105 shadow-md transition-transform">
+          <i class="fa-solid fa-file-code text-2xl"></i>
+        </div>
+        <span class="text-xs text-kali-text mt-1 group-hover:text-kali-lightBlue font-medium shadow-sm">Leafpad</span>
+      </button>
+
+      <button onclick="openApp('cyberdashboard')" class="flex flex-col items-center justify-center p-2 rounded-lg hover:bg-white/10 transition-all text-center group">
+        <div class="w-12 h-12 bg-kali-dark border border-kali-border rounded-lg flex items-center justify-center text-purple-400 group-hover:scale-105 shadow-md transition-transform">
+          <i class="fa-solid fa-shield-halved text-2xl"></i>
+        </div>
+        <span class="text-xs text-kali-text mt-1 group-hover:text-kali-lightBlue font-medium shadow-sm">Cyber Tools</span>
+      </button>
+    </div>
+
+    <!-- WINDOW CONTAINERS AREA -->
+    <div id="window-area" class="absolute inset-0 pt-8 pb-10 pointer-events-none">
+      <!-- Windows dynamically injected here -->
+    </div>
+
+    <!-- Whisker Menu Overlay (Start Menu) -->
+    <div id="whisker-menu" class="hidden absolute top-8 left-0 w-80 md:w-96 bg-kali-dark border border-kali-border rounded-br-lg shadow-2xl z-50 overflow-hidden flex flex-col">
+      <!-- Header / Search -->
+      <div class="p-3 bg-kali-panel border-b border-kali-border flex items-center gap-2">
+        <i class="fa-solid fa-magnifying-glass text-kali-subtext"></i>
+        <input type="text" id="whisker-search" onkeyup="filterMenu()" placeholder="Type to search..." class="bg-kali-bg text-kali-text text-sm rounded px-2 py-1 w-full focus:outline-none focus:border-kali-blue border border-kali-border">
+      </div>
+      <!-- Body Categories & App List -->
+      <div class="flex h-80">
+        <div class="w-1/3 border-r border-kali-border bg-kali-panel/50 text-xs py-2">
+          <div class="px-3 py-2 hover:bg-kali-blue/20 cursor-pointer font-medium text-kali-lightBlue"><i class="fa-solid fa-star mr-1"></i> Favorites</div>
+          <div class="px-3 py-2 hover:bg-kali-blue/20 cursor-pointer text-kali-subtext"><i class="fa-solid fa-terminal mr-1"></i> Terminal</div>
+          <div class="px-3 py-2 hover:bg-kali-blue/20 cursor-pointer text-kali-subtext"><i class="fa-solid fa-shield mr-1"></i> Vulnerabilities</div>
+          <div class="px-3 py-2 hover:bg-kali-blue/20 cursor-pointer text-kali-subtext"><i class="fa-solid fa-key mr-1"></i> Passwords</div>
+          <div class="px-3 py-2 hover:bg-kali-blue/20 cursor-pointer text-kali-subtext"><i class="fa-solid fa-wifi mr-1"></i> Wireless</div>
+        </div>
+        <div class="w-2/3 p-2 overflow-y-auto space-y-1 text-sm" id="whisker-app-list">
+          <div onclick="openApp('terminal'); toggleWhisker();" class="flex items-center gap-2 p-2 rounded hover:bg-kali-blue/30 cursor-pointer">
+            <i class="fa-solid fa-terminal text-kali-accent w-5 text-center"></i>
+            <div>
+              <div class="text-xs font-semibold">Terminal Emulator</div>
+              <div class="text-[10px] text-kali-subtext">Command line shell</div>
+            </div>
+          </div>
+          <div onclick="openApp('wireshark'); toggleWhisker();" class="flex items-center gap-2 p-2 rounded hover:bg-kali-blue/30 cursor-pointer">
+            <i class="fa-solid fa-network-wired text-cyan-400 w-5 text-center"></i>
+            <div>
+              <div class="text-xs font-semibold">Wireshark</div>
+              <div class="text-[10px] text-kali-subtext">Packet Analyzer</div>
+            </div>
+          </div>
+          <div onclick="openApp('browser'); toggleWhisker();" class="flex items-center gap-2 p-2 rounded hover:bg-kali-blue/30 cursor-pointer">
+            <i class="fa-brands fa-firefox-browser text-orange-500 w-5 text-center"></i>
+            <div>
+              <div class="text-xs font-semibold">Firefox Web Browser</div>
+              <div class="text-[10px] text-kali-subtext">Browse the internet</div>
+            </div>
+          </div>
+          <div onclick="openApp('editor'); toggleWhisker();" class="flex items-center gap-2 p-2 rounded hover:bg-kali-blue/30 cursor-pointer">
+            <i class="fa-solid fa-file-code text-emerald-400 w-5 text-center"></i>
+            <div>
+              <div class="text-xs font-semibold">Leafpad Text Editor</div>
+              <div class="text-[10px] text-kali-subtext">Simple file editor</div>
+            </div>
+          </div>
+          <div onclick="openApp('cyberdashboard'); toggleWhisker();" class="flex items-center gap-2 p-2 rounded hover:bg-kali-blue/30 cursor-pointer">
+            <i class="fa-solid fa-shield-halved text-purple-400 w-5 text-center"></i>
+            <div>
+              <div class="text-xs font-semibold">Cyber Tools Suite</div>
+              <div class="text-[10px] text-kali-subtext">Pentesting dashboard</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Footer -->
+      <div class="p-2 bg-kali-panel border-t border-kali-border flex justify-between items-center text-xs text-kali-subtext">
+        <span class="flex items-center gap-1"><i class="fa-solid fa-user-shield text-kali-accent"></i> root@kali</span>
+        <button onclick="location.reload()" class="hover:text-kali-danger"><i class="fa-solid fa-power-off"></i> Restart</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top XFCE Panel / Status Bar -->
+  <header class="h-8 bg-kali-panel border-b border-kali-border flex items-center justify-between px-2 z-40 select-none text-xs">
+    <!-- Left Section: Menu & Quick Launchers -->
+    <div class="flex items-center gap-1 h-full">
+      <!-- Kali Dragon Icon Button -->
+      <button onclick="toggleWhisker()" class="h-7 px-2 flex items-center justify-center hover:bg-kali-blue/30 rounded text-kali-lightBlue transition-colors font-bold gap-1">
+        <i class="fa-solid fa-dragon text-base"></i>
+        <span class="hidden sm:inline font-semibold text-kali-text">Applications</span>
+      </button>
+
+      <div class="h-4 w-[1px] bg-kali-border mx-1"></div>
+
+      <!-- Panel Window Tasks Tabs -->
+      <div id="panel-tasks" class="flex items-center gap-1 overflow-x-auto max-w-[40vw] sm:max-w-md">
+        <!-- Dynamically generated task buttons -->
+      </div>
+    </div>
+
+    <!-- Right Section: System Tray & Clock -->
+    <div class="flex items-center gap-3 text-kali-subtext">
+      <!-- Mobile Quick Keyboard Toggle -->
+      <button onclick="toggleMobileKeyboard()" class="md:hidden p-1 text-kali-accent hover:text-white" title="Toggle On-screen Focus">
+        <i class="fa-solid fa-keyboard text-sm"></i>
+      </button>
+
+      <div class="hidden sm:flex items-center gap-2">
+        <i class="fa-solid fa-microchip text-xs"></i>
+        <span class="text-[10px] font-mono">CPU: 12%</span>
+      </div>
+
+      <div class="flex items-center gap-1">
+        <i class="fa-solid fa-wifi text-kali-success"></i>
+        <span class="hidden md:inline text-[10px] text-kali-success">eth0</span>
+      </div>
+
+      <div class="flex items-center gap-1">
+        <i class="fa-solid fa-volume-high"></i>
+      </div>
+
+      <div class="h-4 w-[1px] bg-kali-border"></div>
+
+      <!-- Time Display -->
+      <div id="clock" class="font-mono text-kali-text font-medium px-1">00:00:00</div>
+    </div>
+  </header>
+
+  <!-- Notification Toast Container -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- MAIN SCRIPT ENGINE -->
+  <script>
+    /* ==========================================================================
+       SYSTEM STATE & VIRTUAL FILESYSTEM
+       ========================================================================== */
+    let zIndexCounter = 100;
+    let activeAppId = null;
+
+    const VFS = {
+      'root': {
+        'type': 'dir',
+        'children': {
+          'desktop': {
+            'type': 'dir',
+            'children': {
+              'readme.txt': { 'type': 'file', 'content': 'Welcome to Kali Linux Browser Simulator!\nType "help" in terminal for tool list.' },
+              'targets.txt': { 'type': 'file', 'content': '192.168.1.1 - Gateway\n192.168.1.100 - Web Server\n192.168.1.105 - Database Server' }
+            }
+          },
+          'tools': {
+            'type': 'dir',
+            'children': {
+              'notes.txt': { 'type': 'file', 'content': 'Use sqlmap for DB audit, hydra for brute forcing SSH.' }
+            }
+          },
+          'flag.txt': { 'type': 'file', 'content': 'KALI{W3B_OS_S1MUL4T0R_2026_SUCCESS}' }
+        }
+      }
+    };
+
+    let currentPath = ['root'];
+
+    /* ==========================================================================
+       APP MANAGER & WINDOW HANDLING
+       ========================================================================== */
+    const apps = {
+      terminal: { title: 'Terminal', icon: 'fa-terminal', width: 680, height: 420 },
+      wireshark: { title: 'Wireshark Packet Capture', icon: 'fa-network-wired', width: 720, height: 450 },
+      browser: { title: 'Firefox Browser', icon: 'fa-firefox-browser', width: 800, height: 500 },
+      editor: { title: 'Leafpad Text Editor', icon: 'fa-file-code', width: 550, height: 380 },
+      cyberdashboard: { title: 'Cyber Security Tools Dashboard', icon: 'fa-shield-halved', width: 700, height: 480 }
+    };
+
+    const openWindows = {};
+
+    function openApp(appId) {
+      if (openWindows[appId]) {
+        bringToFront(appId);
+        if (openWindows[appId].minimized) {
+          restoreWindow(appId);
+        }
+        return;
+      }
+
+      const app = apps[appId];
+      if (!app) return;
+
+      zIndexCounter++;
+      const win = document.createElement('div');
+      win.id = `win-${appId}`;
+      win.className = 'absolute bg-kali-dark border border-kali-border rounded-lg window-shadow flex flex-col overflow-hidden pointer-events-auto transition-shadow duration-200';
+      
+      // Calculate initial position & responsiveness
+      const isMobile = window.innerWidth < 640;
+      const w = isMobile ? window.innerWidth * 0.95 : app.width;
+      const h = isMobile ? window.innerHeight * 0.75 : app.height;
+      const left = isMobile ? (window.innerWidth - w) / 2 : Math.max(10, 50 + (Object.keys(openWindows).length * 25));
+      const top = isMobile ? 10 : Math.max(10, 40 + (Object.keys(openWindows).length * 25));
+
+      win.style.width = `${w}px`;
+      win.style.height = `${h}px`;
+      win.style.left = `${left}px`;
+      win.style.top = `${top}px`;
+      win.style.zIndex = zIndexCounter;
+
+      // Window Header (XFCE Style)
+      win.innerHTML = `
+        <div id="header-${appId}" class="h-8 bg-kali-panel border-b border-kali-border flex items-center justify-between px-3 cursor-move select-none">
+          <div class="flex items-center gap-2 text-kali-text font-medium text-xs truncate">
+            <i class="fa-solid ${app.icon} text-kali-accent"></i>
+            <span>${app.title}</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button onclick="minimizeWindow('${appId}')" class="w-3.5 h-3.5 rounded-full bg-yellow-500/80 hover:bg-yellow-500 text-[9px] text-black flex items-center justify-center leading-none"><i class="fa-solid fa-minus"></i></button>
+            <button onclick="maximizeWindow('${appId}')" class="w-3.5 h-3.5 rounded-full bg-green-500/80 hover:bg-green-500 text-[9px] text-black flex items-center justify-center leading-none"><i class="fa-solid fa-expand"></i></button>
+            <button onclick="closeWindow('${appId}')" class="w-3.5 h-3.5 rounded-full bg-red-500/80 hover:bg-red-500 text-[9px] text-black flex items-center justify-center leading-none"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+        </div>
+        <div id="content-${appId}" class="flex-1 bg-kali-bg overflow-hidden relative">
+          <!-- App Specific Content Load -->
+        </div>
+      `;
+
+      document.getElementById('window-area').appendChild(win);
+
+      openWindows[appId] = {
+        element: win,
+        minimized: false,
+        maximized: false,
+        prevRect: { width: `${w}px`, height: `${h}px`, left: `${left}px`, top: `${top}px` }
+      };
+
+      // Add to Panel Tasks
+      addTaskToPanel(appId);
+
+      // Focus
+      bringToFront(appId);
+
+      // Setup Dragging
+      makeDraggable(appId);
+
+      // Render App Specific Body
+      renderAppContent(appId);
+    }
+
+    function bringToFront(appId) {
+      if (!openWindows[appId]) return;
+      zIndexCounter++;
+      openWindows[appId].element.style.zIndex = zIndexCounter;
+      activeAppId = appId;
+
+      // Highlight Taskbar
+      document.querySelectorAll('#panel-tasks button').forEach(btn => {
+        btn.classList.remove('bg-kali-blue/40', 'border-kali-accent');
+      });
+      const taskBtn = document.getElementById(`task-${appId}`);
+      if (taskBtn) {
+        taskBtn.classList.add('bg-kali-blue/40', 'border-kali-accent');
+      }
+    }
+
+    function closeWindow(appId) {
+      if (openWindows[appId]) {
+        openWindows[appId].element.remove();
+        delete openWindows[appId];
+        const taskBtn = document.getElementById(`task-${appId}`);
+        if (taskBtn) taskBtn.remove();
+      }
+    }
+
+    function minimizeWindow(appId) {
+      if (openWindows[appId]) {
+        openWindows[appId].element.style.display = 'none';
+        openWindows[appId].minimized = true;
+        const taskBtn = document.getElementById(`task-${appId}`);
+        if (taskBtn) taskBtn.classList.remove('bg-kali-blue/40');
+      }
+    }
+
+    function restoreWindow(appId) {
+      if (openWindows[appId]) {
+        openWindows[appId].element.style.display = 'flex';
+        openWindows[appId].minimized = false;
+        bringToFront(appId);
+      }
+    }
+
+    function maximizeWindow(appId) {
+      const win = openWindows[appId];
+      if (!win) return;
+
+      if (!win.maximized) {
+        win.prevRect = {
+          width: win.element.style.width,
+          height: win.element.style.height,
+          left: win.element.style.left,
+          top: win.element.style.top
+        };
+        win.element.style.width = '100%';
+        win.element.style.height = 'calc(100% - 32px)';
+        win.element.style.left = '0px';
+        win.element.style.top = '0px';
+        win.maximized = true;
+      } else {
+        win.element.style.width = win.prevRect.width;
+        win.element.style.height = win.prevRect.height;
+        win.element.style.left = win.prevRect.left;
+        win.element.style.top = win.prevRect.top;
+        win.maximized = false;
+      }
+    }
+
+    function addTaskToPanel(appId) {
+      const tasksContainer = document.getElementById('panel-tasks');
+      const btn = document.createElement('button');
+      btn.id = `task-${appId}`;
+      btn.className = 'h-6 px-2 text-xs rounded bg-kali-dark border border-kali-border hover:bg-kali-blue/20 flex items-center gap-1.5 transition-all truncate max-w-[120px]';
+      btn.innerHTML = `<i class="fa-solid ${apps[appId].icon} text-kali-accent text-[10px]"></i><span>${apps[appId].title}</span>`;
+      btn.onclick = () => {
+        if (openWindows[appId].minimized) {
+          restoreWindow(appId);
+        } else if (activeAppId === appId) {
+          minimizeWindow(appId);
+        } else {
+          bringToFront(appId);
+        }
+      };
+      tasksContainer.appendChild(btn);
+    }
+
+    /* DRAGGABLE SUPPORT FOR TOUCH & MOUSE */
+    function makeDraggable(appId) {
+      const win = openWindows[appId].element;
+      const header = document.getElementById(`header-${appId}`);
+
+      let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+
+      header.onmousedown = dragMouseDown;
+      header.ontouchstart = dragTouchStart;
+
+      function dragMouseDown(e) {
+        e.preventDefault();
+        bringToFront(appId);
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        document.onmouseup = closeDragElement;
+        document.onmousemove = elementDrag;
+      }
+
+      function elementDrag(e) {
+        e.preventDefault();
+        pos1 = pos3 - e.clientX;
+        pos2 = pos4 - e.clientY;
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        win.style.top = (win.offsetTop - pos2) + "px";
+        win.style.left = (win.offsetLeft - pos1) + "px";
+      }
+
+      function closeDragElement() {
+        document.onmouseup = null;
+        document.onmousemove = null;
+      }
+
+      function dragTouchStart(e) {
+        bringToFront(appId);
+        const touch = e.touches[0];
+        pos3 = touch.clientX;
+        pos4 = touch.clientY;
+        document.ontouchend = closeTouchElement;
+        document.ontouchmove = touchDrag;
+      }
+
+      function touchDrag(e) {
+        const touch = e.touches[0];
+        pos1 = pos3 - touch.clientX;
+        pos2 = pos4 - touch.clientY;
+        pos3 = touch.clientX;
+        pos4 = touch.clientY;
+        win.style.top = (win.offsetTop - pos2) + "px";
+        win.style.left = (win.offsetLeft - pos1) + "px";
+      }
+
+      function closeTouchElement() {
+        document.ontouchend = null;
+        document.ontouchmove = null;
+      }
+    }
+
+    /* ==========================================================================
+       APP CONTENTS & RENDERERS
+       ========================================================================== */
+    function renderAppContent(appId) {
+      const container = document.getElementById(`content-${appId}`);
+      if (!container) return;
+
+      switch(appId) {
+        case 'terminal':
+          renderTerminal(container);
+          break;
+        case 'wireshark':
+          renderWireshark(container);
+          break;
+        case 'browser':
+          renderBrowser(container);
+          break;
+        case 'editor':
+          renderEditor(container);
+          break;
+        case 'cyberdashboard':
+          renderCyberDashboard(container);
+          break;
+      }
+    }
+
+    /* --------------------------------------------------------------------------
+       1. TERMINAL APP & SIMULATED SHELL COMMANDS
+       -------------------------------------------------------------------------- */
+    let isMsfPrompt = false;
+
+    function renderTerminal(container) {
+      container.innerHTML = `
+        <div class="h-full bg-kali-bg p-2 font-mono text-xs sm:text-sm text-kali-text overflow-y-auto flex flex-col" id="term-body" onclick="document.getElementById('term-input').focus()">
+          <div id="term-output" class="space-y-1 mb-2">
+            <div class="text-kali-subtext">Kali Linux GNU/Linux 2026.1 (tty1)</div>
+            <div class="text-kali-subtext mb-2">Type <span class="text-kali-accent font-semibold">help</span> to view available security commands.</div>
+          </div>
+          <div class="flex items-center gap-1.5 text-kali-text" id="term-input-line">
+            <span id="term-prompt" class="text-kali-success font-bold">root@kali:<span class="text-kali-blue">~</span>#</span>
+            <input type="text" id="term-input" class="bg-transparent flex-1 focus:outline-none text-kali-text font-mono caret-kali-accent" autoFocus spellcheck="false">
+          </div>
+        </div>
+      `;
+
+      const input = container.querySelector('#term-input');
+      input.addEventListener('keydown', handleTerminalInput);
+      input.focus();
+    }
+
+    function handleTerminalInput(e) {
+      if (e.key === 'Enter') {
+        const input = e.target;
+        const cmd = input.value.trim();
+        const output = document.getElementById('term-output');
+        const promptText = document.getElementById('term-prompt').innerText;
+
+        // Echo command
+        const line = document.createElement('div');
+        line.className = 'flex gap-2';
+        line.innerHTML = `<span class="opacity-75">${promptText}</span> <span>${escapeHtml(cmd)}</span>`;
+        output.appendChild(line);
+
+        input.value = '';
+
+        if (cmd) {
+          processCommand(cmd, output);
+        }
+
+        // Auto scroll bottom
+        const body = document.getElementById('term-body');
+        body.scrollTop = body.scrollHeight;
+      }
+    }
+
+    function processCommand(cmdStr, output) {
+      const parts = cmdStr.split(' ');
+      const cmd = parts[0].toLowerCase();
+      const args = parts.slice(1);
+
+      if (isMsfPrompt) {
+        handleMsfCommand(cmd, args, output);
+        return;
+      }
+
+      switch(cmd) {
+        case 'help':
+          appendOutput(output, `
+<span class="text-kali-accent font-bold">Available System & Pentesting Commands:</span>
+  <span class="text-kali-lightBlue">help</span>          - Show this menu
+  <span class="text-kali-lightBlue">ls</span>            - List current directory contents
+  <span class="text-kali-lightBlue">cd &lt;dir&gt;</span>      - Change directory
+  <span class="text-kali-lightBlue">cat &lt;file&gt;</span>    - Display file content
+  <span class="text-kali-lightBlue">clear</span>         - Clear terminal screen
+  <span class="text-kali-lightBlue">whoami</span>        - Show current user
+  <span class="text-kali-lightBlue">pwd</span>           - Print working directory
+  <span class="text-kali-lightBlue">neofetch</span>      - System summary & logo
+  <span class="text-kali-lightBlue">matrix</span>        - Trigger digital matrix effect
+  <span class="text-kali-lightBlue">nmap &lt;target&gt;</span> - Port scanner simulator
+  <span class="text-kali-lightBlue">hydra</span>         - SSH brute force simulator
+  <span class="text-kali-lightBlue">sqlmap</span>        - SQL injection vulnerability assessment
+  <span class="text-kali-lightBlue">msfconsole</span>    - Launch Metasploit Framework simulator
+          `);
+          break;
+
+        case 'clear':
+          output.innerHTML = '';
+          break;
+
+        case 'whoami':
+          appendOutput(output, 'root');
+          break;
+
+        case 'pwd':
+          appendOutput(output, '/' + currentPath.join('/'));
+          break;
+
+        case 'ls':
+          let currentDir = VFS.root;
+          for (let i = 1; i < currentPath.length; i++) {
+            currentDir = currentDir.children[currentPath[i]];
+          }
+          const items = Object.keys(currentDir.children).map(k => {
+            const isDir = currentDir.children[k].type === 'dir';
+            return `<span class="${isDir ? 'text-kali-blue font-bold' : 'text-kali-text'}">${k}${isDir ? '/' : ''}</span>`;
+          });
+          appendOutput(output, items.join('   '));
+          break;
+
+        case 'cd':
+          if (!args[0] || args[0] === '~') {
+            currentPath = ['root'];
+          } else if (args[0] === '..') {
+            if (currentPath.length > 1) currentPath.pop();
+          } else {
+            let targetDir = args[0].replace('/', '');
+            let curr = VFS.root;
+            for (let i = 1; i < currentPath.length; i++) {
+              curr = curr.children[currentPath[i]];
+            }
+            if (curr.children && curr.children[targetDir] && curr.children[targetDir].type === 'dir') {
+              currentPath.push(targetDir);
+            } else {
+              appendOutput(output, `<span class="text-kali-danger">bash: cd: ${args[0]}: No such file or directory</span>`);
+            }
+          }
+          document.getElementById('term-prompt').innerHTML = `root@kali:<span class="text-kali-blue">~/${currentPath.slice(1).join('/')}</span>#`;
+          break;
+
+        case 'cat':
+          if (!args[0]) {
+            appendOutput(output, 'Usage: cat <filename>');
+            return;
+          }
+          let currDir = VFS.root;
+          for (let i = 1; i < currentPath.length; i++) {
+            currDir = currDir.children[currentPath[i]];
+          }
+          if (currDir.children && currDir.children[args[0]] && currDir.children[args[0]].type === 'file') {
+            appendOutput(output, escapeHtml(currDir.children[args[0]].content));
+          } else {
+            appendOutput(output, `<span class="text-kali-danger">cat: ${args[0]}: No such file</span>`);
+          }
+          break;
+
+        case 'neofetch':
+          appendOutput(output, `
+<div class="flex gap-4 font-mono text-xs my-2">
+  <div class="text-kali-accent font-bold hidden sm:block">
+  ..............
+  ............      .....
+  ...........     .........
+  ..........     ...........
+  .........     .............
+  ........     ...............
+  .......     .................
+  ......     ...................
+  </div>
+  <div class="space-y-0.5">
+    <div><span class="text-kali-accent font-bold">root</span>@<span class="text-kali-accent font-bold">kali</span></div>
+    <div>-------------------</div>
+    <div><span class="text-kali-lightBlue">OS</span>: Kali GNU/Linux Rolling x86_64</div>
+    <div><span class="text-kali-lightBlue">Kernel</span>: 6.8.0-kali1-amd64</div>
+    <div><span class="text-kali-lightBlue">Uptime</span>: 3 hours, 42 mins</div>
+    <div><span class="text-kali-lightBlue">Packages</span>: 3120 (dpkg)</div>
+    <div><span class="text-kali-lightBlue">Shell</span>: zsh 5.9</div>
+    <div><span class="text-kali-lightBlue">WM</span>: Xfce4</div>
+    <div><span class="text-kali-lightBlue">Terminal</span>: qterminal</div>
+    <div><span class="text-kali-lightBlue">CPU</span>: AMD Ryzen 9 5900X (12) @ 3.700GHz</div>
+    <div><span class="text-kali-lightBlue">Memory</span>: 2048MiB / 16384MiB</div>
+  </div>
+</div>
+          `);
+          break;
+
+        case 'nmap':
+          const target = args[0] || '192.168.1.1';
+          appendOutput(output, `<span class="text-kali-subtext">Starting Nmap 7.94 ( https://nmap.org ) at 2026-11-11 00:00 UTC</span>`);
+          appendOutput(output, `Nmap scan report for ${target}`);
+          appendOutput(output, `Host is up (0.0012s latency).`);
+          appendOutput(output, `
+PORT     STATE SERVICE     VERSION
+22/tcp   open  ssh         OpenSSH 8.9p1
+80/tcp   open  http        Apache httpd 2.4.52
+443/tcp  open  ssl/https   nginx 1.18.0
+3306/tcp open  mysql       MySQL 8.0.32
+Nmap done: 1 IP address (1 host up) scanned in 1.45 seconds.
+          `);
+          break;
+
+        case 'hydra':
+          appendOutput(output, `<span class="text-kali-warning">[+] Starting Hydra v9.5 SSH Brute Force Simulation...</span>`);
+          let attempts = 0;
+          const passwords = ['123456', 'admin', 'password', 'kali', 'dragon1'];
+          const timer = setInterval(() => {
+            if (attempts < passwords.length) {
+              appendOutput(output, `[ATTEMPT] Trying password: <span class="text-kali-subtext">${passwords[attempts]}</span>`);
+              attempts++;
+              const body = document.getElementById('term-body');
+              if (body) body.scrollTop = body.scrollHeight;
+            } else {
+              clearInterval(timer);
+              appendOutput(output, `<span class="text-kali-success font-bold">[SUCCESS] Target: 192.168.1.1 - Login: root | Password: dragon1</span>`);
+            }
+          }, 600);
+          break;
+
+        case 'sqlmap':
+          appendOutput(output, `<span class="text-kali-accent">[i] sqlmap/1.7#stable automatic SQL injection simulator</span>`);
+          appendOutput(output, `[*] testing connection to target URL`);
+          appendOutput(output, `[*] testing if the target URL content is stable`);
+          appendOutput(output, `<span class="text-kali-success">[+] GET parameter 'id' is vulnerable. Do you want to keep testing? [Y/n] Y</span>`);
+          appendOutput(output, `[INFO] DBMS found: MySQL >= 8.0`);
+          appendOutput(output, `<span class="text-kali-success font-bold">[+] Fetched 3 databases: [information_schema, sys, production_db]</span>`);
+          break;
+
+        case 'msfconsole':
+          isMsfPrompt = true;
+          document.getElementById('term-prompt').innerHTML = `<span class="text-red-500 font-bold">msf6</span> >`;
+          appendOutput(output, `
+<span class="text-red-500">
+  Metasploit Park Simulator
+  [=[ metasploit v6.3.20-dev                             ]
+  + -- --=[ 2314 exploits - 1210 auxiliary - 411 post       ]
+  + -- --=[ 965 payloads - 45 encoders - 11 nops            ]
+</span>
+Type "use exploit/...", "show payloads", or "exit".
+          `);
+          break;
+
+        case 'matrix':
+          runMatrixEffect(output);
+          break;
+
+        default:
+          appendOutput(output, `<span class="text-kali-danger">command not found: ${cmd}. Type 'help' for options.</span>`);
+      }
+    }
+
+    function handleMsfCommand(cmd, args, output) {
+      if (cmd === 'exit') {
+        isMsfPrompt = false;
+        document.getElementById('term-prompt').innerHTML = `root@kali:<span class="text-kali-blue">~</span>#`;
+        appendOutput(output, 'Exiting Metasploit...');
+      } else if (cmd === 'show' && args[0] === 'payloads') {
+        appendOutput(output, `
+Payloads:
+  1) linux/x86/meterpreter/reverse_tcp
+  2) windows/x64/meterpreter/reverse_tcp
+  3) cmd/unix/reverse_python
+        `);
+      } else if (cmd === 'use') {
+        appendOutput(output, `<span class="text-kali-subtext">[*] Using module ${args[0] || 'exploit/multi/handler'}</span>`);
+      } else if (cmd === 'exploit' || cmd === 'run') {
+        appendOutput(output, `<span class="text-kali-warning">[*] Started reverse TCP handler on 127.0.0.1:4444</span>`);
+        appendOutput(output, `<span class="text-kali-success font-bold">[+] Meterpreter session 1 opened (127.0.0.1:4444 -> 127.0.0.1:52102)</span>`);
+      } else {
+        appendOutput(output, `msf: command not recognized. Try 'show payloads', 'use', 'exploit', or 'exit'.`);
+      }
+    }
+
+    function appendOutput(outputEl, html) {
+      const div = document.createElement('div');
+      div.className = 'leading-relaxed';
+      div.innerHTML = html;
+      outputEl.appendChild(div);
+    }
+
+    function runMatrixEffect(output) {
+      const canvas = document.createElement('canvas');
+      canvas.className = 'w-full h-48 bg-black rounded my-2';
+      output.appendChild(canvas);
+      const ctx = canvas.getContext('2d');
+
+      const chars = '01ABCDEFGHIJKLMNOPQRSTUVWXYZ@#$%&*';
+      const drops = Array(30).fill(1);
+
+      const interval = setInterval(() => {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#0f0';
+        ctx.font = '10px monospace';
+
+        drops.forEach((y, i) => {
+          const text = chars[Math.floor(Math.random() * chars.length)];
+          const x = i * 10;
+          ctx.fillText(text, x, y);
+          if (y > canvas.height && Math.random() > 0.975) drops[i] = 0;
+          drops[i] += 10;
+        });
+      }, 50);
+
+      setTimeout(() => clearInterval(interval), 8000);
+    }
+
+    /* --------------------------------------------------------------------------
+       2. WIRESHARK PACKET ANALYZER APP
+       -------------------------------------------------------------------------- */
+    let wiresharkCapturing = true;
+
+    function renderWireshark(container) {
+      container.innerHTML = `
+        <div class="h-full flex flex-col text-xs font-mono">
+          <!-- Toolbar -->
+          <div class="p-2 bg-kali-panel border-b border-kali-border flex items-center gap-2">
+            <button id="ws-toggle-btn" onclick="toggleWiresharkCapture()" class="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded font-sans text-xs flex items-center gap-1">
+              <i class="fa-solid fa-stop"></i> Stop Capture
+            </button>
+            <input type="text" placeholder="Apply a display filter... (e.g. tcp, http)" class="bg-kali-bg border border-kali-border px-2 py-1 rounded text-kali-text flex-1 focus:outline-none">
+          </div>
+          <!-- Packet List Table -->
+          <div class="flex-1 overflow-y-auto bg-kali-dark">
+            <table class="w-full text-left border-collapse">
+              <thead class="bg-kali-panel text-kali-subtext sticky top-0">
+                <tr>
+                  <th class="p-1 border-b border-kali-border">No.</th>
+                  <th class="p-1 border-b border-kali-border">Time</th>
+                  <th class="p-1 border-b border-kali-border">Source</th>
+                  <th class="p-1 border-b border-kali-border">Destination</th>
+                  <th class="p-1 border-b border-kali-border">Protocol</th>
+                  <th class="p-1 border-b border-kali-border">Length</th>
+                  <th class="p-1 border-b border-kali-border">Info</th>
+                </tr>
+              </thead>
+              <tbody id="ws-packets">
+                <!-- Live Packets -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+
+      startPacketStream();
+    }
+
+    function toggleWiresharkCapture() {
+      wiresharkCapturing = !wiresharkCapturing;
+      const btn = document.getElementById('ws-toggle-btn');
+      if (btn) {
+        btn.innerHTML = wiresharkCapturing ? '<i class="fa-solid fa-stop"></i> Stop Capture' : '<i class="fa-solid fa-play"></i> Start Capture';
+        btn.className = wiresharkCapturing ? 'px-2 py-1 bg-red-600 text-white rounded text-xs' : 'px-2 py-1 bg-green-600 text-white rounded text-xs';
+      }
+    }
+
+    function startPacketStream() {
+      let count = 1;
+      const protocols = ['TCP', 'UDP', 'HTTP', 'DNS', 'TLSv1.2', 'SSH'];
+      const ips = ['192.168.1.1', '192.168.1.105', '10.0.0.15', '172.217.16.206'];
+
+      setInterval(() => {
+        if (!wiresharkCapturing) return;
+        const tbody = document.getElementById('ws-packets');
+        if (!tbody) return;
+
+        const proto = protocols[Math.floor(Math.random() * protocols.length)];
+        const src = ips[Math.floor(Math.random() * ips.length)];
+        const dst = ips[Math.floor(Math.random() * ips.length)];
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-kali-blue/20 cursor-pointer border-b border-kali-border/30 text-[11px]';
+        
+        let colorClass = 'text-kali-text';
+        if (proto === 'HTTP') colorClass = 'text-green-400';
+        if (proto === 'DNS') colorClass = 'text-blue-300';
+        if (proto === 'TLSv1.2') colorClass = 'text-purple-300';
+
+        tr.innerHTML = `
+          <td class="p-1 ${colorClass}">${count++}</td>
+          <td class="p-1 ${colorClass}">${(Math.random() * 10).toFixed(4)}</td>
+          <td class="p-1 ${colorClass}">${src}</td>
+          <td class="p-1 ${colorClass}">${dst}</td>
+          <td class="p-1 font-bold ${colorClass}">${proto}</td>
+          <td class="p-1 ${colorClass}">${Math.floor(Math.random() * 500) + 50}</td>
+          <td class="p-1 ${colorClass}">Len=${Math.floor(Math.random()*100)} [ACK] Seq=${count*12}</td>
+        `;
+
+        tbody.insertBefore(tr, tbody.firstChild);
+
+        // Limit size
+        if (tbody.children.length > 50) {
+          tbody.removeChild(tbody.lastChild);
+        }
+      }, 1200);
+    }
+
+    /* --------------------------------------------------------------------------
+       3. FIREFOX BROWSER SIMULATOR
+       -------------------------------------------------------------------------- */
+    function renderBrowser(container) {
+      container.innerHTML = `
+        <div class="h-full flex flex-col">
+          <!-- Browser Header / Navigation -->
+          <div class="p-2 bg-kali-panel border-b border-kali-border flex items-center gap-2">
+            <button onclick="showToast('Navigated Home')" class="text-kali-subtext hover:text-kali-text"><i class="fa-solid fa-house"></i></button>
+            <button onclick="document.getElementById('browser-frame').src = document.getElementById('browser-url').value" class="text-kali-subtext hover:text-kali-text"><i class="fa-solid fa-rotate-right"></i></button>
+            <input type="text" id="browser-url" value="https://www.kali.org" onkeydown="if(e.key==='Enter') loadUrl()" class="flex-1 bg-kali-bg border border-kali-border px-3 py-1 rounded-full text-xs text-kali-text focus:outline-none focus:border-kali-accent">
+            <button onclick="loadUrl()" class="px-3 py-1 bg-kali-blue text-white rounded-full text-xs hover:bg-kali-lightBlue">Go</button>
+          </div>
+          <!-- Web Content Sandbox -->
+          <div class="flex-1 bg-white relative">
+            <iframe id="browser-frame" src="https://www.kali.org" class="w-full h-full border-none" sandbox="allow-scripts allow-same-origin"></iframe>
+          </div>
+        </div>
+      `;
+    }
+
+    function loadUrl() {
+      const urlInput = document.getElementById('browser-url').value;
+      const iframe = document.getElementById('browser-frame');
+      let target = urlInput.startsWith('http') ? urlInput : 'https://' + urlInput;
+      iframe.src = target;
+    }
+
+    /* --------------------------------------------------------------------------
+       4. LEAFPAD TEXT EDITOR APP
+       -------------------------------------------------------------------------- */
+    function renderEditor(container) {
+      container.innerHTML = `
+        <div class="h-full flex flex-col">
+          <!-- Editor Menu Bar -->
+          <div class="px-2 py-1 bg-kali-panel border-b border-kali-border flex items-center gap-4 text-xs text-kali-subtext">
+            <button onclick="showToast('File Saved to virtual RAM')" class="hover:text-kali-text"><i class="fa-solid fa-floppy-disk mr-1"></i> Save</button>
+            <button onclick="document.getElementById('editor-textarea').value=''" class="hover:text-kali-text"><i class="fa-solid fa-file mr-1"></i> Clear</button>
+          </div>
+          <!-- Text Area -->
+          <textarea id="editor-textarea" class="flex-1 bg-kali-dark text-kali-text p-3 font-mono text-xs focus:outline-none resize-none" placeholder="Type notes or scripts here..."></textarea>
+        </div>
+      `;
+    }
+
+    /* --------------------------------------------------------------------------
+       5. CYBER SECURITY TOOLS DASHBOARD
+       -------------------------------------------------------------------------- */
+    function renderCyberDashboard(container) {
+      container.innerHTML = `
+        <div class="h-full bg-kali-bg p-4 overflow-y-auto">
+          <h2 class="text-base font-bold text-kali-accent mb-1 flex items-center gap-2">
+            <i class="fa-solid fa-shield-halved"></i> Security Assessment Toolkit
+          </h2>
+          <p class="text-xs text-kali-subtext mb-4">Quick launcher for integrated pentesting suites</p>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div onclick="openApp('terminal'); showToast('Loaded Nmap Tool');" class="p-3 bg-kali-dark border border-kali-border rounded-lg hover:border-kali-accent cursor-pointer transition-colors flex items-start gap-3">
+              <i class="fa-solid fa-magnifying-glass-location text-2xl text-kali-accent mt-1"></i>
+              <div>
+                <div class="text-xs font-bold text-kali-text">Information Gathering</div>
+                <div class="text-[11px] text-kali-subtext mt-0.5">Nmap, Whois, DNSenum network mapping</div>
+              </div>
+            </div>
+
+            <div onclick="openApp('terminal'); showToast('Loaded Vulnerability Tool');" class="p-3 bg-kali-dark border border-kali-border rounded-lg hover:border-kali-accent cursor-pointer transition-colors flex items-start gap-3">
+              <i class="fa-solid fa-bug text-2xl text-red-400 mt-1"></i>
+              <div>
+                <div class="text-xs font-bold text-kali-text">Vulnerability Analysis</div>
+                <div class="text-[11px] text-kali-subtext mt-0.5">Nikto, SQLmap, OpenVAS audits</div>
+              </div>
+            </div>
+
+            <div onclick="openApp('wireshark')" class="p-3 bg-kali-dark border border-kali-border rounded-lg hover:border-kali-accent cursor-pointer transition-colors flex items-start gap-3">
+              <i class="fa-solid fa-network-wired text-2xl text-cyan-400 mt-1"></i>
+              <div>
+                <div class="text-xs font-bold text-kali-text">Sniffing & Spoofing</div>
+                <div class="text-[11px] text-kali-subtext mt-0.5">Wireshark, Ettercap packet capture</div>
+              </div>
+            </div>
+
+            <div onclick="openApp('terminal'); showToast('Loaded Password Attacks Tool');" class="p-3 bg-kali-dark border border-kali-border rounded-lg hover:border-kali-accent cursor-pointer transition-colors flex items-start gap-3">
+              <i class="fa-solid fa-key text-2xl text-yellow-400 mt-1"></i>
+              <div>
+                <div class="text-xs font-bold text-kali-text">Password Attacks</div>
+                <div class="text-[11px] text-kali-subtext mt-0.5">Hydra, John the Ripper brute forcing</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    /* ==========================================================================
+       UTILITIES & UI INTERACTIONS
+       ========================================================================== */
+
+    // Clock Updater
+    function updateClock() {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      document.getElementById('clock').innerText = timeStr;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Whisker Start Menu Toggle
+    function toggleWhisker() {
+      const menu = document.getElementById('whisker-menu');
+      menu.classList.toggle('hidden');
+    }
+
+    // Filter Whisker Apps
+    function filterMenu() {
+      const q = document.getElementById('whisker-search').value.toLowerCase();
+      const items = document.querySelectorAll('#whisker-app-list > div');
+      items.forEach(item => {
+        const text = item.innerText.toLowerCase();
+        item.style.display = text.includes(q) ? 'flex' : 'none';
+      });
+    }
+
+    // Toast Notification System
+    function showToast(msg) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'bg-kali-dark border border-kali-accent text-kali-text px-3 py-2 rounded-lg shadow-lg text-xs flex items-center gap-2 transform transition-all duration-300 translate-y-2 opacity-0';
+      toast.innerHTML = `<i class="fa-solid fa-circle-info text-kali-accent"></i> <span>${escapeHtml(msg)}</span>`;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      }, 10);
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0');
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    // Quick Mobile Keyboard Focus Helper
+    function toggleMobileKeyboard() {
+      if (openWindows['terminal']) {
+        bringToFront('terminal');
+        const input = document.getElementById('term-input');
+        if (input) input.focus();
+      } else {
+        openApp('terminal');
+      }
+    }
+
+    // Escaping Utility
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    // Close Whisker Menu on Outside Click
+    document.addEventListener('click', (e) => {
+      const whisker = document.getElementById('whisker-menu');
+      const whiskerBtn = e.target.closest('button[onclick="toggleWhisker()"]');
+      if (!whisker.contains(e.target) && !whiskerBtn && !whisker.classList.contains('hidden')) {
+        whisker.classList.add('hidden');
+      }
+    });
+
+    // Auto open Terminal on startup
+    window.onload = () => {
+      openApp('terminal');
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Windows XP Simulator</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Tahoma', 'Segoe UI', Geneva, Verdana, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+        }
+
+        /* --- Boot Screen --- */
+        #boot-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #000;
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            transition: opacity 0.5s ease;
+        }
+
+        .xp-boot-logo {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 50px;
+        }
+
+        .xp-flag-container {
+            width: 70px;
+            height: 70px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+            transform: perspective(300px) rotateY(-15deg) rotateX(10deg) skewY(-4deg);
+            margin-bottom: 15px;
+        }
+
+        .xp-flag-tile {
+            width: 100%;
+            height: 100%;
+            border-radius: 2px 8px 2px 8px;
+            box-shadow: 1px 2px 4px rgba(0,0,0,0.4);
+        }
+
+        .tile-red { background: linear-gradient(135deg, #ff4e32, #e01200); }
+        .tile-green { background: linear-gradient(135deg, #81d735, #4ba300); }
+        .tile-blue { background: linear-gradient(135deg, #00a0f0, #005bc0); }
+        .tile-yellow { background: linear-gradient(135deg, #ffc800, #d89000); }
+
+        .xp-boot-title {
+            font-size: 26px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            font-family: sans-serif;
+        }
+
+        .xp-boot-title span {
+            color: #ff6000;
+            font-style: italic;
+            font-size: 32px;
+            margin-left: 5px;
+        }
+
+        .boot-progress-track {
+            width: 160px;
+            height: 14px;
+            border: 2px solid #b2b2b2;
+            border-radius: 4px;
+            padding: 1px;
+            background-color: #000;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .boot-progress-bars {
+            display: flex;
+            gap: 2px;
+            position: absolute;
+            top: 1px;
+            left: -40px;
+            animation: xpBootAnim 2s linear infinite;
+        }
+
+        .boot-block {
+            width: 8px;
+            height: 8px;
+            background: linear-gradient(to bottom, #2880f8, #0040c0, #2880f8);
+            border-radius: 1px;
+        }
+
+        @keyframes xpBootAnim {
+            0% { left: -40px; }
+            100% { left: 160px; }
+        }
+
+        /* --- Desktop --- */
+        #desktop {
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(to bottom, #1e5799 0%, #2989d8 50%, #7db9e8 100%);
+            background-size: cover;
+            background-position: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .desktop-shortcuts {
+            display: flex;
+            flex-direction: column;
+            flex-wrap: wrap;
+            height: calc(100vh - 40px);
+            align-content: flex-start;
+            padding: 10px;
+            gap: 15px;
+        }
+
+        .shortcut {
+            width: 75px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            color: white;
+            font-size: 11px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            cursor: pointer;
+            padding: 5px;
+            border: 1px solid transparent;
+            border-radius: 3px;
+        }
+
+        .shortcut:hover, .shortcut:active {
+            background-color: rgba(11, 97, 255, 0.3);
+            border: 1px solid rgba(11, 97, 255, 0.5);
+        }
+
+        .shortcut-icon {
+            width: 36px;
+            height: 36px;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+        }
+
+        /* --- Taskbar --- */
+        #taskbar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 30px;
+            background: linear-gradient(to bottom, #1f6bcf 0%, #3180d5 10%, #225ad2 20%, #1941a5 100%);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 9999;
+            border-top: 1px solid #3e80f1;
+        }
+
+        /* Start Button with Authentic XP Flag */
+        #start-btn {
+            height: 100%;
+            padding: 0 15px 0 8px;
+            background: linear-gradient(to bottom, #388e3c 0%, #4caf50 20%, #2e7d32 100%);
+            border-top-right-radius: 8px;
+            border-bottom-right-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: white;
+            font-weight: bold;
+            font-style: italic;
+            font-size: 14px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.4);
+            cursor: pointer;
+        }
+
+        #start-btn:hover {
+            filter: brightness(1.1);
+        }
+
+        .start-flag {
+            width: 16px;
+            height: 16px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5px;
+            transform: perspective(100px) rotateY(-12deg) rotateX(8deg) skewY(-3deg);
+        }
+
+        .start-flag-tile {
+            width: 100%;
+            height: 100%;
+            border-radius: 1px 3px 1px 3px;
+        }
+
+        .taskbar-tasks {
+            flex: 1;
+            display: flex;
+            gap: 3px;
+            padding: 0 5px;
+            overflow-x: auto;
+        }
+
+        .task-item {
+            height: 24px;
+            min-width: 120px;
+            max-width: 160px;
+            background: linear-gradient(to bottom, #3c8df0 0%, #1e52b7 100%);
+            border: 1px solid #143575;
+            border-radius: 3px;
+            color: white;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
+            gap: 5px;
+            cursor: pointer;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .task-item.active {
+            background: linear-gradient(to bottom, #17387a 0%, #2960c7 100%);
+            box-shadow: inset 1px 1px 2px rgba(0,0,0,0.5);
+        }
+
+        #system-tray {
+            height: 100%;
+            background: linear-gradient(to bottom, #0c9dff 0%, #104271 100%);
+            border-left: 1px solid #092e52;
+            padding: 0 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: white;
+            font-size: 11px;
+        }
+
+        /* --- Start Menu --- */
+        #start-menu {
+            position: absolute;
+            bottom: 30px;
+            left: 0;
+            width: 280px;
+            background-color: #fff;
+            border-top-right-radius: 5px;
+            border-top-left-radius: 5px;
+            box-shadow: 3px 3px 10px rgba(0,0,0,0.5);
+            display: none;
+            flex-direction: column;
+            z-index: 9998;
+            overflow: hidden;
+            border: 1px solid #003399;
+        }
+
+        .start-header {
+            background: linear-gradient(to bottom, #1c5ec9 0%, #225ad2 100%);
+            padding: 10px;
+            color: white;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .start-user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 4px;
+            background: #ffc107;
+            border: 2px solid #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+        }
+
+        .start-body {
+            display: flex;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .start-left {
+            width: 100%;
+            padding: 5px 0;
+            background: #fff;
+        }
+
+        .start-item {
+            padding: 6px 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+            cursor: pointer;
+            color: #333;
+        }
+
+        .start-item:hover {
+            background-color: #316ac5;
+            color: white;
+        }
+
+        .start-footer {
+            background: linear-gradient(to bottom, #4282d3 0%, #1941a5 100%);
+            padding: 6px 10px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .btn-shutdown {
+            background: linear-gradient(to bottom, #e53935 0%, #c62828 100%);
+            color: white;
+            border: 1px solid #7f0000;
+            padding: 4px 8px;
+            font-size: 11px;
+            border-radius: 3px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* --- Window Styles --- */
+        .window {
+            position: absolute;
+            background-color: #ece9d8;
+            border: 3px solid #0054e3;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+            box-shadow: 4px 4px 12px rgba(0,0,0,0.4);
+            display: flex;
+            flex-direction: column;
+            min-width: 250px;
+            min-height: 180px;
+            z-index: 10;
+        }
+
+        .window-header {
+            background: linear-gradient(to bottom, #0058ee 0%, #3593ff 4%, #288eff 6%, #0058ee 100%);
+            padding: 4px 8px;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top-left-radius: 5px;
+            border-top-right-radius: 5px;
+            cursor: move;
+        }
+
+        .window-controls {
+            display: flex;
+            gap: 2px;
+        }
+
+        .win-btn {
+            width: 18px;
+            height: 18px;
+            border-radius: 3px;
+            border: 1px solid #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            color: white;
+        }
+
+        .win-btn-min { background: linear-gradient(to bottom, #3c8df0, #1e52b7); }
+        .win-btn-max { background: linear-gradient(to bottom, #3c8df0, #1e52b7); }
+        .win-btn-close { background: linear-gradient(to bottom, #e16751, #c0290b); }
+
+        .window-body {
+            flex: 1;
+            padding: 5px;
+            overflow: auto;
+            position: relative;
+            background-color: #fff;
+        }
+
+        /* --- App Specifics --- */
+        .notepad-textarea {
+            width: 100%;
+            height: 100%;
+            border: none;
+            outline: none;
+            resize: none;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 13px;
+        }
+
+        .cmd-body {
+            background-color: #000;
+            color: #00ff00;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 5px;
+            height: 100%;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+
+        .cmd-input-line {
+            display: flex;
+        }
+
+        .cmd-input {
+            background: transparent;
+            border: none;
+            color: #00ff00;
+            font-family: inherit;
+            font-size: inherit;
+            outline: none;
+            flex: 1;
+            margin-left: 5px;
+        }
+
+        /* Mobile Responsive Adjustments */
+        @media (max-width: 600px) {
+            .window {
+                width: 100% !important;
+                height: calc(100vh - 30px) !important;
+                top: 0 !important;
+                left: 0 !important;
+                border-radius: 0;
+            }
+
+            .window-header {
+                border-radius: 0;
+            }
+
+            .task-item {
+                min-width: 60px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- BOOT SCREEN -->
+    <div id="boot-screen">
+        <div class="xp-boot-logo">
+            <div class="xp-flag-container">
+                <div class="xp-flag-tile tile-red"></div>
+                <div class="xp-flag-tile tile-green"></div>
+                <div class="xp-flag-tile tile-blue"></div>
+                <div class="xp-flag-tile tile-yellow"></div>
+            </div>
+            <div class="xp-boot-title">Microsoft<span>XP</span></div>
+        </div>
+        <div class="boot-progress-track">
+            <div class="boot-progress-bars">
+                <div class="boot-block"></div>
+                <div class="boot-block"></div>
+                <div class="boot-block"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DESKTOP -->
+    <div id="desktop">
+        <div class="desktop-shortcuts">
+            <div class="shortcut" onclick="openApp('mycomputer')">
+                <div class="shortcut-icon">💻</div>
+                <div>Мой компьютер</div>
+            </div>
+            <div class="shortcut" onclick="openApp('notepad')">
+                <div class="shortcut-icon">📝</div>
+                <div>Блокнот</div>
+            </div>
+            <div class="shortcut" onclick="openApp('cmd')">
+                <div class="shortcut-icon">⬛</div>
+                <div>Командная строка</div>
+            </div>
+            <div class="shortcut" onclick="openApp('ie')">
+                <div class="shortcut-icon">🌐</div>
+                <div>Internet Explorer</div>
+            </div>
+        </div>
+
+        <!-- START MENU -->
+        <div id="start-menu">
+            <div class="start-header">
+                <div class="start-user-avatar">👤</div>
+                <div>Пользователь</div>
+            </div>
+            <div class="start-body">
+                <div class="start-left">
+                    <div class="start-item" onclick="openApp('mycomputer'); toggleStartMenu();">💻 Мой компьютер</div>
+                    <div class="start-item" onclick="openApp('notepad'); toggleStartMenu();">📝 Блокнот</div>
+                    <div class="start-item" onclick="openApp('cmd'); toggleStartMenu();">⬛ Командная строка</div>
+                    <div class="start-item" onclick="openApp('ie'); toggleStartMenu();">🌐 Internet Explorer</div>
+                </div>
+            </div>
+            <div class="start-footer">
+                <button class="btn-shutdown" onclick="rebootSystem()">🔄 Перезагрузить</button>
+            </div>
+        </div>
+
+        <!-- TASKBAR -->
+        <div id="taskbar">
+            <div id="start-btn" onclick="toggleStartMenu()">
+                <div class="start-flag">
+                    <div class="start-flag-tile tile-red"></div>
+                    <div class="start-flag-tile tile-green"></div>
+                    <div class="start-flag-tile tile-blue"></div>
+                    <div class="start-flag-tile tile-yellow"></div>
+                </div>
+                <span>пуск</span>
+            </div>
+            <div class="taskbar-tasks" id="taskbar-tasks"></div>
+            <div id="system-tray">
+                <span id="tray-clock">00:00</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Boot process
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                const bootScreen = document.getElementById('boot-screen');
+                bootScreen.style.opacity = '0';
+                setTimeout(() => bootScreen.style.display = 'none', 500);
+            }, 3000);
+            updateClock();
+            setInterval(updateClock, 1000);
+        });
+
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('tray-clock').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function toggleStartMenu() {
+            const menu = document.getElementById('start-menu');
+            menu.style.display = menu.style.display === 'flex' ? 'none' : 'flex';
+        }
+
+        function rebootSystem() {
+            toggleStartMenu();
+            const bootScreen = document.getElementById('boot-screen');
+            bootScreen.style.display = 'flex';
+            bootScreen.style.opacity = '1';
+            setTimeout(() => {
+                bootScreen.style.opacity = '0';
+                setTimeout(() => bootScreen.style.display = 'none', 500);
+            }, 3000);
+        }
+
+        // Window Management
+        let zIndexCounter = 100;
+
+        function openApp(appId) {
+            let win = document.getElementById(`win-${appId}`);
+            if (win) {
+                win.style.display = 'flex';
+                focusWindow(win);
+                return;
+            }
+
+            win = document.createElement('div');
+            win.id = `win-${appId}`;
+            win.className = 'window';
+            win.style.top = '50px';
+            win.style.left = '50px';
+            win.style.width = '450px';
+            win.style.height = '300px';
+
+            let title = 'Приложение';
+            let content = '';
+
+            if (appId === 'mycomputer') {
+                title = 'Мой компьютер';
+                content = '<div style="padding:10px;">💾 Локальный диск (C:)<br>💿 Дисковод 3.5 (A:)</div>';
+            } else if (appId === 'notepad') {
+                title = 'Блокнот';
+                content = '<textarea class="notepad-textarea" placeholder="Введите текст..."></textarea>';
+            } else if (appId === 'cmd') {
+                title = 'Командная строка';
+                content = `<div class="cmd-body" id="cmd-body">
+                    <div>Microsoft Windows XP [Версия 5.1.2600]</div>
+                    <div>(C) Корпорация Майкрософт, 1985-2001.</div><br>
+                    <div id="cmd-output"></div>
+                    <div class="cmd-input-line">
+                        <span>C:\\></span>
+                        <input type="text" class="cmd-input" onkeydown="handleCmd(event, this)">
+                    </div>
+                </div>`;
+            } else if (appId === 'ie') {
+                title = 'Internet Explorer - Поиск';
+                content = `<div style="display:flex; flex-direction:column; height:100%;">
+                    <div style="padding:4px; background:#ece9d8; display:flex; gap:5px;">
+                        <input type="text" value="https://www.google.com" style="flex:1; padding:2px;" readonly>
+                    </div>
+                    <iframe src="https://html5test.com" style="flex:1; border:none;"></iframe>
+                </div>`;
+            }
+
+            win.innerHTML = `
+                <div class="window-header" onmousedown="dragWindow(event, '${win.id}')">
+                    <span>${title}</span>
+                    <div class="window-controls">
+                        <div class="win-btn win-btn-close" onclick="closeWindow('${win.id}')">X</div>
+                    </div>
+                </div>
+                <div class="window-body">${content}</div>
+            `;
+
+            document.getElementById('desktop').appendChild(win);
+            win.addEventListener('mousedown', () => focusWindow(win));
+            focusWindow(win);
+        }
+
+        function closeWindow(id) {
+            const win = document.getElementById(id);
+            if (win) win.remove();
+        }
+
+        function focusWindow(win) {
+            zIndexCounter++;
+            win.style.zIndex = zIndexCounter;
+        }
+
+        function dragWindow(e, id) {
+            const win = document.getElementById(id);
+            focusWindow(win);
+            let shiftX = e.clientX - win.getBoundingClientRect().left;
+            let shiftY = e.clientY - win.getBoundingClientRect().top;
+
+            function moveAt(pageX, pageY) {
+                win.style.left = pageX - shiftX + 'px';
+                win.style.top = pageY - shiftY + 'px';
+            }
+
+            function onMouseMove(e) {
+                moveAt(e.pageX, e.pageY);
+            }
+
+            document.addEventListener('mousemove', onMouseMove);
+
+            document.onmouseup = function() {
+                document.removeEventListener('mousemove', onMouseMove);
+                document.onmouseup = null;
+            };
+        }
+
+        function handleCmd(e, input) {
+            if (e.key === 'Enter') {
+                const val = input.value.trim();
+                const output = document.getElementById('cmd-output');
+                output.innerHTML += `<div>C:\\>${val}</div>`;
+                if (val.toLowerCase() === 'help') {
+                    output.innerHTML += '<div>Доступные команды: help, ver, cls, echo</div>';
+                } else if (val.toLowerCase() === 'ver') {
+                    output.innerHTML += '<div>Windows XP Version 5.1.2600</div>';
+                } else if (val.toLowerCase() === 'cls') {
+                    output.innerHTML = '';
+                } else if (val !== '') {
+                    output.innerHTML += `<div>"${val}" не является внутренней или внешней командой.</div>`;
+                }
+                input.value = '';
+                document.getElementById('cmd-body').scrollTop = document.getElementById('cmd-body').scrollHeight;
+            }
+        }
+    </script>
+</body>
+</html>

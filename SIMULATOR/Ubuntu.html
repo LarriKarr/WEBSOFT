@@ -1,1 +1,627 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ubuntu 24.04 LTS Simulator</title>
+    <style>
+        :root {
+            --ubuntu-orange: #E95420;
+            --ubuntu-aubergine: #77216F;
+            --ubuntu-dark-aubergine: #2C001E;
+            --ubuntu-bg: #1E1E1E;
+            --topbar-bg: #000000;
+            --dock-bg: rgba(0, 0, 0, 0.5);
+            --window-bg: #2D2D2D;
+            --window-header-bg: #1E1E1E;
+            --text-color: #FFFFFF;
+            --text-muted: #AAAAAA;
+            --accent-color: #E95420;
+        }
 
+        [data-theme="light"] {
+            --window-bg: #FFFFFF;
+            --window-header-bg: #F0F0F0;
+            --text-color: #111111;
+            --text-muted: #666666;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Ubuntu', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--ubuntu-dark-aubergine);
+        }
+
+        /* --- PLYMOUTH BOOT SCREEN --- */
+        #boot-screen {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background-color: #000000;
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #ffffff;
+            transition: opacity 0.6s ease;
+        }
+
+        .ubuntu-logo-boot {
+            font-size: 64px;
+            margin-bottom: 40px;
+        }
+
+        .ubuntu-spinner {
+            width: 32px; height: 32px;
+            border: 3px solid rgba(233, 84, 32, 0.2);
+            border-top: 3px solid var(--ubuntu-orange);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* --- DESKTOP --- */
+        #desktop {
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(135deg, var(--ubuntu-dark-aubergine) 0%, var(--ubuntu-aubergine) 60%, var(--ubuntu-orange) 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* --- TOP BAR (GNOME) --- */
+        #topbar {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 28px;
+            background: var(--topbar-bg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 12px;
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 500;
+            z-index: 9999;
+        }
+
+        .topbar-section { display: flex; align-items: center; gap: 14px; }
+        .topbar-item { cursor: pointer; padding: 2px 6px; border-radius: 4px; }
+        .topbar-item:hover { background: rgba(255, 255, 255, 0.15); }
+
+        /* --- DOCK (LEFT SIDEBAR) --- */
+        #dock {
+            position: fixed;
+            top: 28px; left: 0;
+            width: 58px;
+            height: calc(100vh - 28px);
+            background: var(--dock-bg);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px 0;
+            gap: 12px;
+            z-index: 9990;
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .dock-app {
+            width: 44px; height: 44px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.15s ease, background 0.15s ease;
+        }
+        .dock-app:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: scale(1.05);
+        }
+
+        .dock-dot {
+            position: absolute;
+            left: 2px; top: 50%;
+            transform: translateY(-50%);
+            width: 4px; height: 4px;
+            background: var(--ubuntu-orange);
+            border-radius: 50%;
+            display: none;
+        }
+        .dock-app.running .dock-dot { display: block; }
+
+        .dock-separator {
+            width: 32px; height: 1px;
+            background: rgba(255, 255, 255, 0.15);
+            margin: 4px 0;
+        }
+
+        /* --- DESKTOP AREA --- */
+        .desktop-content {
+            margin-top: 28px;
+            margin-left: 58px;
+            width: calc(100vw - 58px);
+            height: calc(100vh - 28px);
+            position: relative;
+            padding: 20px;
+        }
+
+        .desktop-shortcuts {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            flex-wrap: wrap;
+            max-height: 100%;
+            align-content: flex-start;
+        }
+
+        .shortcut {
+            width: 84px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            color: #ffffff;
+            font-size: 12px;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+            cursor: pointer;
+            padding: 8px;
+            border: 1px solid transparent;
+            border-radius: 8px;
+        }
+        .shortcut:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .shortcut-icon { font-size: 36px; margin-bottom: 6px; }
+
+        /* --- WIDGETS --- */
+        .desktop-widget {
+            position: absolute;
+            background: rgba(20, 20, 20, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 14px;
+            padding: 16px;
+            color: #ffffff;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            cursor: grab;
+            z-index: 10;
+        }
+        .desktop-widget:active { cursor: grabbing; }
+        .widget-weather { top: 30px; right: 30px; width: 230px; }
+        .widget-notes { top: 170px; right: 30px; width: 230px; height: 190px; display: flex; flex-direction: column; }
+        .widget-notes textarea { width: 100%; flex: 1; background: transparent; border: none; color: white; resize: none; outline: none; font-size: 13px; margin-top: 8px; }
+
+        /* --- GNOME CONTROL CENTER / QUICK SETTINGS MENU --- */
+        .flyout-panel {
+            position: fixed;
+            top: 34px; right: 12px;
+            width: 320px;
+            background: rgba(30, 30, 30, 0.95);
+            backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 16px;
+            padding: 16px;
+            color: white;
+            display: none;
+            flex-direction: column;
+            gap: 14px;
+            z-index: 9998;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+        }
+
+        .quick-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .qs-tile {
+            background: rgba(255, 255, 255, 0.08);
+            border: none;
+            border-radius: 12px;
+            padding: 12px;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .qs-tile.active { background: var(--ubuntu-orange); }
+        .qs-slider { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+        .qs-slider input { width: 100%; accent-color: var(--ubuntu-orange); }
+
+        /* --- WINDOWS (YARU THEME) --- */
+        .window {
+            position: absolute;
+            background: var(--window-bg);
+            color: var(--text-color);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            min-width: 340px;
+            min-height: 240px;
+            overflow: hidden;
+        }
+
+        .window-header {
+            height: 38px;
+            background: var(--window-header-bg);
+            padding: 0 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: move;
+            border-bottom: 1px solid rgba(0,0,0,0.2);
+        }
+
+        .window-title { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+
+        /* Ubuntu Header Window Controls (Left side or Right side) */
+        .window-controls { display: flex; align-items: center; gap: 8px; }
+        .u-btn {
+            width: 18px; height: 18px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: bold;
+            color: rgba(0,0,0,0.6);
+            border: none;
+        }
+        .u-btn-close { background: #E95420; color: #fff; }
+        .u-btn-minimize { background: #4F4F4F; color: #fff; }
+        .u-btn-maximize { background: #4F4F4F; color: #fff; }
+        .u-btn:hover { opacity: 0.8; }
+
+        .window-body { flex: 1; position: relative; overflow: auto; background: inherit; }
+
+        /* --- APPLICATION SPECIFIC STYLES --- */
+        /* Terminal */
+        .terminal-body {
+            background: #300A24;
+            color: #4E9A06;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 12px;
+            height: 100%;
+            overflow-y: auto;
+            font-size: 13px;
+        }
+        .terminal-prompt { color: #87CEFF; font-weight: bold; }
+        .terminal-input { background: transparent; border: none; color: #FFFFFF; outline: none; font-family: inherit; font-size: inherit; width: 60%; }
+
+        /* Nautilus Explorer */
+        .nautilus-toolbar { padding: 8px 12px; background: rgba(0,0,0,0.05); border-bottom: 1px solid rgba(0,0,0,0.1); display: flex; gap: 10px; align-items: center; font-size: 13px; }
+        .nautilus-grid { padding: 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 16px; }
+        .nautilus-item { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px; border-radius: 8px; cursor: pointer; text-align: center; font-size: 12px; }
+        .nautilus-item:hover { background: rgba(233, 84, 32, 0.15); }
+
+        /* Settings */
+        .settings-container { display: flex; height: 100%; }
+        .settings-sidebar { width: 180px; background: rgba(0,0,0,0.03); padding: 10px 6px; display: flex; flex-direction: column; gap: 4px; border-right: 1px solid rgba(0,0,0,0.1); }
+        .settings-nav-item { padding: 8px 12px; border-radius: 8px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+        .settings-nav-item:hover { background: rgba(0,0,0,0.05); }
+        .settings-nav-item.active { background: var(--ubuntu-orange); color: white; }
+        .settings-content { flex: 1; padding: 20px; overflow-y: auto; }
+        .settings-card { background: rgba(0,0,0,0.03); border: 1px solid rgba(0,0,0,0.08); border-radius: 8px; padding: 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+
+        /* Mobile Viewport Optimizations */
+        @media (max-width: 600px) {
+            #dock { width: 48px; }
+            .dock-app { width: 36px; height: 36px; font-size: 20px; }
+            .desktop-content { margin-left: 48px; width: calc(100vw - 48px); }
+            .window { width: 100vw !important; height: calc(100vh - 28px) !important; top: 28px !important; left: 0 !important; border-radius: 0; }
+            .desktop-widget { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- PLYMOUTH BOOT SCREEN -->
+    <div id="boot-screen">
+        <div class="ubuntu-logo-boot">🌀 <b>ubuntu</b></div>
+        <div class="ubuntu-spinner"></div>
+    </div>
+
+    <!-- MAIN DESKTOP -->
+    <div id="desktop">
+        <!-- TOP BAR -->
+        <div id="topbar">
+            <div class="topbar-section">
+                <div class="topbar-item" onclick="toggleAppGrid()"><b>Activities</b></div>
+            </div>
+            <div class="topbar-section">
+                <div class="topbar-item" id="topbar-clock">Nov 10 00:00</div>
+            </div>
+            <div class="topbar-section">
+                <div class="topbar-item" onclick="toggleQuickSettings()">📶 🔊 🔋</div>
+            </div>
+        </div>
+
+        <!-- DOCK / SIDEBAR -->
+        <div id="dock">
+            <div class="dock-app" id="dock-terminal" onclick="openApp('terminal')" title="Terminal"><div class="dock-dot"></div>💻</div>
+            <div class="dock-app" id="dock-files" onclick="openApp('files')" title="Files"><div class="dock-dot"></div>📁</div>
+            <div class="dock-app" id="dock-firefox" onclick="openApp('firefox')" title="Firefox Web Browser"><div class="dock-dot"></div>🦊</div>
+            <div class="dock-app" id="dock-store" onclick="openApp('store')" title="Ubuntu Software"><div class="dock-dot"></div>🛍️</div>
+            <div class="dock-app" id="dock-gedit" onclick="openApp('gedit')" title="Text Editor"><div class="dock-dot"></div>📝</div>
+            <div class="dock-app" id="dock-settings" onclick="openApp('settings')" title="Settings"><div class="dock-dot"></div>⚙️</div>
+            <div class="dock-separator"></div>
+            <div class="dock-app" onclick="openApp('monitor')" title="System Monitor"><div class="dock-dot"></div>📊</div>
+        </div>
+
+        <!-- DESKTOP CONTENT AREA -->
+        <div class="desktop-content">
+            <!-- DESKTOP WIDGETS -->
+            <div class="desktop-widget widget-weather" onmousedown="dragWidget(event, this)">
+                <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">Chisinau ☁️</div>
+                <div style="font-size: 28px; font-weight: 300;">+16°C</div>
+                <div style="font-size: 11px; opacity: 0.8;">Ubuntu Weather Service</div>
+            </div>
+            <div class="desktop-widget widget-notes" onmousedown="dragWidget(event, this)">
+                <div style="font-size: 12px; font-weight: 600;">📝 Sticky Notes</div>
+                <textarea placeholder="Write quick note..."></textarea>
+            </div>
+
+            <div class="desktop-shortcuts">
+                <div class="shortcut" onclick="openApp('files')"><div class="shortcut-icon">🏠</div><div>Home</div></div>
+                <div class="shortcut" onclick="openApp('terminal')"><div class="shortcut-icon">💻</div><div>Terminal</div></div>
+                <div class="shortcut" onclick="openApp('trash')"><div class="shortcut-icon">🗑️</div><div>Trash</div></div>
+            </div>
+        </div>
+
+        <!-- QUICK SETTINGS PANEL -->
+        <div id="quick-settings" class="flyout-panel">
+            <div class="quick-grid">
+                <button class="qs-tile active" onclick="toggleQS(this)">📶 Wi-Fi</button>
+                <button class="qs-tile active" onclick="toggleQS(this)">🔵 Bluetooth</button>
+                <button class="qs-tile" onclick="toggleQS(this)">🌙 Dark Mode</button>
+                <button class="qs-tile" onclick="toggleQS(this)">✈️ Airplane</button>
+            </div>
+            <div class="qs-slider"><span>🔊 Volume</span><input type="range" min="0" max="100" value="75"></div>
+            <div class="qs-slider"><span>🔆 Brightness</span><input type="range" min="10" max="100" value="85"></div>
+        </div>
+    </div>
+
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                const boot = document.getElementById('boot-screen');
+                boot.style.opacity = '0';
+                setTimeout(() => boot.style.display = 'none', 600);
+            }, 1800);
+            updateClock();
+            setInterval(updateClock, 1000);
+        });
+
+        function updateClock() {
+            const now = new Date();
+            const options = { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+            document.getElementById('topbar-clock').innerText = now.toLocaleDateString('en-US', options);
+        }
+
+        function toggleQuickSettings() {
+            const qs = document.getElementById('quick-settings');
+            qs.style.display = qs.style.display === 'flex' ? 'none' : 'flex';
+        }
+
+        function toggleQS(btn) {
+            btn.classList.toggle('active');
+            if (btn.innerText.includes('Dark Mode')) {
+                const isLight = document.body.getAttribute('data-theme') === 'light';
+                document.body.setAttribute('data-theme', isLight ? '' : 'light');
+            }
+        }
+
+        let zIndexCounter = 100;
+
+        function updateDockStatus() {
+            document.querySelectorAll('.dock-app').forEach(app => app.classList.remove('running'));
+            document.querySelectorAll('.window').forEach(win => {
+                const appId = win.id.replace('win-', '');
+                const dockItem = document.getElementById(`dock-${appId}`);
+                if (dockItem) dockItem.classList.add('running');
+            });
+        }
+
+        function openApp(appId) {
+            let win = document.getElementById(`win-${appId}`);
+            if (win) {
+                if (win.style.display === 'none') {
+                    win.style.display = 'flex';
+                }
+                focusWindow(win);
+                return;
+            }
+
+            win = document.createElement('div');
+            win.id = `win-${appId}`;
+            win.className = 'window';
+            win.style.top = '60px';
+            win.style.left = '120px'; // Безопасный отступ слева от панели задач
+            win.style.width = '620px';
+            win.style.height = '420px';
+
+            let title = 'Application', icon = '⚙️', content = '';
+
+            if (appId === 'terminal') {
+                title = 'user@ubuntu: ~'; icon = '💻';
+                content = `<div class="terminal-body" id="term-body">
+                    <div>Welcome to Ubuntu 24.04 LTS (GNU/Linux 6.8.0-generic x86_64)</div><br>
+                    <div>* Documentation:  https://help.ubuntu.com</div>
+                    <div>* Management:     https://landscape.canonical.com</div><br>
+                    <div id="term-output"></div>
+                    <div><span class="terminal-prompt">user@ubuntu:~$</span> <input type="text" class="terminal-input" onkeydown="handleTerminal(event, this)"></div>
+                </div>`;
+            } else if (appId === 'files') {
+                title = 'Files (Nautilus)'; icon = '📁';
+                content = `<div class="nautilus-toolbar"><span>Home</span></div>
+                <div class="nautilus-grid">
+                    <div class="nautilus-item"><span>📁</span><span>Documents</span></div>
+                    <div class="nautilus-item"><span>📁</span><span>Downloads</span></div>
+                    <div class="nautilus-item"><span>📁</span><span>Pictures</span></div>
+                    <div class="nautilus-item"><span>📁</span><span>Music</span></div>
+                    <div class="nautilus-item"><span>📁</span><span>Videos</span></div>
+                </div>`;
+            } else if (appId === 'firefox') {
+                title = 'Firefox Web Browser'; icon = '🦊';
+                content = `<div style="display:flex; flex-direction:column; height:100%;">
+                    <div style="padding:8px; background:rgba(0,0,0,0.1); display:flex; gap:8px;">
+                        <input type="text" value="https://start.duckduckgo.com" style="flex:1; padding:4px 12px; border-radius:12px; border:1px solid #555; background:#111; color:#fff;">
+                    </div>
+                    <div style="flex:1; display:flex; justify-content:center; align-items:center; flex-direction:column; gap:10px;">
+                        <h1 style="color:var(--ubuntu-orange)">Firefox</h1>
+                        <p>Fast, Private & Safe Web Browser</p>
+                    </div>
+                </div>`;
+            } else if (appId === 'settings') {
+                title = 'Settings'; icon = '⚙️';
+                content = `<div class="settings-container">
+                    <div class="settings-sidebar">
+                        <div class="settings-nav-item active">🌐 Network</div>
+                        <div class="settings-nav-item">🎨 Appearance</div>
+                        <div class="settings-nav-item">🖥️ Displays</div>
+                    </div>
+                    <div class="settings-content">
+                        <h3>Appearance Settings</h3><br>
+                        <div class="settings-card"><div><b>Yaru Accent Color</b><br><small>Ubuntu Orange</small></div><button style="background:var(--ubuntu-orange); border:none; width:24px; height:24px; border-radius:50%;"></button></div>
+                    </div>
+                </div>`;
+            } else if (appId === 'store') {
+                title = 'Ubuntu Software'; icon = '🛍️';
+                content = `<div style="padding:20px;"><h2>Snap Store</h2><br><p>Featured Apps: VS Code, GIMP, VLC, Spotify</p></div>`;
+            } else if (appId === 'gedit') {
+                title = 'Text Editor (gedit)'; icon = '📝';
+                content = `<textarea style="width:100%; height:100%; background:transparent; border:none; padding:15px; color:inherit; outline:none; font-family:monospace;" placeholder="Type text here..."></textarea>`;
+            } else if (appId === 'monitor') {
+                title = 'System Monitor'; icon = '📊';
+                content = `<div style="padding:15px; font-family:monospace;">
+                    <h3>GNOME System Monitor</h3><br>
+                    <div>CPU Usage: 4.2%</div>
+                    <div>Memory: 1.8 GiB / 8.0 GiB</div>
+                    <div>Tasks: 122 processes running</div>
+                </div>`;
+            } else {
+                title = 'Folder View'; icon = '🗑️';
+                content = `<div style="padding:20px;">Trash is empty.</div>`;
+            }
+
+            win.innerHTML = `
+                <div class="window-header" onmousedown="dragWindow(event, '${win.id}')">
+                    <div class="window-controls">
+                        <button class="u-btn u-btn-close" onclick="closeWindow('${win.id}')" title="Close">✕</button>
+                        <button class="u-btn u-btn-minimize" onclick="minimizeWindow('${win.id}')" title="Minimize">−</button>
+                        <button class="u-btn u-btn-maximize" onclick="maximizeWindow('${win.id}')" title="Maximize">□</button>
+                    </div>
+                    <div class="window-title"><span>${icon}</span> ${title}</div>
+                    <div style="width:50px;"></div>
+                </div>
+                <div class="window-body">${content}</div>
+            `;
+
+            document.getElementById('desktop').appendChild(win);
+            win.addEventListener('mousedown', () => focusWindow(win));
+            focusWindow(win);
+            updateDockStatus();
+        }
+
+        function closeWindow(id) {
+            document.getElementById(id)?.remove();
+            updateDockStatus();
+        }
+
+        function minimizeWindow(id) {
+            document.getElementById(id).style.display = 'none';
+        }
+
+        // ИСПРАВЛЕННАЯ ФУНКЦИЯ РАЗВЕРТЫВАНИЯ ОКОН
+        function maximizeWindow(id) {
+            const win = document.getElementById(id);
+            if (win.style.width === 'calc(100vw - 58px)') {
+                win.style.width = '620px'; 
+                win.style.height = '420px';
+                win.style.top = '60px'; 
+                win.style.left = '120px';
+            } else {
+                // Учитываем ширину боковой панели (58px) и верхнего бара (28px)
+                win.style.width = 'calc(100vw - 58px)'; 
+                win.style.height = 'calc(100vh - 28px)';
+                win.style.top = '28px'; 
+                win.style.left = '58px';
+            }
+        }
+
+        function focusWindow(win) {
+            zIndexCounter++;
+            win.style.zIndex = zIndexCounter;
+        }
+
+        function dragWindow(e, id) {
+            const win = document.getElementById(id);
+            focusWindow(win);
+            let sX = e.clientX - win.getBoundingClientRect().left;
+            let sY = e.clientY - win.getBoundingClientRect().top;
+            function move(e) { win.style.left = (e.clientX - sX) + 'px'; win.style.top = (e.clientY - sY) + 'px'; }
+            document.addEventListener('mousemove', move);
+            document.onmouseup = () => document.removeEventListener('mousemove', move);
+        }
+
+        function dragWidget(e, widget) {
+            let sX = e.clientX - widget.getBoundingClientRect().left;
+            let sY = e.clientY - widget.getBoundingClientRect().top;
+            function move(e) { widget.style.left = (e.clientX - sX) + 'px'; widget.style.top = (e.clientY - sY) + 'px'; widget.style.right = 'auto'; }
+            document.addEventListener('mousemove', move);
+            document.onmouseup = () => document.removeEventListener('mousemove', move);
+        }
+
+        /* Terminal Logic */
+        function handleTerminal(e, input) {
+            if (e.key === 'Enter') {
+                const cmd = input.value.trim();
+                const out = document.getElementById('term-output');
+                const line = document.createElement('div');
+                line.innerHTML = `<span class="terminal-prompt">user@ubuntu:~$</span> ${cmd}`;
+                out.appendChild(line);
+
+                const res = document.createElement('div');
+                if (cmd === 'uname -a') {
+                    res.innerText = 'Linux ubuntu 6.8.0-generic #24-Ubuntu SMP PREEMPT_DYNAMIC x86_64 GNU/Linux';
+                } else if (cmd === 'ls') {
+                    res.innerText = 'Desktop  Documents  Downloads  Music  Pictures  Videos';
+                } else if (cmd === 'clear') {
+                    out.innerHTML = '';
+                    input.value = '';
+                    return;
+                } else if (cmd !== '') {
+                    res.innerText = `bash: command not found: ${cmd}`;
+                }
+                out.appendChild(res);
+                input.value = '';
+            }
+        }
+    </script>
+</body>
+</html>

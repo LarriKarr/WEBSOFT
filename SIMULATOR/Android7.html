@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Android 7.0 Nougat Simulator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts (Roboto) -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Roboto', 'sans-serif'],
+                    },
+                    colors: {
+                        nougat: '#00838F',
+                        nougatDark: '#005662',
+                        androidGreen: '#A4C639'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            box-sizing: border-box;
+            touch-action: manipulation;
+        }
+
+        /* Phone Body Shadow & Reflection */
+        .phone-case {
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 40px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        /* Material Ripple Effect */
+        .ripple {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ripple-effect {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.4);
+            transform: scale(0);
+            animation: ripple-anim 0.6s linear;
+            pointer-events: none;
+        }
+
+        @keyframes ripple-anim {
+            to {
+                transform: scale(4);
+                opacity: 0;
+            }
+        }
+
+        /* Recents 3D Stack */
+        .recents-container {
+            perspective: 1000px;
+        }
+        .recent-card {
+            transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+            transform-origin: center bottom;
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 2px;
+        }
+
+        /* App Open/Close Transitions */
+        .app-window {
+            transition: transform 0.25s cubic-bezier(0, 0, 0.2, 1), opacity 0.2s ease;
+            transform: scale(0.92);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .app-window.active {
+            transform: scale(1);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .app-window.minimized {
+            transform: scale(0.8);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Screen Flash for Torch */
+        .torch-overlay {
+            position: absolute;
+            inset: 0;
+            background: white;
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .torch-overlay.active {
+            opacity: 0.95;
+        }
+
+        /* Notification Shade Slide */
+        #shade {
+            transition: transform 0.3s cubic-bezier(0, 0, 0.2, 1);
+            transform: translateY(-100%);
+        }
+        #shade.open {
+            transform: translateY(0);
+        }
+
+        /* Wallpaper Overlay */
+        .wp-bg {
+            background-size: cover;
+            background-position: center;
+            transition: background-image 0.5s ease;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 min-h-screen flex items-center justify-center p-2 sm:p-6 font-sans select-none overflow-hidden text-slate-800">
+
+    <!-- Flashlight Screen Overlay (Simulated Torch) -->
+    <div id="torch-screen" class="torch-overlay"></div>
+
+    <!-- Outer Device Container -->
+    <div class="relative w-full max-w-[420px] h-[92vh] max-h-[860px] flex flex-col items-center justify-center">
+
+        <!-- Physical Hardware Side Buttons -->
+        <div class="absolute -right-[10px] top-28 w-[10px] h-12 bg-slate-700 rounded-r-md cursor-pointer hover:bg-slate-600 active:scale-95 transition-all shadow-md flex items-center justify-center" onclick="toggleVolumeBar()" title="Громкость">
+            <span class="text-[9px] text-slate-400 rotate-90 font-bold">VOL</span>
+        </div>
+        <div class="absolute -right-[10px] top-44 w-[10px] h-10 bg-slate-700 rounded-r-md cursor-pointer hover:bg-slate-600 active:scale-95 transition-all shadow-md flex items-center justify-center" onclick="togglePowerScreen()" title="Питание / Экран">
+            <span class="text-[9px] text-slate-400 rotate-90 font-bold">PWR</span>
+        </div>
+
+        <!-- Phone Shell Body -->
+        <div class="phone-case relative w-full h-full bg-slate-950 rounded-[44px] p-3 border-4 border-slate-800 flex flex-col overflow-hidden">
+            
+            <!-- Phone Top Bezel (Speaker, Camera, Sensors) -->
+            <div class="w-full h-7 shrink-0 flex items-center justify-between px-8 z-30">
+                <div class="flex items-center space-x-2">
+                    <div class="w-2.5 h-2.5 rounded-full bg-slate-800 border border-slate-700"></div>
+                    <div class="w-3 h-3 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center">
+                        <div class="w-1.5 h-1.5 bg-blue-900/60 rounded-full"></div>
+                    </div>
+                </div>
+                <!-- Earpiece Speaker -->
+                <div class="w-16 h-1.5 bg-slate-800 rounded-full border border-slate-700"></div>
+                <!-- Sensor -->
+                <div class="w-2.5 h-2.5 rounded-full bg-slate-800 border border-slate-700"></div>
+            </div>
+
+            <!-- MAIN DISPLAY SCREEN -->
+            <div id="screen" class="relative w-full flex-1 bg-black rounded-[28px] overflow-hidden flex flex-col border border-slate-800/80 wp-bg" style="background-image: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80');">
+                
+                <!-- Turn Screen Off Overlay -->
+                <div id="screen-off" class="absolute inset-0 bg-black z-50 hidden flex-col items-center justify-center">
+                    <span class="text-xs text-slate-700">Экран выключен. Нажмите кнопку PWR справа.</span>
+                </div>
+
+                <!-- Hardware Volume Popover -->
+                <div id="vol-popup" class="absolute top-10 right-4 z-40 bg-slate-800/90 backdrop-blur-md text-white p-3 rounded-2xl shadow-xl border border-white/10 w-48 flex flex-col gap-2 transition-all duration-200 transform -translate-y-12 opacity-0 pointer-events-none">
+                    <div class="flex items-center justify-between text-xs font-medium text-slate-300">
+                        <span><i class="fa-solid fa-volume-high mr-1"></i> Громкость</span>
+                        <span id="vol-val">70%</span>
+                    </div>
+                    <input type="range" id="vol-slider" min="0" max="100" value="70" class="w-full accent-teal-400 h-1.5 bg-slate-600 rounded-lg appearance-none cursor-pointer" oninput="updateVolume(this.value)">
+                </div>
+
+                <!-- STATUS BAR (ANDROID NOUGAT 7.0 TOP BAR) -->
+                <div id="status-bar" class="w-full h-6 px-3 flex items-center justify-between text-xs text-white z-30 bg-black/30 backdrop-blur-xs select-none">
+                    <div class="flex items-center space-x-1.5 text-[11px]" id="status-left">
+                        <span id="status-time" class="font-medium">12:00</span>
+                        <div id="status-icons-notif" class="flex items-center space-x-1 text-[10px] opacity-90">
+                            <i class="fa-brands fa-android text-teal-300"></i>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2 text-[11px]">
+                        <i id="icon-dnd" class="fa-solid fa-minus-circle text-[10px] hidden text-amber-300"></i>
+                        <i id="icon-airplane" class="fa-solid fa-plane text-[10px] hidden"></i>
+                        <i id="icon-wifi" class="fa-solid fa-wifi text-[11px]"></i>
+                        <i id="icon-signal" class="fa-solid fa-signal text-[10px]"></i>
+                        <div class="flex items-center space-x-0.5">
+                            <span id="battery-level" class="text-[10px] font-mono">85%</span>
+                            <i id="icon-battery" class="fa-solid fa-battery-three-quarters text-[11px]"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NOTIFICATION SHADE & QUICK SETTINGS DRAWER -->
+                <div id="shade" class="absolute inset-0 z-40 bg-slate-900/95 text-white flex flex-col shadow-2xl backdrop-blur-md">
+                    <!-- Quick Settings Header -->
+                    <div class="bg-teal-700 p-4 pt-8 text-white">
+                        <div class="flex justify-between items-center mb-4">
+                            <div class="text-xs font-medium text-teal-100 flex items-center gap-2">
+                                <span id="shade-date">Пятница, 12 Июля</span>
+                            </div>
+                            <div class="flex items-center space-x-4 text-sm">
+                                <i class="fa-solid fa-user-circle text-lg cursor-pointer"></i>
+                                <i class="fa-solid fa-gear cursor-pointer" onclick="openApp('settings'); closeShade();"></i>
+                            </div>
+                        </div>
+
+                        <!-- Brightness Slider -->
+                        <div class="flex items-center space-x-3 my-2">
+                            <i class="fa-solid fa-sun text-teal-200 text-xs"></i>
+                            <input type="range" id="brightness-slider" min="30" max="100" value="100" class="w-full accent-white h-1 bg-teal-900/60 rounded-lg appearance-none cursor-pointer" oninput="adjustBrightness(this.value)">
+                            <i class="fa-solid fa-sun text-teal-200 text-base"></i>
+                        </div>
+
+                        <!-- Quick Toggles Grid -->
+                        <div class="grid grid-cols-4 gap-3 mt-4 text-center">
+                            <div onclick="toggleQuickSetting('wifi')" class="flex flex-col items-center justify-center p-2 rounded-xl bg-teal-600/50 hover:bg-teal-600 cursor-pointer active:scale-95 transition-all">
+                                <i id="qs-wifi-icon" class="fa-solid fa-wifi text-lg mb-1 text-white"></i>
+                                <span class="text-[10px]">Wi-Fi</span>
+                            </div>
+                            <div onclick="toggleQuickSetting('bt')" class="flex flex-col items-center justify-center p-2 rounded-xl bg-teal-900/40 opacity-70 hover:opacity-100 cursor-pointer active:scale-95 transition-all">
+                                <i id="qs-bt-icon" class="fa-brands fa-bluetooth-b text-lg mb-1 text-white"></i>
+                                <span class="text-[10px]">Bluetooth</span>
+                            </div>
+                            <div onclick="toggleQuickSetting('torch')" class="flex flex-col items-center justify-center p-2 rounded-xl bg-teal-900/40 opacity-70 hover:opacity-100 cursor-pointer active:scale-95 transition-all">
+                                <i id="qs-torch-icon" class="fa-solid fa-lightbulb text-lg mb-1 text-white"></i>
+                                <span class="text-[10px]">Фонарик</span>
+                            </div>
+                            <div onclick="toggleQuickSetting('dnd')" class="flex flex-col items-center justify-center p-2 rounded-xl bg-teal-900/40 opacity-70 hover:opacity-100 cursor-pointer active:scale-95 transition-all">
+                                <i id="qs-dnd-icon" class="fa-solid fa-minus-circle text-lg mb-1 text-white"></i>
+                                <span class="text-[10px]">Не беспокоить</span>
+                            </div>
+                            <div onclick="toggleQuickSetting('airplane')" class="flex flex-col items-center justify-center p-2 rounded-xl bg-teal-900/40 opacity-70 hover:opacity-100 cursor-pointer active:scale-95 transition-all">
+                                <i id="qs-airplane-icon" class="fa-solid fa-plane text-lg mb-1 text-white"></i>
+                                <span class="text-[10px]">Режим полета</span>
+                            </div>
+                            <div onclick="toggleQuickSetting('autorotate')" class="flex flex-col items-center justify-center p-2 rounded-xl bg-teal-600/50 hover:bg-teal-600 cursor-pointer active:scale-95 transition-all">
+                                <i id="qs-autorotate-icon" class="fa-solid fa-rotate text-lg mb-1 text-white"></i>
+                                <span class="text-[10px]">Автоповорот</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Notifications List -->
+                    <div class="flex-1 p-3 overflow-y-auto space-y-2">
+                        <div class="text-xs text-slate-400 px-1 font-medium uppercase tracking-wider">Уведомления</div>
+                        
+                        <!-- Notification Item 1 -->
+                        <div class="bg-slate-800/80 rounded-xl p-3 shadow border border-slate-700/50 flex items-start space-x-3">
+                            <div class="w-7 h-7 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+                                <i class="fa-solid fa-comment text-xs"></i>
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs font-semibold text-slate-200">Сообщения</span>
+                                    <span class="text-[10px] text-slate-400">только что</span>
+                                </div>
+                                <p class="text-xs text-slate-300 mt-0.5">Добро пожаловать в Android 7.0 Nougat! Попробуйте приложения.</p>
+                            </div>
+                        </div>
+
+                        <!-- Notification Item 2 -->
+                        <div class="bg-slate-800/80 rounded-xl p-3 shadow border border-slate-700/50 flex items-start space-x-3">
+                            <div class="w-7 h-7 rounded-full bg-teal-500/20 text-teal-400 flex items-center justify-center shrink-0 mt-0.5">
+                                <i class="fa-brands fa-android text-xs"></i>
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs font-semibold text-slate-200">Система Android</span>
+                                    <span class="text-[10px] text-slate-400">5 мин</span>
+                                </div>
+                                <p class="text-xs text-slate-300 mt-0.5">Система обновлена до версии 7.0 Nougat.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Close Shade Handle -->
+                    <div class="h-8 bg-slate-950 flex items-center justify-center cursor-pointer hover:bg-slate-900" onclick="closeShade()">
+                        <div class="w-12 h-1 bg-slate-600 rounded-full"></div>
+                    </div>
+                </div>
+
+                <!-- Top Notification Drawer Drag Trigger Zone -->
+                <div class="absolute top-0 left-0 right-0 h-4 z-30 cursor-pointer" onclick="openShade()" title="Потяните вниз"></div>
+
+                <!-- LOCK SCREEN -->
+                <div id="lock-screen" class="absolute inset-0 z-30 bg-cover bg-center flex flex-col justify-between p-6 text-white wp-bg" style="background-image: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80');">
+                    <!-- Top Lock Clock -->
+                    <div class="pt-8 text-center flex flex-col items-center">
+                        <i class="fa-solid fa-lock text-sm mb-2 opacity-80"></i>
+                        <h1 id="lock-clock" class="text-6xl font-light tracking-tight">12:00</h1>
+                        <p id="lock-date" class="text-sm font-medium mt-1 opacity-90">Пятница, 12 Июля</p>
+                    </div>
+
+                    <!-- Bottom Swipe Lock Handle -->
+                    <div class="flex flex-col items-center cursor-pointer active:scale-95 transition-all" onclick="unlockDevice()">
+                        <div class="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 mb-2 animate-bounce">
+                            <i class="fa-solid fa-chevron-up text-lg text-white"></i>
+                        </div>
+                        <span class="text-xs font-light tracking-widest uppercase text-white/90">Проведите вверх для разблокировки</span>
+                    </div>
+                </div>
+
+                <!-- HOME SCREEN LAUNCHER -->
+                <div id="home-screen" class="relative flex-1 flex flex-col justify-between p-4 z-10 pt-2 pb-0">
+                    
+                    <!-- Google Search Bar (Android 7 Widget Style) -->
+                    <div class="w-full bg-white/90 backdrop-blur-md rounded-full px-4 py-2 flex items-center justify-between shadow-lg mt-2 cursor-pointer border border-white/40" onclick="openApp('browser')">
+                        <div class="flex items-center space-x-3">
+                            <i class="fa-brands fa-google text-blue-500 text-base"></i>
+                            <span class="text-xs text-slate-500 font-normal">Поиск в Google...</span>
+                        </div>
+                        <i class="fa-solid fa-microphone text-slate-500 text-xs"></i>
+                    </div>
+
+                    <!-- Clock & Weather Widget -->
+                    <div class="my-auto text-center text-white drop-shadow-md">
+                        <div id="home-clock" class="text-5xl font-light tracking-tight">12:00</div>
+                        <div id="home-date" class="text-xs font-medium mt-1 opacity-90">Пятница, 12 Июля</div>
+                        <div class="inline-flex items-center space-x-1.5 mt-2 bg-black/20 backdrop-blur-md px-3 py-1 rounded-full text-xs">
+                            <i class="fa-solid fa-sun text-amber-400"></i>
+                            <span>24°C, Солнечно</span>
+                        </div>
+                    </div>
+
+                    <!-- Home App Grid (Top Icons) -->
+                    <div class="grid grid-cols-4 gap-y-4 gap-x-2 text-center mb-4">
+                        <div onclick="openApp('settings')" class="flex flex-col items-center cursor-pointer group">
+                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-slate-600 to-slate-400 flex items-center justify-center text-white shadow-lg group-active:scale-90 transition-all">
+                                <i class="fa-solid fa-gear text-xl"></i>
+                            </div>
+                            <span class="text-[11px] text-white font-medium mt-1 drop-shadow">Настройки</span>
+                        </div>
+                        <div onclick="openApp('camera')" class="flex flex-col items-center cursor-pointer group">
+                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-rose-500 to-red-400 flex items-center justify-center text-white shadow-lg group-active:scale-90 transition-all">
+                                <i class="fa-solid fa-camera text-xl"></i>
+                            </div>
+                            <span class="text-[11px] text-white font-medium mt-1 drop-shadow">Камера</span>
+                        </div>
+                        <div onclick="openApp('gallery')" class="flex flex-col items-center cursor-pointer group">
+                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-400 flex items-center justify-center text-white shadow-lg group-active:scale-90 transition-all">
+                                <i class="fa-solid fa-images text-xl"></i>
+                            </div>
+                            <span class="text-[11px] text-white font-medium mt-1 drop-shadow">Галерея</span>
+                        </div>
+                        <div onclick="openApp('clock')" class="flex flex-col items-center cursor-pointer group">
+                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-cyan-400 flex items-center justify-center text-white shadow-lg group-active:scale-90 transition-all">
+                                <i class="fa-regular fa-clock text-xl"></i>
+                            </div>
+                            <span class="text-[11px] text-white font-medium mt-1 drop-shadow">Часы</span>
+                        </div>
+                    </div>
+
+                    <!-- Dock Container & App Drawer Launcher Button -->
+                    <div class="w-full bg-black/20 backdrop-blur-md rounded-3xl p-2 mb-2">
+                        <div class="grid grid-cols-5 gap-1 text-center items-center">
+                            <!-- Phone -->
+                            <div onclick="openApp('phone')" class="flex flex-col items-center cursor-pointer group">
+                                <div class="w-11 h-11 rounded-2xl bg-emerald-500 flex items-center justify-center text-white shadow-md group-active:scale-90 transition-all">
+                                    <i class="fa-solid fa-phone text-lg"></i>
+                                </div>
+                            </div>
+                            <!-- Messages -->
+                            <div onclick="openApp('messages')" class="flex flex-col items-center cursor-pointer group">
+                                <div class="w-11 h-11 rounded-2xl bg-blue-500 flex items-center justify-center text-white shadow-md group-active:scale-90 transition-all">
+                                    <i class="fa-solid fa-message text-lg"></i>
+                                </div>
+                            </div>
+                            <!-- App Drawer Central Button -->
+                            <div onclick="openAppDrawer()" class="flex flex-col items-center cursor-pointer group">
+                                <div class="w-11 h-11 rounded-full bg-white/90 flex items-center justify-center text-slate-700 shadow-md group-active:scale-90 transition-all border border-white">
+                                    <div class="grid grid-cols-3 gap-0.5 w-5 h-5 items-center justify-center">
+                                        <div class="w-1 h-1 bg-slate-700 rounded-full"></div>
+                                        <div class="w-1 h-1 bg-slate-700 rounded-full"></div>
+                                        <div class="w-1 h-1 bg-slate-700 rounded-full"></div>
+                                        <div class="w-1 h-1 bg-slate-700 rounded-full"></div>
+                                        <div class="w-1 h-1 bg-slate-700 rounded-full"></div>
+                                        <div class="w-1 h-1 bg-slate-700 rounded-full"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Chrome / Browser -->
+                            <div onclick="openApp('browser')" class="flex flex-col items-center cursor-pointer group">
+                                <div class="w-11 h-11 rounded-2xl bg-amber-500 flex items-center justify-center text-white shadow-md group-active:scale-90 transition-all">
+                                    <i class="fa-brands fa-chrome text-lg"></i>
+                                </div>
+                            </div>
+                            <!-- Music -->
+                            <div onclick="openApp('music')" class="flex flex-col items-center cursor-pointer group">
+                                <div class="w-11 h-11 rounded-2xl bg-rose-500 flex items-center justify-center text-white shadow-md group-active:scale-90 transition-all">
+                                    <i class="fa-solid fa-music text-lg"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- APP DRAWER OVERLAY -->
+                <div id="app-drawer" class="absolute inset-0 z-20 bg-slate-900/95 backdrop-blur-xl flex flex-col p-4 pt-8 transition-all duration-300 transform translate-y-full">
+                    <!-- Search Bar in Drawer -->
+                    <div class="w-full bg-slate-800 rounded-full px-4 py-2 flex items-center space-x-3 mb-6 border border-slate-700">
+                        <i class="fa-solid fa-magnifying-glass text-slate-400 text-sm"></i>
+                        <input type="text" id="drawer-search" placeholder="Поиск приложений..." oninput="filterDrawerApps(this.value)" class="bg-transparent text-white text-xs outline-none w-full">
+                    </div>
+
+                    <!-- Apps Grid -->
+                    <div id="drawer-grid" class="grid grid-cols-4 gap-y-6 gap-x-2 text-center overflow-y-auto flex-1">
+                        <!-- Populated by JS -->
+                    </div>
+
+                    <!-- Close Drawer Icon -->
+                    <div class="py-2 text-center text-slate-400 cursor-pointer" onclick="closeAppDrawer()">
+                        <i class="fa-solid fa-chevron-down text-lg"></i>
+                    </div>
+                </div>
+
+                <!-- OVERVIEW / RECENTS APP CAROUSEL -->
+                <div id="recents-screen" class="absolute inset-0 z-20 bg-slate-950/90 backdrop-blur-md flex flex-col p-4 pt-10 hidden">
+                    <div class="flex justify-between items-center text-white mb-4">
+                        <span class="text-sm font-medium">Недавние приложения</span>
+                        <button onclick="clearAllRecents()" class="text-xs text-teal-400 hover:text-teal-300 font-medium">Очистить все</button>
+                    </div>
+                    
+                    <div id="recents-list" class="flex-1 overflow-y-auto space-y-4 py-4 px-2">
+                        <!-- Recents cards generated dynamically -->
+                    </div>
+                </div>
+
+                <!-- APP CONTAINERS AREA -->
+                <div id="apps-container" class="absolute inset-0 z-20 pointer-events-none">
+                    
+                    <!-- 1. SETTINGS APP -->
+                    <div id="app-settings" class="app-window absolute inset-0 bg-slate-100 flex flex-col">
+                        <div class="bg-teal-700 text-white p-4 pt-8 flex items-center justify-between shadow-md">
+                            <h2 class="text-base font-medium">Настройки</h2>
+                            <i class="fa-solid fa-sliders text-sm"></i>
+                        </div>
+                        <div class="flex-1 overflow-y-auto text-slate-800">
+                            <!-- Wallpaper Setting -->
+                            <div class="p-4 border-b border-slate-200 flex items-center justify-between hover:bg-slate-200/50 cursor-pointer" onclick="changeWallpaper()">
+                                <div class="flex items-center space-x-3">
+                                    <i class="fa-solid fa-image text-teal-600 text-lg"></i>
+                                    <div>
+                                        <div class="text-xs font-semibold">Обои</div>
+                                        <div class="text-[11px] text-slate-500">Сменить фоновое изображение</div>
+                                    </div>
+                                </div>
+                                <i class="fa-solid fa-chevron-right text-xs text-slate-400"></i>
+                            </div>
+                            <!-- Storage -->
+                            <div class="p-4 border-b border-slate-200 flex items-center justify-between hover:bg-slate-200/50 cursor-pointer" onclick="showSettingsDetail('storage')">
+                                <div class="flex items-center space-x-3">
+                                    <i class="fa-solid fa-hard-drive text-teal-600 text-lg"></i>
+                                    <div>
+                                        <div class="text-xs font-semibold">Хранилище</div>
+                                        <div class="text-[11px] text-slate-500">Занято 14.2 GB из 32 GB</div>
+                                    </div>
+                                </div>
+                                <i class="fa-solid fa-chevron-right text-xs text-slate-400"></i>
+                            </div>
+                            <!-- Battery -->
+                            <div class="p-4 border-b border-slate-200 flex items-center justify-between hover:bg-slate-200/50 cursor-pointer" onclick="showSettingsDetail('battery')">
+                                <div class="flex items-center space-x-3">
+                                    <i class="fa-solid fa-battery-full text-teal-600 text-lg"></i>
+                                    <div>
+                                        <div class="text-xs font-semibold">Батарея</div>
+                                        <div class="text-[11px] text-slate-500">85% - Осталось 10 ч.</div>
+                                    </div>
+                                </div>
+                                <i class="fa-solid fa-chevron-right text-xs text-slate-400"></i>
+                            </div>
+                            <!-- System Info & Easter Egg -->
+                            <div class="p-4 border-b border-slate-200 flex items-center justify-between hover:bg-slate-200/50 cursor-pointer" onclick="triggerEasterEgg()">
+                                <div class="flex items-center space-x-3">
+                                    <i class="fa-solid fa-circle-info text-teal-600 text-lg"></i>
+                                    <div>
+                                        <div class="text-xs font-semibold">О телефоне</div>
+                                        <div class="text-[11px] text-slate-500">Android 7.0 Nougat (Нажмите несколько раз)</div>
+                                    </div>
+                                </div>
+                                <i class="fa-solid fa-chevron-right text-xs text-slate-400"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. PHONE DIALER APP -->
+                    <div id="app-phone" class="app-window absolute inset-0 bg-white flex flex-col">
+                        <div class="bg-emerald-600 text-white p-4 pt-8 shadow-md">
+                            <h2 class="text-base font-medium">Телефон</h2>
+                        </div>
+                        
+                        <!-- Call Active Screen Overlay -->
+                        <div id="active-call-overlay" class="absolute inset-0 bg-slate-900 text-white z-20 flex flex-col justify-between p-8 hidden">
+                            <div class="text-center mt-12">
+                                <div class="w-20 h-20 bg-slate-700 rounded-full mx-auto flex items-center justify-center text-3xl mb-4">
+                                    <i class="fa-solid fa-user"></i>
+                                </div>
+                                <h3 id="call-number-display" class="text-xl font-semibold">123-456</h3>
+                                <p id="call-timer" class="text-xs text-emerald-400 mt-1">Звонок... 00:00</p>
+                            </div>
+                            <div class="flex justify-center mb-8">
+                                <button onclick="endCall()" class="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center text-white text-2xl shadow-lg active:scale-90">
+                                    <i class="fa-solid fa-phone-slash"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Number Output Area -->
+                        <div class="p-4 text-right border-b border-slate-100 flex items-center justify-between">
+                            <span id="dialed-number" class="text-2xl font-light text-slate-800 tracking-wider truncate"></span>
+                            <button onclick="deleteDialDigit()" class="text-slate-400 text-lg p-2"><i class="fa-solid fa-backspace"></i></button>
+                        </div>
+
+                        <!-- Keypad Grid -->
+                        <div class="flex-1 grid grid-cols-3 gap-2 p-6 text-center items-center">
+                            <button onclick="pressDial('1')" class="text-2xl font-normal text-slate-700 active:bg-slate-100 py-3 rounded-full">1</button>
+                            <button onclick="pressDial('2')" class="text-2xl font-normal text-slate-700 active:bg-slate-100 py-3 rounded-full">2</button>
+                            <button onclick="pressDial('3')" class="text-2xl font-normal text-slate-700 active:bg-slate-100 py-3 rounded-full">3</button>
+                            <button onclick="pressDial('4')" class="text-2xl font-normal text-slate-700 active:bg-slate-100 py-3 rounded-full">4</button>
+                            <button onclick="pressDial('5')" class="text-2xl font-normal text-slate-700 active:bg-slate-100 py-3 rounded-full">5</button>
+                            <button onclick="pressDial('6')" class="text-2xl font-normal text-slate-700 active:bg-slate-100 py-3 rounded-full">6</button>
+                            <button onclick="pressDial('7')" class="text-2xl font-normal text-slate-700 active:bg-slate-100 py-3 rounded-full">7</button>
+                            <button onclick="pressDial('8')" class="text-2xl font-normal text-slate-700 active:bg-slate-100 py-3 rounded-full">8</button>
+                            <button onclick="pressDial('9')" class="text-2xl font-normal text-slate-700 active:bg-slate-100 py-3 rounded-full">9</button>
+                            <button onclick="pressDial('*')" class="text-2xl font-normal text-slate-700 active:bg-slate-100 py-3 rounded-full">*</button>
+                            <button onclick="pressDial('0')" class="text-2xl font-normal text-slate-700 active:bg-slate-100 py-3 rounded-full">0</button>
+                            <button onclick="pressDial('#')" class="text-2xl font-normal text-slate-700 active:bg-slate-100 py-3 rounded-full">#</button>
+                        </div>
+
+                        <!-- Call Action Button -->
+                        <div class="p-4 flex justify-center border-t border-slate-100">
+                            <button onclick="startCall()" class="w-14 h-14 bg-emerald-500 rounded-full text-white text-xl flex items-center justify-center shadow-lg active:scale-95">
+                                <i class="fa-solid fa-phone"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 3. MESSAGES APP -->
+                    <div id="app-messages" class="app-window absolute inset-0 bg-slate-50 flex flex-col">
+                        <div class="bg-blue-600 text-white p-4 pt-8 shadow-md flex justify-between items-center">
+                            <h2 class="text-base font-medium">Сообщения</h2>
+                            <i class="fa-solid fa-pen-to-square text-sm"></i>
+                        </div>
+                        <div id="chat-box" class="flex-1 p-4 overflow-y-auto space-y-3 text-xs">
+                            <div class="bg-white p-3 rounded-2xl rounded-tl-none shadow-sm max-w-[80%] border border-slate-200">
+                                <span class="font-semibold block text-slate-700 mb-1">Android Bot</span>
+                                Привет! Добро пожаловать в эмулятор Android 7.0 Nougat. Напиши мне что-нибудь!
+                            </div>
+                        </div>
+                        <div class="p-3 bg-white border-t border-slate-200 flex items-center space-x-2">
+                            <input type="text" id="sms-input" placeholder="Отправить SMS..." class="flex-1 text-xs outline-none bg-slate-100 p-2.5 rounded-full border border-slate-300">
+                            <button onclick="sendSMS()" class="w-9 h-9 bg-blue-600 text-white rounded-full flex items-center justify-center shrink-0 active:scale-90">
+                                <i class="fa-solid fa-paper-plane text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 4. CAMERA APP -->
+                    <div id="app-camera" class="app-window absolute inset-0 bg-black flex flex-col justify-between">
+                        <div class="p-4 pt-8 flex justify-between items-center text-white z-10">
+                            <i class="fa-solid fa-bolt text-sm"></i>
+                            <i class="fa-solid fa-gear text-sm"></i>
+                        </div>
+                        <!-- Video Viewport / Canvas Fallback -->
+                        <div class="relative flex-1 bg-slate-900 flex items-center justify-center overflow-hidden">
+                            <video id="camera-feed" autoplay playsinline class="w-full h-full object-cover hidden"></video>
+                            <canvas id="camera-canvas" class="w-full h-full object-cover"></canvas>
+                        </div>
+                        <!-- Camera Controls Bar -->
+                        <div class="p-6 bg-black/80 backdrop-blur-md flex justify-around items-center text-white">
+                            <div id="last-photo-thumb" class="w-10 h-10 rounded-full border border-white/50 bg-cover bg-center" onclick="openApp('gallery')"></div>
+                            <button onclick="takeSnap()" class="w-16 h-16 rounded-full border-4 border-white flex items-center justify-center active:scale-90">
+                                <div class="w-12 h-12 bg-white rounded-full"></div>
+                            </button>
+                            <i class="fa-solid fa-camera-rotate text-xl cursor-pointer" onclick="initCamera()"></i>
+                        </div>
+                    </div>
+
+                    <!-- 5. CALCULATOR APP -->
+                    <div id="app-calculator" class="app-window absolute inset-0 bg-slate-900 text-white flex flex-col">
+                        <div class="flex-1 p-6 flex flex-col justify-end text-right">
+                            <div id="calc-history" class="text-slate-400 text-sm mb-1 h-6"></div>
+                            <div id="calc-display" class="text-4xl font-light truncate">0</div>
+                        </div>
+                        <div class="grid grid-cols-4 gap-1 p-2 bg-slate-800 text-xl font-medium">
+                            <button onclick="calcClear()" class="p-4 text-teal-400 active:bg-slate-700 rounded-xl">C</button>
+                            <button onclick="calcOp('(')" class="p-4 text-teal-400 active:bg-slate-700 rounded-xl">(</button>
+                            <button onclick="calcOp(')')" class="p-4 text-teal-400 active:bg-slate-700 rounded-xl">)</button>
+                            <button onclick="calcOp('/')" class="p-4 text-teal-400 active:bg-slate-700 rounded-xl">÷</button>
+                            
+                            <button onclick="calcNum('7')" class="p-4 active:bg-slate-700 rounded-xl">7</button>
+                            <button onclick="calcNum('8')" class="p-4 active:bg-slate-700 rounded-xl">8</button>
+                            <button onclick="calcNum('9')" class="p-4 active:bg-slate-700 rounded-xl">9</button>
+                            <button onclick="calcOp('*')" class="p-4 text-teal-400 active:bg-slate-700 rounded-xl">×</button>
+                            
+                            <button onclick="calcNum('4')" class="p-4 active:bg-slate-700 rounded-xl">4</button>
+                            <button onclick="calcNum('5')" class="p-4 active:bg-slate-700 rounded-xl">5</button>
+                            <button onclick="calcNum('6')" class="p-4 active:bg-slate-700 rounded-xl">6</button>
+                            <button onclick="calcOp('-')" class="p-4 text-teal-400 active:bg-slate-700 rounded-xl">−</button>
+                            
+                            <button onclick="calcNum('1')" class="p-4 active:bg-slate-700 rounded-xl">1</button>
+                            <button onclick="calcNum('2')" class="p-4 active:bg-slate-700 rounded-xl">2</button>
+                            <button onclick="calcNum('3')" class="p-4 active:bg-slate-700 rounded-xl">3</button>
+                            <button onclick="calcOp('+')" class="p-4 text-teal-400 active:bg-slate-700 rounded-xl">+</button>
+                            
+                            <button onclick="calcNum('0')" class="p-4 active:bg-slate-700 rounded-xl">0</button>
+                            <button onclick="calcNum('.')" class="p-4 active:bg-slate-700 rounded-xl">.</button>
+                            <button onclick="calcEquals()" class="p-4 col-span-2 bg-teal-600 text-white active:bg-teal-700 rounded-xl">=</button>
+                        </div>
+                    </div>
+
+                    <!-- 6. GALLERY APP -->
+                    <div id="app-gallery" class="app-window absolute inset-0 bg-white flex flex-col">
+                        <div class="bg-indigo-700 text-white p-4 pt-8 shadow-md flex justify-between items-center">
+                            <h2 class="text-base font-medium">Галерея</h2>
+                            <i class="fa-solid fa-trash-can text-sm cursor-pointer" onclick="deleteSelectedPhoto()"></i>
+                        </div>
+                        <div id="gallery-grid" class="flex-1 p-2 grid grid-cols-3 gap-2 overflow-y-auto">
+                            <!-- Populated with sample photos and camera snaps -->
+                        </div>
+                        <!-- Modal for expanded photo view -->
+                        <div id="photo-modal" class="absolute inset-0 bg-black z-30 hidden flex flex-col justify-between">
+                            <div class="p-4 pt-8 flex justify-between text-white bg-gradient-to-b from-black/80 to-transparent">
+                                <i class="fa-solid fa-arrow-left text-lg cursor-pointer" onclick="closePhotoModal()"></i>
+                                <span class="text-xs">Просмотр фото</span>
+                            </div>
+                            <img id="photo-modal-img" class="max-h-[70%] object-contain my-auto">
+                            <div class="p-4 flex justify-around text-white bg-gradient-to-t from-black/80 to-transparent">
+                                <i class="fa-solid fa-share-nodes text-lg"></i>
+                                <i class="fa-solid fa-trash text-lg cursor-pointer" onclick="deleteCurrentModalPhoto()"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 7. CLOCK / ALARM / STOPWATCH APP -->
+                    <div id="app-clock" class="app-window absolute inset-0 bg-slate-900 text-white flex flex-col">
+                        <div class="bg-slate-800 p-4 pt-8 flex justify-around border-b border-slate-700 text-xs">
+                            <button onclick="switchClockTab('stopwatch')" class="text-teal-400 font-semibold border-b-2 border-teal-400 pb-1">Секундомер</button>
+                            <button onclick="switchClockTab('alarm')" class="text-slate-400 pb-1">Будильник</button>
+                        </div>
+                        <div class="flex-1 flex flex-col items-center justify-center p-6">
+                            <div id="stopwatch-display" class="text-6xl font-extralight tracking-widest font-mono mb-8">00:00.0</div>
+                            <div class="flex space-x-6">
+                                <button id="sw-start-btn" onclick="toggleStopwatch()" class="w-16 h-16 bg-teal-500 rounded-full text-white text-xl flex items-center justify-center shadow-lg active:scale-95">
+                                    <i class="fa-solid fa-play"></i>
+                                </button>
+                                <button onclick="resetStopwatch()" class="w-16 h-16 bg-slate-700 rounded-full text-slate-300 text-xl flex items-center justify-center shadow-lg active:scale-95">
+                                    <i class="fa-solid fa-rotate-left"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 8. CHROME BROWSER APP -->
+                    <div id="app-browser" class="app-window absolute inset-0 bg-slate-100 flex flex-col">
+                        <div class="bg-slate-200 p-2 pt-7 flex items-center space-x-2 border-b border-slate-300">
+                            <i class="fa-solid fa-house text-slate-600 text-sm cursor-pointer ml-1" onclick="navigateBrowser('home')"></i>
+                            <div class="flex-1 bg-white rounded-full px-3 py-1 flex items-center text-xs space-x-2 border border-slate-300">
+                                <i class="fa-solid fa-lock text-[10px] text-emerald-600"></i>
+                                <input type="text" id="browser-url" value="https://google.com" class="w-full outline-none text-slate-700 text-xs" onkeydown="if(event.key==='Enter') navigateBrowser(this.value)">
+                            </div>
+                            <i class="fa-solid fa-rotate-right text-slate-600 text-sm cursor-pointer"></i>
+                        </div>
+                        <div class="flex-1 bg-white relative overflow-hidden">
+                            <!-- Simulated Web Pages -->
+                            <div id="browser-page-home" class="p-6 text-center flex flex-col items-center justify-center h-full">
+                                <h1 class="text-4xl font-bold tracking-tighter text-slate-800 mb-4"><span class="text-blue-500">G</span><span class="text-red-500">o</span><span class="text-amber-500">o</span><span class="text-blue-500">g</span><span class="text-green-500">l</span><span class="text-red-500">e</span></h1>
+                                <div class="w-full max-w-xs bg-slate-100 border border-slate-300 rounded-full px-4 py-2 text-xs text-slate-400 flex items-center space-x-2 mb-4">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                    <span>Поиск в Интернете</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button onclick="navigateBrowser('https://wikipedia.org')" class="px-3 py-1.5 bg-slate-100 rounded text-xs text-slate-600">Википедия</button>
+                                    <button onclick="navigateBrowser('https://android.com')" class="px-3 py-1.5 bg-slate-100 rounded text-xs text-slate-600">Android 7</button>
+                                </div>
+                            </div>
+                            <div id="browser-page-content" class="p-4 text-xs text-slate-700 overflow-y-auto h-full hidden">
+                                <h2 id="browser-title" class="text-lg font-bold mb-2">Заголовок страницы</h2>
+                                <p id="browser-body">Загрузка содержимого...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 9. MUSIC PLAYER APP -->
+                    <div id="app-music" class="app-window absolute inset-0 bg-gradient-to-b from-rose-900 to-slate-950 text-white flex flex-col">
+                        <div class="p-4 pt-8 flex justify-between items-center">
+                            <i class="fa-solid fa-chevron-down"></i>
+                            <span class="text-xs font-semibold uppercase tracking-wider">Плеер Nougat</span>
+                            <i class="fa-solid fa-list text-sm"></i>
+                        </div>
+                        <div class="flex-1 flex flex-col items-center justify-center p-6 text-center">
+                            <div class="w-40 h-40 rounded-3xl bg-rose-600/30 border border-rose-500/40 flex items-center justify-center shadow-2xl mb-6">
+                                <i class="fa-solid fa-music text-6xl text-rose-300 animate-pulse"></i>
+                            </div>
+                            <h3 id="music-title" class="text-lg font-bold">Nougat Synth Beat</h3>
+                            <p id="music-artist" class="text-xs text-rose-200/70 mt-1">Встроенный синтезатор Web Audio</p>
+                            
+                            <!-- Progress Bar -->
+                            <div class="w-full mt-8">
+                                <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                                    <div id="music-progress" class="bg-rose-500 h-full w-1/3 transition-all"></div>
+                                </div>
+                                <div class="flex justify-between text-[10px] text-slate-400 mt-1">
+                                    <span>0:45</span>
+                                    <span>2:15</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-6 flex justify-center items-center space-x-8 pb-10">
+                            <i class="fa-solid fa-backward text-xl cursor-pointer active:scale-90"></i>
+                            <button id="music-play-btn" onclick="toggleMusic()" class="w-16 h-16 bg-rose-500 rounded-full text-white text-2xl flex items-center justify-center shadow-xl active:scale-90">
+                                <i class="fa-solid fa-play"></i>
+                            </button>
+                            <i class="fa-solid fa-forward text-xl cursor-pointer active:scale-90"></i>
+                        </div>
+                    </div>
+
+                    <!-- 10. FILES APP -->
+                    <div id="app-files" class="app-window absolute inset-0 bg-white flex flex-col text-slate-800">
+                        <div class="bg-slate-800 text-white p-4 pt-8 shadow-md">
+                            <h2 class="text-base font-medium">Файлы</h2>
+                        </div>
+                        <div class="flex-1 overflow-y-auto p-3 space-y-2">
+                            <div class="p-3 border border-slate-200 rounded-xl flex items-center space-x-3 hover:bg-slate-50 cursor-pointer">
+                                <i class="fa-solid fa-folder text-amber-500 text-2xl"></i>
+                                <div>
+                                    <div class="text-xs font-semibold">Документы</div>
+                                    <div class="text-[10px] text-slate-400">3 файла</div>
+                                </div>
+                            </div>
+                            <div class="p-3 border border-slate-200 rounded-xl flex items-center space-x-3 hover:bg-slate-50 cursor-pointer">
+                                <i class="fa-solid fa-folder text-blue-500 text-2xl"></i>
+                                <div>
+                                    <div class="text-xs font-semibold">Загрузки</div>
+                                    <div class="text-[10px] text-slate-400">12 файлов</div>
+                                </div>
+                            </div>
+                            <div class="p-3 border border-slate-200 rounded-xl flex items-center space-x-3 hover:bg-slate-50 cursor-pointer">
+                                <i class="fa-solid fa-folder text-emerald-500 text-2xl"></i>
+                                <div>
+                                    <div class="text-xs font-semibold">Изображения</div>
+                                    <div class="text-[10px] text-slate-400">5 файлов</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- NAVIGATION BAR (ANDROID NOUGAT SOFT KEYS) -->
+                <div id="nav-bar" class="w-full h-10 bg-black flex items-center justify-around z-30 shrink-0">
+                    <!-- BACK BUTTON (TRIANGLE) -->
+                    <button onclick="handleNavBack()" class="w-12 h-full flex items-center justify-center text-white/80 active:text-white active:scale-90 transition-transform">
+                        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                            <polygon points="19,5 5,12 19,19"></polygon>
+                        </svg>
+                    </button>
+                    <!-- HOME BUTTON (CIRCLE) -->
+                    <button onclick="handleNavHome()" class="w-12 h-full flex items-center justify-center text-white/80 active:text-white active:scale-90 transition-transform">
+                        <div class="w-4 h-4 rounded-full border-2 border-current"></div>
+                    </button>
+                    <!-- RECENTS BUTTON (SQUARE) -->
+                    <button onclick="handleNavRecents()" class="w-12 h-full flex items-center justify-center text-white/80 active:text-white active:scale-90 transition-transform">
+                        <div class="w-3.5 h-3.5 border-2 border-current rounded-xs"></div>
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT SYSTEM ENGINE -->
+    <script>
+        // SYSTEM STATE & APP REGISTRY
+        const state = {
+            isLocked: true,
+            isScreenOn: true,
+            activeApp: null,
+            openAppsList: [],
+            quickSettings: {
+                wifi: true,
+                bt: false,
+                torch: false,
+                dnd: false,
+                airplane: false,
+                autorotate: true
+            },
+            volume: 70,
+            brightness: 100,
+            wallpapers: [
+                'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80',
+                'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=800&q=80',
+                'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=800&q=80'
+            ],
+            currentWpIndex: 0
+        };
+
+        const appsConfig = [
+            { id: 'settings', title: 'Настройки', icon: 'fa-solid fa-gear', bg: 'bg-slate-600' },
+            { id: 'camera', title: 'Камера', icon: 'fa-solid fa-camera', bg: 'bg-red-500' },
+            { id: 'gallery', title: 'Галерея', icon: 'fa-solid fa-images', bg: 'bg-indigo-600' },
+            { id: 'clock', title: 'Часы', icon: 'fa-regular fa-clock', bg: 'bg-blue-600' },
+            { id: 'phone', title: 'Телефон', icon: 'fa-solid fa-phone', bg: 'bg-emerald-500' },
+            { id: 'messages', title: 'Сообщения', icon: 'fa-solid fa-message', bg: 'bg-blue-500' },
+            { id: 'browser', title: 'Chrome', icon: 'fa-brands fa-chrome', bg: 'bg-amber-500' },
+            { id: 'music', title: 'Музыка', icon: 'fa-solid fa-music', bg: 'bg-rose-500' },
+            { id: 'calculator', title: 'Калькулятор', icon: 'fa-solid fa-calculator', bg: 'bg-slate-800' },
+            { id: 'files', title: 'Файлы', icon: 'fa-solid fa-folder', bg: 'bg-amber-600' }
+        ];
+
+        // AUDIO SYNTHESIZER (WEB AUDIO API FOR NATIVE SOUNDS)
+        const AudioEngine = {
+            ctx: null,
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            },
+            playClick() {
+                try {
+                    this.init();
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(400, this.ctx.currentTime + 0.03);
+                    gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.03);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.03);
+                } catch (e) {}
+            },
+            playUnlock() {
+                try {
+                    this.init();
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.12);
+                    gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.12);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.12);
+                } catch (e) {}
+            }
+        };
+
+        // INITIALIZATION ON WINDOW LOAD
+        window.onload = function () {
+            updateClock();
+            setInterval(updateClock, 1000);
+            renderDrawerApps();
+            renderGallerySamplePhotos();
+            setupTouchRipples();
+        };
+
+        // CLOCK AND DATE UPDATER
+        function updateClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const mins = String(now.getMinutes()).padStart(2, '0');
+            const timeStr = `${hours}:${mins}`;
+
+            const options = { weekday: 'long', month: 'long', day: 'numeric' };
+            const dateStr = now.toLocaleDateString('ru-RU', options);
+            const dateCapitalized = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+
+            document.getElementById('status-time').innerText = timeStr;
+            document.getElementById('lock-clock').innerText = timeStr;
+            document.getElementById('home-clock').innerText = timeStr;
+            document.getElementById('lock-date').innerText = dateCapitalized;
+            document.getElementById('home-date').innerText = dateCapitalized;
+            document.getElementById('shade-date').innerText = dateCapitalized;
+        }
+
+        // LOCKSCREEN & SYSTEM UNLOCK
+        function unlockDevice() {
+            AudioEngine.playUnlock();
+            const lockScreen = document.getElementById('lock-screen');
+            lockScreen.style.transform = 'translateY(-100%)';
+            lockScreen.style.transition = 'transform 0.4s ease';
+            setTimeout(() => {
+                lockScreen.classList.add('hidden');
+                state.isLocked = false;
+            }, 400);
+        }
+
+        function lockDevice() {
+            const lockScreen = document.getElementById('lock-screen');
+            lockScreen.classList.remove('hidden');
+            setTimeout(() => {
+                lockScreen.style.transform = 'translateY(0)';
+                state.isLocked = true;
+            }, 10);
+        }
+
+        // POWER BUTTON TOGGLE
+        function togglePowerScreen() {
+            const screenOff = document.getElementById('screen-off');
+            state.isScreenOn = !state.isScreenOn;
+            if (state.isScreenOn) {
+                screenOff.classList.add('hidden');
+            } else {
+                screenOff.classList.remove('hidden');
+                closeShade();
+            }
+        }
+
+        // HARDWARE VOLUME POPUP
+        let volTimeout;
+        function toggleVolumeBar() {
+            const pop = document.getElementById('vol-popup');
+            pop.classList.remove('opacity-0', 'pointer-events-none', '-translate-y-12');
+            clearTimeout(volTimeout);
+            volTimeout = setTimeout(() => {
+                pop.classList.add('opacity-0', 'pointer-events-none', '-translate-y-12');
+            }, 2500);
+        }
+
+        function updateVolume(val) {
+            state.volume = val;
+            document.getElementById('vol-val').innerText = val + '%';
+            AudioEngine.playClick();
+        }
+
+        // NOTIFICATION SHADE TOGGLES
+        function openShade() {
+            if (state.isLocked || !state.isScreenOn) return;
+            document.getElementById('shade').classList.add('open');
+        }
+
+        function closeShade() {
+            document.getElementById('shade').classList.remove('open');
+        }
+
+        function toggleQuickSetting(setting) {
+            AudioEngine.playClick();
+            state.quickSettings[setting] = !state.quickSettings[setting];
+
+            if (setting === 'torch') {
+                document.getElementById('torch-screen').classList.toggle('active', state.quickSettings.torch);
+            } else if (setting === 'wifi') {
+                document.getElementById('icon-wifi').style.opacity = state.quickSettings.wifi ? '1' : '0.2';
+            } else if (setting === 'dnd') {
+                document.getElementById('icon-dnd').classList.toggle('hidden', !state.quickSettings.dnd);
+            } else if (setting === 'airplane') {
+                document.getElementById('icon-airplane').classList.toggle('hidden', !state.quickSettings.airplane);
+            }
+        }
+
+        function adjustBrightness(val) {
+            state.brightness = val;
+            document.getElementById('screen').style.filter = `brightness(${val}%)`;
+        }
+
+        // APP DRAWER CONTROLS
+        function openAppDrawer() {
+            AudioEngine.playClick();
+            document.getElementById('app-drawer').classList.remove('translate-y-full');
+        }
+
+        function closeAppDrawer() {
+            document.getElementById('app-drawer').classList.add('translate-y-full');
+        }
+
+        function renderDrawerApps() {
+            const grid = document.getElementById('drawer-grid');
+            grid.innerHTML = appsConfig.map(app => `
+                <div onclick="openApp('${app.id}'); closeAppDrawer();" class="flex flex-col items-center cursor-pointer group">
+                    <div class="w-12 h-12 rounded-2xl ${app.bg} flex items-center justify-center text-white shadow-md group-active:scale-90 transition-all">
+                        <i class="${app.icon} text-xl"></i>
+                    </div>
+                    <span class="text-[11px] text-slate-300 font-medium mt-1">${app.title}</span>
+                </div>
+            `).join('');
+        }
+
+        function filterDrawerApps(query) {
+            const q = query.toLowerCase();
+            const grid = document.getElementById('drawer-grid');
+            const filtered = appsConfig.filter(a => a.title.toLowerCase().includes(q));
+            grid.innerHTML = filtered.map(app => `
+                <div onclick="openApp('${app.id}'); closeAppDrawer();" class="flex flex-col items-center cursor-pointer group">
+                    <div class="w-12 h-12 rounded-2xl ${app.bg} flex items-center justify-center text-white shadow-md group-active:scale-90 transition-all">
+                        <i class="${app.icon} text-xl"></i>
+                    </div>
+                    <span class="text-[11px] text-slate-300 font-medium mt-1">${app.title}</span>
+                </div>
+            `).join('');
+        }
+
+        // NAVIGATION BAR FUNCTIONS (BACK, HOME, RECENTS)
+        function handleNavHome() {
+            AudioEngine.playClick();
+            if (document.getElementById('shade').classList.contains('open')) {
+                closeShade();
+                return;
+            }
+            if (!document.getElementById('recents-screen').classList.contains('hidden')) {
+                document.getElementById('recents-screen').classList.add('hidden');
+            }
+            if (state.activeApp) {
+                const activeEl = document.getElementById(`app-${state.activeApp}`);
+                if (activeEl) {
+                    activeEl.classList.remove('active');
+                    activeEl.classList.add('minimized');
+                }
+                state.activeApp = null;
+            }
+        }
+
+        function handleNavBack() {
+            AudioEngine.playClick();
+            if (document.getElementById('shade').classList.contains('open')) {
+                closeShade();
+                return;
+            }
+            if (!document.getElementById('app-drawer').classList.contains('translate-y-full')) {
+                closeAppDrawer();
+                return;
+            }
+            if (!document.getElementById('recents-screen').classList.contains('hidden')) {
+                document.getElementById('recents-screen').classList.add('hidden');
+                return;
+            }
+            if (state.activeApp) {
+                handleNavHome();
+            }
+        }
+
+        function handleNavRecents() {
+            AudioEngine.playClick();
+            const recentsScreen = document.getElementById('recents-screen');
+            if (!recentsScreen.classList.contains('hidden')) {
+                recentsScreen.classList.add('hidden');
+                return;
+            }
+            renderRecentsCards();
+            recentsScreen.classList.remove('hidden');
+        }
+
+        // APP MANAGEMENT ENGINE
+        function openApp(appId) {
+            AudioEngine.playClick();
+            
+            // Hide Recents if open
+            document.getElementById('recents-screen').classList.add('hidden');
+
+            // Minimize current active app if any
+            if (state.activeApp && state.activeApp !== appId) {
+                const currentEl = document.getElementById(`app-${state.activeApp}`);
+                if (currentEl) currentEl.classList.remove('active');
+            }
+
+            const targetApp = document.getElementById(`app-${appId}`);
+            if (targetApp) {
+                targetApp.classList.remove('minimized');
+                targetApp.classList.add('active');
+                state.activeApp = appId;
+
+                // Track in open apps for Recents
+                if (!state.openAppsList.includes(appId)) {
+                    state.openAppsList.push(appId);
+                }
+            }
+
+            // App specific triggers
+            if (appId === 'camera') initCamera();
+        }
+
+        function renderRecentsCards() {
+            const list = document.getElementById('recents-list');
+            if (state.openAppsList.length === 0) {
+                list.innerHTML = `<div class="text-center text-slate-500 text-xs py-10">Нет недавних приложений</div>`;
+                return;
+            }
+
+            list.innerHTML = state.openAppsList.map((appId, index) => {
+                const conf = appsConfig.find(a => a.id === appId) || { title: appId, icon: 'fa-solid fa-app', bg: 'bg-slate-700' };
+                return `
+                    <div class="recent-card bg-slate-800 rounded-xl overflow-hidden shadow-xl border border-slate-700 flex flex-col h-40 relative group">
+                        <div class="bg-slate-700 px-3 py-2 flex items-center justify-between text-white text-xs">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-5 h-5 rounded ${conf.bg} flex items-center justify-center text-[10px]">
+                                    <i class="${conf.icon}"></i>
+                                </div>
+                                <span class="font-medium">${conf.title}</span>
+                            </div>
+                            <button onclick="dismissRecent('${appId}', event)" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <div onclick="openApp('${appId}')" class="flex-1 bg-slate-900/60 p-4 flex items-center justify-center cursor-pointer hover:bg-slate-900/40">
+                            <span class="text-xs text-slate-500">Нажмите для перехода</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function dismissRecent(appId, event) {
+            event.stopPropagation();
+            state.openAppsList = state.openAppsList.filter(id => id !== appId);
+            const targetApp = document.getElementById(`app-${appId}`);
+            if (targetApp) targetApp.classList.remove('active');
+            renderRecentsCards();
+        }
+
+        function clearAllRecents() {
+            state.openAppsList.forEach(appId => {
+                const targetApp = document.getElementById(`app-${appId}`);
+                if (targetApp) targetApp.classList.remove('active');
+            });
+            state.openAppsList = [];
+            renderRecentsCards();
+        }
+
+        // APP 1: SETTINGS FUNCTIONS
+        function changeWallpaper() {
+            state.currentWpIndex = (state.currentWpIndex + 1) % state.wallpapers.length;
+            const newWp = state.wallpapers[state.currentWpIndex];
+            document.querySelectorAll('.wp-bg').forEach(el => {
+                el.style.backgroundImage = `url('${newWp}')`;
+            });
+        }
+
+        let tapCount = 0;
+        function triggerEasterEgg() {
+            tapCount++;
+            if (tapCount >= 3) {
+                tapCount = 0;
+                alert("🎉 Easter Egg Android 7.0 (Nougat)! Вы разблокировали режим котиков!");
+            }
+        }
+
+        // APP 2: PHONE DIALER
+        let dialed = "";
+        function pressDial(num) {
+            AudioEngine.playClick();
+            dialed += num;
+            document.getElementById('dialed-number').innerText = dialed;
+        }
+
+        function deleteDialDigit() {
+            dialed = dialed.slice(0, -1);
+            document.getElementById('dialed-number').innerText = dialed;
+        }
+
+        let callTimerInterval;
+        function startCall() {
+            if (!dialed) dialed = "123-456";
+            document.getElementById('call-number-display').innerText = dialed;
+            document.getElementById('active-call-overlay').classList.remove('hidden');
+            
+            let seconds = 0;
+            callTimerInterval = setInterval(() => {
+                seconds++;
+                const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+                const s = String(seconds % 60).padStart(2, '0');
+                document.getElementById('call-timer').innerText = `Звонок... ${m}:${s}`;
+            }, 1000);
+        }
+
+        function endCall() {
+            clearInterval(callTimerInterval);
+            document.getElementById('active-call-overlay').classList.add('hidden');
+            dialed = "";
+            document.getElementById('dialed-number').innerText = "";
+        }
+
+        // APP 3: MESSAGES
+        function sendSMS() {
+            const input = document.getElementById('sms-input');
+            const txt = input.value.trim();
+            if (!txt) return;
+
+            const box = document.getElementById('chat-box');
+            // User message
+            box.innerHTML += `
+                <div class="bg-blue-600 text-white p-3 rounded-2xl rounded-tr-none shadow-sm max-w-[80%] ml-auto">
+                    ${txt}
+                </div>
+            `;
+            input.value = '';
+            box.scrollTop = box.scrollHeight;
+
+            // Simulated reply
+            setTimeout(() => {
+                box.innerHTML += `
+                    <div class="bg-white p-3 rounded-2xl rounded-tl-none shadow-sm max-w-[80%] border border-slate-200">
+                        <span class="font-semibold block text-slate-700 mb-1">Android Bot</span>
+                        Получено ваше сообщение: "${txt}". Система Android 7 работает идеально!
+                    </div>
+                `;
+                box.scrollTop = box.scrollHeight;
+            }, 1000);
+        }
+
+        // APP 4: CAMERA ENGINE
+        async function initCamera() {
+            const video = document.getElementById('camera-feed');
+            const canvas = document.getElementById('camera-canvas');
+            const ctx = canvas.getContext('2d');
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+                video.classList.remove('hidden');
+                canvas.classList.add('hidden');
+            } catch (err) {
+                // Fallback Canvas simulation if webcam denied/unavailable
+                video.classList.add('hidden');
+                canvas.classList.remove('hidden');
+                ctx.fillStyle = '#1e293b';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = '14px Roboto';
+                ctx.textAlign = 'center';
+                ctx.fillText('Камера (Симуляция)', canvas.width / 2, canvas.height / 2);
+            }
+        }
+
+        function takeSnap() {
+            AudioEngine.playClick();
+            const canvas = document.createElement('canvas');
+            canvas.width = 300;
+            canvas.height = 300;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#' + Math.floor(Math.random()*16777215).toString(16);
+            ctx.fillRect(0, 0, 300, 300);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '20px Roboto';
+            ctx.fillText('Nougat Photo', 80, 150);
+
+            const dataUrl = canvas.toDataURL();
+            document.getElementById('last-photo-thumb').style.backgroundImage = `url(${dataUrl})`;
+            addPhotoToGallery(dataUrl);
+        }
+
+        // APP 5: CALCULATOR
+        let calcExpr = "";
+        function calcNum(n) { calcExpr += n; updateCalc(); }
+        function calcOp(op) { calcExpr += op; updateCalc(); }
+        function calcClear() { calcExpr = ""; updateCalc(); }
+        function updateCalc() { document.getElementById('calc-display').innerText = calcExpr || "0"; }
+        function calcEquals() {
+            try {
+                document.getElementById('calc-history').innerText = calcExpr;
+                calcExpr = String(eval(calcExpr));
+                updateCalc();
+            } catch (e) {
+                document.getElementById('calc-display').innerText = "Ошибка";
+                calcExpr = "";
+            }
+        }
+
+        // APP 6: GALLERY
+        const galleryPhotos = [
+            'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=400&q=80',
+            'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=400&q=80',
+            'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=400&q=80'
+        ];
+
+        function renderGallerySamplePhotos() {
+            const grid = document.getElementById('gallery-grid');
+            grid.innerHTML = galleryPhotos.map((url, i) => `
+                <div onclick="openPhotoModal('${url}')" class="aspect-square bg-cover bg-center rounded-lg shadow cursor-pointer hover:opacity-90" style="background-image: url('${url}')"></div>
+            `).join('');
+        }
+
+        function addPhotoToGallery(url) {
+            galleryPhotos.unshift(url);
+            renderGallerySamplePhotos();
+        }
+
+        function openPhotoModal(url) {
+            document.getElementById('photo-modal-img').src = url;
+            document.getElementById('photo-modal').classList.remove('hidden');
+        }
+
+        function closePhotoModal() {
+            document.getElementById('photo-modal').classList.add('hidden');
+        }
+
+        // APP 7: CLOCK / STOPWATCH
+        let swInterval;
+        let swTime = 0;
+        let swRunning = false;
+
+        function toggleStopwatch() {
+            const btn = document.getElementById('sw-start-btn');
+            if (swRunning) {
+                clearInterval(swInterval);
+                swRunning = false;
+                btn.innerHTML = `<i class="fa-solid fa-play"></i>`;
+            } else {
+                swRunning = true;
+                btn.innerHTML = `<i class="fa-solid fa-pause"></i>`;
+                swInterval = setInterval(() => {
+                    swTime += 100;
+                    const totalSecs = Math.floor(swTime / 1000);
+                    const mins = String(Math.floor(totalSecs / 60)).padStart(2, '0');
+                    const secs = String(totalSecs % 60).padStart(2, '0');
+                    const ms = Math.floor((swTime % 1000) / 100);
+                    document.getElementById('stopwatch-display').innerText = `${mins}:${secs}.${ms}`;
+                }, 100);
+            }
+        }
+
+        function resetStopwatch() {
+            clearInterval(swInterval);
+            swRunning = false;
+            swTime = 0;
+            document.getElementById('stopwatch-display').innerText = `00:00.0`;
+            document.getElementById('sw-start-btn').innerHTML = `<i class="fa-solid fa-play"></i>`;
+        }
+
+        // APP 8: BROWSER
+        function navigateBrowser(url) {
+            const homePage = document.getElementById('browser-page-home');
+            const contentPage = document.getElementById('browser-page-content');
+            
+            if (url === 'home') {
+                homePage.classList.remove('hidden');
+                contentPage.classList.add('hidden');
+                document.getElementById('browser-url').value = "https://google.com";
+                return;
+            }
+
+            homePage.classList.add('hidden');
+            contentPage.classList.remove('hidden');
+            document.getElementById('browser-url').value = url;
+            document.getElementById('browser-title').innerText = "Страница: " + url;
+            document.getElementById('browser-body').innerText = "Это эмулированная страница браузера для " + url + ". В эмуляторе все функции работают быстро и локально!";
+        }
+
+        // APP 9: MUSIC PLAYER (SYNTHESIZER)
+        let isPlayingMusic = false;
+        let musicOsc;
+
+        function toggleMusic() {
+            const btn = document.getElementById('music-play-btn');
+            if (isPlayingMusic) {
+                isPlayingMusic = false;
+                btn.innerHTML = `<i class="fa-solid fa-play"></i>`;
+            } else {
+                isPlayingMusic = true;
+                btn.innerHTML = `<i class="fa-solid fa-pause"></i>`;
+                playSynthMelody();
+            }
+        }
+
+        function playSynthMelody() {
+            if (!isPlayingMusic) return;
+            AudioEngine.playClick();
+            // Loop progress simulation bar
+            const prog = document.getElementById('music-progress');
+            let w = 0;
+            const interval = setInterval(() => {
+                if (!isPlayingMusic) { clearInterval(interval); return; }
+                w = (w + 1) % 100;
+                prog.style.width = w + '%';
+            }, 300);
+        }
+
+        // RIPPLE EFFECT ON TOUCH
+        function setupTouchRipples() {
+            document.addEventListener('click', function (e) {
+                const target = e.target.closest('button, .ripple');
+                if (target) {
+                    const rect = target.getBoundingClientRect();
+                    const ripple = document.createElement('span');
+                    ripple.className = 'ripple-effect';
+                    ripple.style.left = `${e.clientX - rect.left}px`;
+                    ripple.style.top = `${e.clientY - rect.top}px`;
+                    target.appendChild(ripple);
+                    setTimeout(() => ripple.remove(), 600);
+                }
+            });
+        }
+    </script>
+</body>
+</html>

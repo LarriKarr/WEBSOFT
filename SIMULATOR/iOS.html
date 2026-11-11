@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iOS Simulator</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        iosBg: '#000000',
+                        iosCard: '#1c1c1e',
+                        iosCardLight: '#f2f2f7',
+                        iosBlue: '#007aff',
+                        iosGreen: '#34c759',
+                        iosRed: '#ff3b30',
+                        iosOrange: '#ff9500',
+                        iosYellow: '#ffcc00',
+                        iosGray: '#8e8e93',
+                    },
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', 'Arial', 'sans-serif'],
+                    },
+                    borderRadius: {
+                        'ios': '22px',
+                        'squircle': '18px',
+                        'phone': '52px'
+                    },
+                    boxShadow: {
+                        'iphone': '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 30px rgba(255, 255, 255, 0.05)',
+                        'app': '0 4px 15px rgba(0,0,0,0.15)'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar & glassmorphism utilities */
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
+        .glass {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+        }
+        .glass-dark {
+            background: rgba(30, 30, 30, 0.65);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+        }
+        .squircle {
+            border-radius: 22.5%;
+        }
+        /* Smooth iOS animations */
+        .app-transition {
+            transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.3s ease;
+        }
+        .dynamic-island-anim {
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .no-select {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        /* Lock screen clock glow */
+        .time-glow {
+            text-shadow: 0 0 20px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body class="bg-zinc-950 min-h-screen flex items-center justify-center p-0 sm:p-4 font-sans no-select overflow-hidden">
+
+    <!-- Outer Device Container (исправлено h-[100vh] на h-[100dvh]) -->
+    <div class="relative flex items-center justify-center w-full max-w-[420px] h-[100dvh] sm:h-[860px]">
+
+        <!-- Physical Side Buttons -->
+        <div class="absolute left-[-12px] top-[140px] w-[5px] h-[35px] bg-zinc-600 rounded-l-md cursor-pointer hover:bg-zinc-400 active:scale-95 transition" title="Action Button" onclick="triggerActionBtn()"></div>
+        <div class="absolute left-[-12px] top-[195px] w-[5px] h-[50px] bg-zinc-600 rounded-l-md cursor-pointer hover:bg-zinc-400 active:scale-95 transition" title="Volume Up" onclick="adjustVolume(10)"></div>
+        <div class="absolute left-[-12px] top-[260px] w-[5px] h-[50px] bg-zinc-600 rounded-l-md cursor-pointer hover:bg-zinc-400 active:scale-95 transition" title="Volume Down" onclick="adjustVolume(-10)"></div>
+        <div class="absolute right-[-12px] top-[210px] w-[5px] h-[75px] bg-zinc-600 rounded-r-md cursor-pointer hover:bg-zinc-400 active:scale-95 transition" title="Power Button" onclick="togglePower()"></div>
+
+        <!-- Main Phone Body (Titanium Frame) -->
+        <div id="phone-body" class="relative w-full h-full sm:w-[390px] sm:h-[840px] bg-black sm:rounded-[52px] p-[12px] shadow-iphone border-[4px] border-zinc-700/60 ring-1 ring-white/10 flex flex-col justify-between overflow-hidden transition-opacity duration-300">
+            
+            <!-- Phone Screen Screen Inner Wrapper -->
+            <div id="screen" class="relative w-full h-full bg-cover bg-center sm:rounded-[42px] overflow-hidden flex flex-col justify-between text-white transition-all duration-300" style="background-image: url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop');">
+                
+                <!-- Status Bar -->
+                <div class="relative z-50 flex justify-between items-center px-7 pt-3 text-xs font-semibold tracking-tight select-none">
+                    <!-- Left: Clock -->
+                    <span id="status-time" class="w-12 text-center drop-shadow">09:41</span>
+
+                    <!-- Dynamic Island Slot Placeholder -->
+                    <div class="w-28 h-6"></div>
+
+                    <!-- Right: Indicators -->
+                    <div class="flex items-center space-x-2 text-xs drop-shadow">
+                        <i class="fa-solid fa-signal"></i>
+                        <span class="text-[10px] font-bold">5G</span>
+                        <i id="status-wifi" class="fa-solid fa-wifi"></i>
+                        <div class="flex items-center space-x-[1px]">
+                            <div class="w-5 h-2.5 border border-white rounded-[3px] p-[1px] flex items-center">
+                                <div id="battery-level" class="h-full w-4/5 bg-white rounded-[1px]"></div>
+                            </div>
+                            <div class="w-[1.5px] h-1 bg-white rounded-r"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dynamic Island Container -->
+                <div id="dynamic-island" onclick="expandIsland()" class="absolute top-2 left-1/2 -translate-x-1/2 z-50 bg-black text-white rounded-full flex items-center justify-between px-3 py-1 cursor-pointer dynamic-island-anim shadow-lg border border-white/5 w-[120px] h-[32px]">
+                    <!-- Mini Left -->
+                    <div id="island-left" class="flex items-center space-x-2 overflow-hidden">
+                        <div class="w-2.5 h-2.5 bg-camera-lens rounded-full bg-zinc-900 border border-zinc-800 flex-shrink-0"></div>
+                    </div>
+                    <!-- Mini Right -->
+                    <div id="island-right" class="flex items-center space-x-1">
+                        <div class="w-2.5 h-2.5 bg-blue-900/40 rounded-full flex items-center justify-center">
+                            <div class="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                        </div>
+                    </div>
+                    <!-- Expanded Content (Hidden by default) -->
+                    <div id="island-expanded" class="hidden w-full h-full flex flex-col justify-between p-2">
+                        <div class="flex justify-between items-center text-xs">
+                            <div class="flex items-center space-x-2">
+                                <i id="island-icon" class="fa-solid fa-compact-disc text-pink-500 animate-spin"></i>
+                                <span id="island-title" class="font-medium text-xs truncate max-w-[150px]">iOS Activity</span>
+                            </div>
+                            <span id="island-subtitle" class="text-[10px] text-zinc-400">Active</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lock Screen Overlay -->
+                <div id="lock-screen" class="absolute inset-0 z-40 flex flex-col justify-between pt-16 pb-12 px-6 bg-black/20 backdrop-blur-[2px] transition-all duration-500">
+                    <div class="flex flex-col items-center pt-6 space-y-1">
+                        <i class="fa-solid fa-lock text-xs opacity-80 mb-1"></i>
+                        <div id="lock-date" class="text-sm font-medium tracking-wide opacity-90">Четверг, 12 октября</div>
+                        <div id="lock-time" class="text-7xl font-semibold tracking-tight time-glow">09:41</div>
+                    </div>
+
+                    <!-- Widgets on Lock Screen -->
+                    <div class="my-auto mx-auto w-full max-w-[280px] glass-dark rounded-2xl p-4 flex items-center justify-between border border-white/10">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400">
+                                <i class="fa-solid fa-cloud-sun text-xl"></i>
+                            </div>
+                            <div>
+                                <div class="text-xs font-semibold">Москва</div>
+                                <div class="text-xs text-zinc-400">Облачно с прояснениями</div>
+                            </div>
+                        </div>
+                        <div class="text-xl font-light">21°</div>
+                    </div>
+
+                    <div class="flex flex-col items-center space-y-6">
+                        <!-- Quick Action Buttons -->
+                        <div class="w-full flex justify-between px-4">
+                            <button onclick="toggleTorch()" id="torch-btn" class="w-12 h-12 rounded-full glass-dark flex items-center justify-center text-lg active:bg-white active:text-black transition">
+                                <i class="fa-solid fa-flashlight"></i>
+                            </button>
+                            <button onclick="openApp('camera')" class="w-12 h-12 rounded-full glass-dark flex items-center justify-center text-lg active:bg-white active:text-black transition">
+                                <i class="fa-solid fa-camera"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Unlock Swipe Hint -->
+                        <div onclick="unlockPhone()" class="flex flex-col items-center cursor-pointer animate-pulse">
+                            <div class="text-[11px] font-medium tracking-wider text-white/80">Смахните вверх для разблокировки</div>
+                            <div class="w-32 h-1 bg-white/80 rounded-full mt-2"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Home Screen Content -->
+                <div id="home-screen" class="relative w-full h-full flex flex-col justify-between pt-12 pb-4 px-4 hidden opacity-0 transition-opacity duration-300">
+                    
+                    <!-- App Grid & Widgets Area -->
+                    <div class="flex-1 overflow-y-auto no-scrollbar space-y-5 pt-2">
+                        
+                        <!-- Top Widget Section -->
+                        <div class="grid grid-cols-2 gap-4 px-1">
+                            <!-- Weather Widget -->
+                            <div onclick="openApp('weather')" class="glass-dark rounded-3xl p-3.5 flex flex-col justify-between h-36 border border-white/10 cursor-pointer hover:scale-[1.02] transition">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <div class="text-xs font-semibold text-zinc-300">Москва</div>
+                                        <div class="text-2xl font-bold mt-0.5">21°</div>
+                                    </div>
+                                    <i class="fa-solid fa-sun text-yellow-400 text-2xl"></i>
+                                </div>
+                                <div>
+                                    <div class="text-[11px] font-medium text-zinc-300">Солнечно</div>
+                                    <div class="text-[10px] text-zinc-400">Макс: 24°, Мин: 14°</div>
+                                </div>
+                            </div>
+
+                            <!-- Clock / Calendar Widget -->
+                            <div onclick="openApp('clock')" class="glass-dark rounded-3xl p-3.5 flex flex-col justify-between h-36 border border-white/10 cursor-pointer hover:scale-[1.02] transition">
+                                <div class="text-xs font-bold text-red-500 uppercase tracking-wider">ЧЕТВЕРГ</div>
+                                <div class="text-4xl font-extrabold text-white my-auto">12</div>
+                                <div class="text-xs text-zinc-400 font-medium">Нет предстоящих событий</div>
+                            </div>
+                        </div>
+
+                        <!-- App Grid (4 Columns) -->
+                        <div class="grid grid-cols-4 gap-y-5 gap-x-2 pt-2 px-1">
+                            
+                            <!-- Safari -->
+                            <div onclick="openApp('safari')" class="flex flex-col items-center cursor-pointer group">
+                                <div class="w-14 h-14 bg-white rounded-squircle flex items-center justify-center shadow-app group-active:scale-95 transition border border-white/20 overflow-hidden">
+                                    <div class="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+                                        <i class="fa-solid fa-compass text-2xl text-white"></i>
+                                    </div>
+                                </div>
+                                <span class="text-[11px] font-medium mt-1 text-white drop-shadow">Safari</span>
+                            </div>
+
+                            <!-- Photos -->
+                            <div onclick="openApp('photos')" class="flex flex-col items-center cursor-pointer group">
+                                <div class="w-14 h-14 bg-white rounded-squircle flex items-center justify-center shadow-app group-active:scale-95 transition overflow-hidden">
+                                    <div class="grid grid-cols-2 gap-0.5 w-full h-full p-1 bg-white">
+                                        <div class="bg-red-400 rounded-tl-sm"></div>
+                                        <div class="bg-yellow-400 rounded-tr-sm"></div>
+                                        <div class="bg-green-400 rounded-bl-sm"></div>
+                                        <div class="bg-blue-400 rounded-br-sm"></div>
+                                    </div>
+                                </div>
+                                <span class="text-[11px] font-medium mt-1 text-white drop-shadow">Фото</span>
+                            </div>
+
+                            <!-- Camera -->
+                            <div onclick="openApp('camera')" class="flex flex-col items-center cursor-pointer group">
+                                <div class="w-14 h-14 bg-gradient-to-b from-zinc-200 to-zinc-400 rounded-squircle flex items-center justify-center shadow-app group-active:scale-95 transition">
+                                    <i class="fa-solid fa-camera text-2xl text-zinc-800"></i>
+                                </div>
+                                <span class="text-[11px] font-medium mt-1 text-white drop-shadow">Камера</span>
+                            </div>
+
+                            <!-- Notes -->
+                            <div onclick="openApp('notes')" class="flex flex-col items-center cursor-pointer group">
+                                <div class="w-14 h-14 bg-yellow-400 rounded-squircle flex items-center justify-center shadow-app group-active:scale-95 transition relative overflow-hidden">
+                                    <div class="absolute top-0 w-full h-3 bg-yellow-500/40"></div>
+                                    <i class="fa-solid fa-note-sticky text-2xl text-zinc-800 mt-2"></i>
+                                </div>
+                                <span class="text-[11px] font-medium mt-1 text-white drop-shadow">Заметки</span>
+                            </div>
+
+                            <!-- Calculator -->
+                            <div onclick="openApp('calculator')" class="flex flex-col items-center cursor-pointer group">
+                                <div class="w-14 h-14 bg-zinc-900 rounded-squircle flex items-center justify-center shadow-app group-active:scale-95 transition border border-zinc-700">
+                                    <i class="fa-solid fa-calculator text-2xl text-orange-500"></i>
+                                </div>
+                                <span class="text-[11px] font-medium mt-1 text-white drop-shadow">Калькулятор</span>
+                            </div>
+
+                            <!-- Weather -->
+                            <div onclick="openApp('weather')" class="flex flex-col items-center cursor-pointer group">
+                                <div class="w-14 h-14 bg-gradient-to-br from-blue-400 to-indigo-600 rounded-squircle flex items-center justify-center shadow-app group-active:scale-95 transition">
+                                    <i class="fa-solid fa-cloud-sun-rain text-2xl text-white"></i>
+                                </div>
+                                <span class="text-[11px] font-medium mt-1 text-white drop-shadow">Погода</span>
+                            </div>
+
+                            <!-- Clock -->
+                            <div onclick="openApp('clock')" class="flex flex-col items-center cursor-pointer group">
+                                <div class="w-14 h-14 bg-black rounded-squircle flex items-center justify-center shadow-app group-active:scale-95 transition border border-zinc-800">
+                                    <i class="fa-regular fa-clock text-2xl text-white"></i>
+                                </div>
+                                <span class="text-[11px] font-medium mt-1 text-white drop-shadow">Часы</span>
+                            </div>
+
+                            <!-- Settings -->
+                            <div onclick="openApp('settings')" class="flex flex-col items-center cursor-pointer group">
+                                <div class="w-14 h-14 bg-gradient-to-b from-zinc-300 to-zinc-500 rounded-squircle flex items-center justify-center shadow-app group-active:scale-95 transition">
+                                    <i class="fa-solid fa-gear text-2xl text-zinc-800 animate-spin-slow"></i>
+                                </div>
+                                <span class="text-[11px] font-medium mt-1 text-white drop-shadow">Настройки</span>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- Page Indicator -->
+                    <div class="flex justify-center space-x-1.5 my-2">
+                        <div class="w-1.5 h-1.5 bg-white rounded-full"></div>
+                        <div class="w-1.5 h-1.5 bg-white/40 rounded-full"></div>
+                    </div>
+
+                    <!-- Dock Container -->
+                    <div class="glass-dark rounded-full p-2.5 mx-1 flex justify-around items-center border border-white/10 shadow-2xl">
+                        <!-- Dock App 1: Safari -->
+                        <div onclick="openApp('safari')" class="w-13 h-13 bg-gradient-to-br from-blue-400 to-blue-600 rounded-squircle flex items-center justify-center shadow-md active:scale-90 transition cursor-pointer p-3">
+                            <i class="fa-solid fa-compass text-2xl text-white"></i>
+                        </div>
+                        <!-- Dock App 2: Notes -->
+                        <div onclick="openApp('notes')" class="w-13 h-13 bg-yellow-400 rounded-squircle flex items-center justify-center shadow-md active:scale-90 transition cursor-pointer p-3">
+                            <i class="fa-solid fa-pen-to-square text-2xl text-zinc-800"></i>
+                        </div>
+                        <!-- Dock App 3: Photos -->
+                        <div onclick="openApp('photos')" class="w-13 h-13 bg-white rounded-squircle flex items-center justify-center shadow-md active:scale-90 transition cursor-pointer p-3">
+                            <i class="fa-solid fa-images text-2xl text-pink-500"></i>
+                        </div>
+                        <!-- Dock App 4: Settings -->
+                        <div onclick="openApp('settings')" class="w-13 h-13 bg-zinc-400 rounded-squircle flex items-center justify-center shadow-md active:scale-90 transition cursor-pointer p-3">
+                            <i class="fa-solid fa-gear text-2xl text-zinc-900"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= APPLICATIONS CONTAINER ================= -->
+                <div id="app-layer" class="absolute inset-0 z-30 pointer-events-none">
+                    
+                    <!-- 1. CAMERA APP -->
+                    <div id="app-camera" class="app-window hidden absolute inset-0 bg-black flex flex-col justify-between pt-12 pb-8 text-white">
+                        <div class="flex justify-between px-6 py-2 z-10">
+                            <button onclick="toggleFlash()" id="flash-btn" class="text-lg"><i class="fa-solid fa-bolt-slash"></i></button>
+                            <span class="text-xs uppercase tracking-widest font-semibold text-yellow-400">PHOTO</span>
+                            <button onclick="switchCamera()" class="text-lg"><i class="fa-solid fa-rotate"></i></button>
+                        </div>
+                        <!-- Camera Viewfinder / Simulation -->
+                        <div class="relative flex-1 my-2 bg-zinc-900 overflow-hidden flex items-center justify-center">
+                            <video id="camera-video" autoplay playsinline class="w-full h-full object-cover hidden"></video>
+                            <div id="camera-fallback" class="flex flex-col items-center text-zinc-500">
+                                <i class="fa-solid fa-camera-retro text-5xl mb-2"></i>
+                                <span class="text-xs">Симуляция видоискателя</span>
+                            </div>
+                            <div class="absolute inset-0 border border-white/10 pointer-events-none grid grid-cols-3 grid-rows-3">
+                                <div class="border-r border-b border-white/10"></div>
+                                <div class="border-r border-b border-white/10"></div>
+                                <div class="border-b border-white/10"></div>
+                                <div class="border-r border-b border-white/10"></div>
+                                <div class="border-r border-b border-white/10"></div>
+                                <div class="border-b border-white/10"></div>
+                            </div>
+                        </div>
+                        <!-- Camera Controls -->
+                        <div class="flex justify-around items-center px-8">
+                            <div onclick="openApp('photos')" class="w-12 h-12 rounded-lg bg-zinc-800 border border-zinc-700 overflow-hidden cursor-pointer">
+                                <img id="camera-last-thumb" src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=100&fit=crop" class="w-full h-full object-cover">
+                            </div>
+                            <button onclick="takePhoto()" class="w-18 h-18 rounded-full border-4 border-white flex items-center justify-center p-1 active:scale-95 transition">
+                                <div class="w-full h-full bg-white rounded-full"></div>
+                            </button>
+                            <div class="w-12 h-12"></div>
+                        </div>
+                    </div>
+
+                    <!-- 2. CALCULATOR APP -->
+                    <div id="app-calculator" class="app-window hidden absolute inset-0 bg-black flex flex-col justify-end pb-10 px-4 text-white">
+                        <div class="text-right px-4 mb-4">
+                            <div id="calc-display" class="text-6xl font-light tracking-tight truncate">0</div>
+                        </div>
+                        <div class="grid grid-cols-4 gap-3">
+                            <button onclick="calcInput('C')" class="h-16 rounded-full bg-zinc-300 text-black text-2xl font-medium active:bg-zinc-400">AC</button>
+                            <button onclick="calcInput('+/-')" class="h-16 rounded-full bg-zinc-300 text-black text-2xl font-medium active:bg-zinc-400">±</button>
+                            <button onclick="calcInput('%')" class="h-16 rounded-full bg-zinc-300 text-black text-2xl font-medium active:bg-zinc-400">%</button>
+                            <button onclick="calcInput('/')" class="h-16 rounded-full bg-amber-500 text-white text-3xl font-medium active:bg-amber-600">÷</button>
+                            
+                            <button onclick="calcInput('7')" class="h-16 rounded-full bg-zinc-800 text-white text-3xl font-medium active:bg-zinc-700">7</button>
+                            <button onclick="calcInput('8')" class="h-16 rounded-full bg-zinc-800 text-white text-3xl font-medium active:bg-zinc-700">8</button>
+                            <button onclick="calcInput('9')" class="h-16 rounded-full bg-zinc-800 text-white text-3xl font-medium active:bg-zinc-700">9</button>
+                            <button onclick="calcInput('*')" class="h-16 rounded-full bg-amber-500 text-white text-3xl font-medium active:bg-amber-600">×</button>
+                            
+                            <button onclick="calcInput('4')" class="h-16 rounded-full bg-zinc-800 text-white text-3xl font-medium active:bg-zinc-700">4</button>
+                            <button onclick="calcInput('5')" class="h-16 rounded-full bg-zinc-800 text-white text-3xl font-medium active:bg-zinc-700">5</button>
+                            <button onclick="calcInput('6')" class="h-16 rounded-full bg-zinc-800 text-white text-3xl font-medium active:bg-zinc-700">6</button>
+                            <button onclick="calcInput('-')" class="h-16 rounded-full bg-amber-500 text-white text-3xl font-medium active:bg-amber-600">−</button>
+                            
+                            <button onclick="calcInput('1')" class="h-16 rounded-full bg-zinc-800 text-white text-3xl font-medium active:bg-zinc-700">1</button>
+                            <button onclick="calcInput('2')" class="h-16 rounded-full bg-zinc-800 text-white text-3xl font-medium active:bg-zinc-700">2</button>
+                            <button onclick="calcInput('3')" class="h-16 rounded-full bg-zinc-800 text-white text-3xl font-medium active:bg-zinc-700">3</button>
+                            <button onclick="calcInput('+')" class="h-16 rounded-full bg-amber-500 text-white text-3xl font-medium active:bg-amber-600">+</button>
+                            
+                            <button onclick="calcInput('0')" class="h-16 col-span-2 rounded-full bg-zinc-800 text-white text-3xl font-medium text-left pl-7 active:bg-zinc-700">0</button>
+                            <button onclick="calcInput('.')" class="h-16 rounded-full bg-zinc-800 text-white text-3xl font-medium active:bg-zinc-700">,</button>
+                            <button onclick="calcInput('=')" class="h-16 rounded-full bg-amber-500 text-white text-3xl font-medium active:bg-amber-600">=</button>
+                        </div>
+                    </div>
+
+                    <!-- 3. NOTES APP -->
+                    <div id="app-notes" class="app-window hidden absolute inset-0 bg-zinc-950 flex flex-col pt-12 pb-6 px-4 text-white">
+                        <!-- Header -->
+                        <div class="flex justify-between items-center mb-4">
+                            <h1 class="text-2xl font-bold">Заметки</h1>
+                            <button onclick="createNote()" class="text-amber-500 text-xl font-semibold"><i class="fa-solid fa-pen-to-square"></i></button>
+                        </div>
+                        <!-- Note List / Editor View -->
+                        <div id="notes-list-view" class="flex-1 overflow-y-auto space-y-2">
+                            <!-- Dynamic Notes List -->
+                        </div>
+                        <!-- Single Note Editor -->
+                        <div id="notes-editor-view" class="hidden flex-1 flex-col">
+                            <div class="flex justify-between items-center mb-2">
+                                <button onclick="closeNoteEditor()" class="text-amber-500 flex items-center text-sm font-medium">
+                                    <i class="fa-solid fa-chevron-left mr-1"></i> Назад
+                                </button>
+                                <button onclick="deleteCurrentNote()" class="text-red-500 text-sm"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                            <textarea id="note-textarea" oninput="saveCurrentNote()" class="w-full flex-1 bg-transparent text-white focus:outline-none resize-none text-base leading-relaxed" placeholder="Начните ввод..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- 4. SETTINGS APP -->
+                    <div id="app-settings" class="app-window hidden absolute inset-0 bg-zinc-900 flex flex-col pt-12 pb-6 text-white overflow-y-auto">
+                        <div class="px-5 mb-4">
+                            <h1 class="text-3xl font-bold">Настройки</h1>
+                        </div>
+                        
+                        <!-- Profile Header -->
+                        <div class="mx-4 p-3 bg-zinc-800 rounded-xl flex items-center space-x-3 mb-6">
+                            <div class="w-12 h-12 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-500 flex items-center justify-center font-bold text-lg">
+                                iOS
+                            </div>
+                            <div>
+                                <div class="font-semibold text-sm">Пользователь iOS</div>
+                                <div class="text-xs text-zinc-400">Apple ID, iCloud, Покупки</div>
+                            </div>
+                        </div>
+
+                        <!-- Settings Group 1 -->
+                        <div class="mx-4 bg-zinc-800 rounded-xl overflow-hidden mb-6 text-sm divide-y divide-zinc-700/50">
+                            <div class="flex justify-between items-center p-3.5">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-7 h-7 rounded-md bg-blue-500 flex items-center justify-center text-xs"><i class="fa-solid fa-wifi"></i></div>
+                                    <span>Wi-Fi</span>
+                                </div>
+                                <span class="text-xs text-zinc-400">Home_5G</span>
+                            </div>
+                            <div class="flex justify-between items-center p-3.5">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-7 h-7 rounded-md bg-blue-600 flex items-center justify-center text-xs"><i class="fa-brands fa-bluetooth-b"></i></div>
+                                    <span>Bluetooth</span>
+                                </div>
+                                <span class="text-xs text-zinc-400">Вкл.</span>
+                            </div>
+                        </div>
+
+                        <!-- Wallpaper Chooser -->
+                        <div class="mx-4 bg-zinc-800 rounded-xl p-4 mb-6">
+                            <div class="text-sm font-semibold mb-3">Обои</div>
+                            <div class="grid grid-cols-3 gap-2">
+                                <div onclick="setWallpaper('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop')" class="h-20 rounded-lg bg-cover bg-center cursor-pointer border-2 border-amber-500" style="background-image: url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop');"></div>
+                                <div onclick="setWallpaper('https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=1000&auto=format&fit=crop')" class="h-20 rounded-lg bg-cover bg-center cursor-pointer border border-zinc-700" style="background-image: url('https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=1000&auto=format&fit=crop');"></div>
+                                <div onclick="setWallpaper('https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=1000&auto=format&fit=crop')" class="h-20 rounded-lg bg-cover bg-center cursor-pointer border border-zinc-700" style="background-image: url('https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=1000&auto=format&fit=crop');"></div>
+                            </div>
+                        </div>
+
+                        <!-- System Info -->
+                        <div class="mx-4 bg-zinc-800 rounded-xl p-4 text-xs space-y-2 text-zinc-400">
+                            <div class="flex justify-between"><span>Имя</span><span class="text-white">iPhone 15 Pro</span></div>
+                            <div class="flex justify-between"><span>Версия iOS</span><span class="text-white">17.4 Simulator</span></div>
+                            <div class="flex justify-between"><span>Хранилище</span><span class="text-white">128 ГБ (Свободно 84 ГБ)</span></div>
+                        </div>
+                    </div>
+
+                    <!-- 5. PHOTOS APP -->
+                    <div id="app-photos" class="app-window hidden absolute inset-0 bg-black flex flex-col pt-12 pb-6 text-white">
+                        <div class="px-4 mb-3 flex justify-between items-center">
+                            <h1 class="text-2xl font-bold">Библиотека</h1>
+                            <span class="text-xs text-zinc-400">Все фото</span>
+                        </div>
+                        <div id="photos-grid" class="flex-1 overflow-y-auto grid grid-cols-3 gap-1 px-1">
+                            <!-- Dynamic Photos Grid -->
+                        </div>
+                    </div>
+
+                    <!-- 6. SAFARI APP -->
+                    <div id="app-safari" class="app-window hidden absolute inset-0 bg-zinc-900 flex flex-col pt-10 pb-2 text-white">
+                        <!-- Browser View -->
+                        <div class="flex-1 bg-white overflow-hidden relative">
+                            <iframe id="safari-iframe" src="https://www.bing.com" class="w-full h-full border-none"></iframe>
+                        </div>
+                        <!-- URL Bar -->
+                        <div class="p-3 bg-zinc-900 flex items-center space-x-2 border-t border-zinc-800">
+                            <div class="flex-1 bg-zinc-800 rounded-xl flex items-center px-3 py-1.5 text-xs text-zinc-300">
+                                <i class="fa-solid fa-lock text-[10px] mr-2 text-zinc-400"></i>
+                                <input id="safari-url" type="text" value="https://www.bing.com" onkeydown="if(event.key==='Enter') navigateSafari()" class="bg-transparent w-full focus:outline-none text-white">
+                            </div>
+                            <button onclick="navigateSafari()" class="text-xs bg-blue-600 px-3 py-1.5 rounded-xl font-medium">Перейти</button>
+                        </div>
+                    </div>
+
+                    <!-- 7. WEATHER APP -->
+                    <div id="app-weather" class="app-window hidden absolute inset-0 bg-gradient-to-b from-sky-500 to-indigo-700 flex flex-col pt-12 pb-6 text-white px-5 overflow-y-auto">
+                        <div class="text-center pt-4">
+                            <h1 class="text-3xl font-normal">Москва</h1>
+                            <div class="text-7xl font-extralight my-1">21°</div>
+                            <div class="text-sm font-medium opacity-80">Солнечно</div>
+                            <div class="text-xs opacity-70">Макс: 24°  Мин: 14°</div>
+                        </div>
+
+                        <!-- Hourly Forecast -->
+                        <div class="mt-8 bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+                            <div class="text-xs font-semibold opacity-70 mb-3 border-b border-white/10 pb-2">ПОЧАСОВОЙ ПРОГНОЗ</div>
+                            <div class="flex justify-between text-center overflow-x-auto text-xs space-x-4 pb-1">
+                                <div><div>Сейчас</div><i class="fa-solid fa-sun my-2 text-yellow-300"></i><div>21°</div></div>
+                                <div><div>12:00</div><i class="fa-solid fa-sun my-2 text-yellow-300"></i><div>22°</div></div>
+                                <div><div>13:00</div><i class="fa-solid fa-cloud-sun my-2 text-yellow-200"></i><div>24°</div></div>
+                                <div><div>14:00</div><i class="fa-solid fa-cloud my-2 text-zinc-300"></i><div>23°</div></div>
+                                <div><div>15:00</div><i class="fa-solid fa-cloud-rain my-2 text-blue-300"></i><div>19°</div></div>
+                            </div>
+                        </div>
+
+                        <!-- 5-Day Forecast -->
+                        <div class="mt-4 bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 text-xs space-y-3">
+                            <div class="font-semibold opacity-70 border-b border-white/10 pb-2">ПРОГНОЗ НА 5 ДНЕЙ</div>
+                            <div class="flex justify-between items-center"><span>Сегодня</span><i class="fa-solid fa-sun text-yellow-300"></i><span>14° — 24°</span></div>
+                            <div class="flex justify-between items-center"><span>Пт</span><i class="fa-solid fa-cloud-sun text-yellow-200"></i><span>13° — 21°</span></div>
+                            <div class="flex justify-between items-center"><span>Сб</span><i class="fa-solid fa-cloud-rain text-blue-300"></i><span>11° — 18°</span></div>
+                            <div class="flex justify-between items-center"><span>Вс</span><i class="fa-solid fa-sun text-yellow-300"></i><span>12° — 22°</span></div>
+                            <div class="flex justify-between items-center"><span>Пн</span><i class="fa-solid fa-cloud text-zinc-300"></i><span>10° — 17°</span></div>
+                        </div>
+                    </div>
+
+                    <!-- 8. CLOCK APP -->
+                    <div id="app-clock" class="app-window hidden absolute inset-0 bg-black flex flex-col pt-12 pb-6 text-white px-4">
+                        <!-- Clock Tabs -->
+                        <div class="flex justify-around border-b border-zinc-800 pb-2 mb-4 text-xs font-semibold">
+                            <button onclick="switchClockTab('world')" id="tab-world" class="text-orange-500">Мировые часы</button>
+                            <button onclick="switchClockTab('stopwatch')" id="tab-stopwatch" class="text-zinc-500">Секундомер</button>
+                            <button onclick="switchClockTab('timer')" id="tab-timer" class="text-zinc-500">Таймер</button>
+                        </div>
+
+                        <!-- Tab 1: World Clock -->
+                        <div id="clock-sec-world" class="flex-1 space-y-4 overflow-y-auto">
+                            <div class="flex justify-between items-center border-b border-zinc-800 pb-3">
+                                <div><div class="text-xs text-zinc-400">Сегодня, +0HRS</div><div class="text-xl font-bold">Москва</div></div>
+                                <div class="text-3xl font-light">09:41</div>
+                            </div>
+                            <div class="flex justify-between items-center border-b border-zinc-800 pb-3">
+                                <div><div class="text-xs text-zinc-400">Сегодня, -3HRS</div><div class="text-xl font-bold">Лондон</div></div>
+                                <div class="text-3xl font-light">06:41</div>
+                            </div>
+                            <div class="flex justify-between items-center border-b border-zinc-800 pb-3">
+                                <div><div class="text-xs text-zinc-400">Сегодня, -7HRS</div><div class="text-xl font-bold">Нью-Йорк</div></div>
+                                <div class="text-3xl font-light">02:41</div>
+                            </div>
+                        </div>
+
+                        <!-- Tab 2: Stopwatch -->
+                        <div id="clock-sec-stopwatch" class="hidden flex-1 flex-col items-center justify-between py-6">
+                            <div id="stopwatch-display" class="text-6xl font-extralight tracking-tight my-auto">00:00.00</div>
+                            <div class="flex justify-between w-full px-6 mb-6">
+                                <button onclick="resetStopwatch()" class="w-16 h-16 rounded-full bg-zinc-800 text-xs font-semibold">Сброс</button>
+                                <button onclick="toggleStopwatch()" id="sw-start-btn" class="w-16 h-16 rounded-full bg-green-950 text-green-500 text-xs font-semibold">Старт</button>
+                            </div>
+                        </div>
+
+                        <!-- Tab 3: Timer -->
+                        <div id="clock-sec-timer" class="hidden flex-1 flex-col items-center justify-between py-6">
+                            <div id="timer-display" class="text-6xl font-extralight tracking-tight my-auto">05:00</div>
+                            <div class="flex justify-between w-full px-6 mb-6">
+                                <button onclick="resetTimer()" class="w-16 h-16 rounded-full bg-zinc-800 text-xs font-semibold">Сброс</button>
+                                <button onclick="toggleTimer()" id="tm-start-btn" class="w-16 h-16 rounded-full bg-amber-950 text-amber-500 text-xs font-semibold">Старт</button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Home Indicator Bottom Bar -->
+                <div class="relative z-50 w-full flex justify-center py-2 cursor-pointer" onclick="goHome()">
+                    <div class="w-32 h-1 bg-white/70 rounded-full hover:bg-white transition"></div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // System State
+        let isLocked = true;
+        let isPowerOn = true;
+        let activeApp = null;
+        let torchOn = false;
+        let dynamicIslandExpanded = false;
+
+        let cameraStream = null;
+        let photosList = [
+            'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=500&fit=crop',
+            'https://images.unsplash.com/photo-1511578314322-379afb476865?w=500&fit=crop',
+            'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=500&fit=crop'
+        ];
+
+        let calcExpr = '';
+
+        let notes = JSON.parse(localStorage.getItem('ios_notes') || '[{"id":1,"text":"Привет! Это симулятор iOS на HTML/JS."}]');
+        let currentNoteId = null;
+
+        let swInterval = null, swTime = 0, swRunning = false;
+        let tmInterval = null, tmTime = 300, tmRunning = false;
+
+        // Clock Update
+        function updateClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const timeStr = `${hours}:${minutes}`;
+            
+            document.getElementById('status-time').innerText = timeStr;
+            document.getElementById('lock-time').innerText = timeStr;
+
+            const options = { weekday: 'long', month: 'long', day: 'numeric' };
+            document.getElementById('lock-date').innerText = now.toLocaleDateString('ru-RU', options);
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Unlock Phone
+        function unlockPhone() {
+            if (!isPowerOn) return;
+            isLocked = false;
+            const lockScreen = document.getElementById('lock-screen');
+            const homeScreen = document.getElementById('home-screen');
+            
+            lockScreen.classList.add('opacity-0', '-translate-y-full');
+            setTimeout(() => {
+                lockScreen.classList.add('hidden');
+                homeScreen.classList.remove('hidden');
+                setTimeout(() => homeScreen.classList.remove('opacity-0'), 50);
+            }, 300);
+        }
+
+        // Lock / Power Toggle
+        function togglePower() {
+            const body = document.getElementById('phone-body');
+            if (isPowerOn) {
+                isPowerOn = false;
+                body.classList.add('opacity-10');
+            } else {
+                isPowerOn = true;
+                body.classList.remove('opacity-10');
+            }
+        }
+
+        // Side Buttons & Flashlight Actions
+        function adjustVolume(delta) {
+            triggerIslandNotification('Громкость', `${delta > 0 ? 'Увеличена' : 'Уменьшена'}`, 'fa-volume-high');
+        }
+
+        function triggerActionBtn() {
+            torchOn = !torchOn;
+            triggerIslandNotification('Бесшумный режим', torchOn ? 'Включен' : 'Выключен', torchOn ? 'fa-bell-slash' : 'fa-bell');
+        }
+
+        function toggleTorch() {
+            torchOn = !torchOn;
+            document.getElementById('torch-btn').classList.toggle('bg-white');
+            document.getElementById('torch-btn').classList.toggle('text-black');
+            triggerIslandNotification('Фонарик', torchOn ? 'Включен' : 'Выключен', 'fa-flashlight');
+        }
+
+        // Navigation
+        function openApp(appId) {
+            if (isLocked) return;
+            activeApp = appId;
+            
+            const appLayer = document.getElementById('app-layer');
+            appLayer.classList.remove('pointer-events-none');
+
+            document.querySelectorAll('.app-window').forEach(win => win.classList.add('hidden'));
+
+            const targetApp = document.getElementById(`app-${appId}`);
+            if (targetApp) {
+                targetApp.classList.remove('hidden');
+                targetApp.classList.add('app-transition');
+            }
+
+            if (appId === 'notes') renderNotesList();
+            if (appId === 'photos') renderPhotosGrid();
+            if (appId === 'camera') startCamera();
+        }
+
+        function goHome() {
+            if (isLocked) return;
+            activeApp = null;
+            const appLayer = document.getElementById('app-layer');
+            appLayer.classList.add('pointer-events-none');
+            document.querySelectorAll('.app-window').forEach(win => win.classList.add('hidden'));
+            stopCamera();
+        }
+
+        // Dynamic Island Controller
+        function triggerIslandNotification(title, sub, iconClass) {
+            const island = document.getElementById('dynamic-island');
+            const titleEl = document.getElementById('island-title');
+            const subEl = document.getElementById('island-subtitle');
+            const iconEl = document.getElementById('island-icon');
+
+            titleEl.innerText = title;
+            subEl.innerText = sub;
+            iconEl.className = `fa-solid ${iconClass} text-amber-400`;
+
+            island.classList.remove('w-[120px]', 'h-[32px]');
+            island.classList.add('w-[220px]', 'h-[38px]');
+
+            setTimeout(() => {
+                island.classList.remove('w-[220px]', 'h-[38px]');
+                island.classList.add('w-[120px]', 'h-[32px]');
+            }, 2500);
+        }
+
+        function expandIsland() {
+            const island = document.getElementById('dynamic-island');
+            dynamicIslandExpanded = !dynamicIslandExpanded;
+            if (dynamicIslandExpanded) {
+                island.classList.remove('w-[120px]', 'h-[32px]');
+                island.classList.add('w-[90%]', 'h-[80px]', 'rounded-3xl');
+            } else {
+                island.classList.remove('w-[90%]', 'h-[80px]', 'rounded-3xl');
+                island.classList.add('w-[120px]', 'h-[32px]');
+            }
+        }
+
+        // Camera Logic
+        async function startCamera() {
+            const video = document.getElementById('camera-video');
+            const fallback = document.getElementById('camera-fallback');
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = cameraStream;
+                video.classList.remove('hidden');
+                fallback.classList.add('hidden');
+            } catch (err) {
+                video.classList.add('hidden');
+                fallback.classList.remove('hidden');
+            }
+        }
+
+        function stopCamera() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+        }
+
+        function takePhoto() {
+            photosList.unshift('https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&fit=crop');
+            document.getElementById('camera-last-thumb').src = photosList[0];
+            triggerIslandNotification('Камера', 'Снимок сохранен в Фото', 'fa-circle-check');
+        }
+
+        // Calculator Logic
+        function calcInput(val) {
+            const display = document.getElementById('calc-display');
+            if (val === 'C') {
+                calcExpr = '';
+                display.innerText = '0';
+            } else if (val === '=') {
+                try {
+                    display.innerText = eval(calcExpr) || '0';
+                    calcExpr = display.innerText;
+                } catch {
+                    display.innerText = 'Ошибка';
+                    calcExpr = '';
+                }
+            } else {
+                calcExpr += val;
+                display.innerText = calcExpr;
+            }
+        }
+
+        // Notes App Logic
+        function renderNotesList() {
+            const container = document.getElementById('notes-list-view');
+            document.getElementById('notes-editor-view').classList.add('hidden');
+            container.classList.remove('hidden');
+
+            container.innerHTML = notes.map(n => `
+                <div onclick="openNoteEditor(${n.id})" class="p-3 bg-zinc-900 rounded-xl cursor-pointer hover:bg-zinc-800 transition border border-zinc-800">
+                    <div class="font-semibold text-sm truncate">${n.text.split('\n')[0] || 'Новая заметка'}</div>
+                    <div class="text-xs text-zinc-500 mt-1 truncate">${n.text.split('\n')[1] || 'Нет дополнительного текста'}</div>
+                </div>
+            `).join('');
+        }
+
+        function createNote() {
+            const newNote = { id: Date.now(), text: '' };
+            notes.unshift(newNote);
+            openNoteEditor(newNote.id);
+        }
+
+        function openNoteEditor(id) {
+            currentNoteId = id;
+            const note = notes.find(n => n.id === id);
+            document.getElementById('notes-list-view').classList.add('hidden');
+            document.getElementById('notes-editor-view').classList.remove('hidden');
+            document.getElementById('notes-editor-view').classList.add('flex');
+            document.getElementById('note-textarea').value = note ? note.text : '';
+        }
+
+        function saveCurrentNote() {
+            const text = document.getElementById('note-textarea').value;
+            const note = notes.find(n => n.id === currentNoteId);
+            if (note) {
+                note.text = text;
+                localStorage.setItem('ios_notes', JSON.stringify(notes));
+            }
+        }
+
+        function deleteCurrentNote() {
+            notes = notes.filter(n => n.id !== currentNoteId);
+            localStorage.setItem('ios_notes', JSON.stringify(notes));
+            renderNotesList();
+        }
+
+        function closeNoteEditor() {
+            renderNotesList();
+        }
+
+        // Photos App Logic
+        function renderPhotosGrid() {
+            const grid = document.getElementById('photos-grid');
+            grid.innerHTML = photosList.map(url => `
+                <div class="h-28 bg-zinc-800 overflow-hidden rounded-md">
+                    <img src="${url}" class="w-full h-full object-cover">
+                </div>
+            `).join('');
+        }
+
+        // Safari Navigation
+        function navigateSafari() {
+            let url = document.getElementById('safari-url').value;
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                url = 'https://' + url;
+            }
+            document.getElementById('safari-iframe').src = url;
+        }
+
+        // Settings Logic
+        function setWallpaper(url) {
+            document.getElementById('screen').style.backgroundImage = `url('${url}')`;
+            triggerIslandNotification('Обои', 'Обои успешно изменены', 'fa-image');
+        }
+
+        // Clock App Logic
+        function switchClockTab(tab) {
+            ['world', 'stopwatch', 'timer'].forEach(t => {
+                document.getElementById(`clock-sec-${t}`).classList.add('hidden');
+                document.getElementById(`tab-${t}`).className = 'text-zinc-500';
+            });
+            document.getElementById(`clock-sec-${tab}`).classList.remove('hidden');
+            if(tab === 'stopwatch' || tab === 'timer') {
+                document.getElementById(`clock-sec-${tab}`).classList.add('flex');
+            }
+            document.getElementById(`tab-${tab}`).className = 'text-orange-500';
+        }
+
+        function toggleStopwatch() {
+            const btn = document.getElementById('sw-start-btn');
+            if (!swRunning) {
+                swRunning = true;
+                btn.innerText = 'Стоп';
+                btn.className = 'w-16 h-16 rounded-full bg-red-950 text-red-500 text-xs font-semibold';
+                swInterval = setInterval(() => {
+                    swTime += 10;
+                    const ms = Math.floor((swTime % 1000) / 10);
+                    const sec = Math.floor((swTime / 1000) % 60);
+                    const min = Math.floor(swTime / 60000);
+                    document.getElementById('stopwatch-display').innerText = 
+                        `${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')}.${String(ms).padStart(2,'0')}`;
+                }, 10);
+            } else {
+                swRunning = false;
+                btn.innerText = 'Старт';
+                btn.className = 'w-16 h-16 rounded-full bg-green-950 text-green-500 text-xs font-semibold';
+                clearInterval(swInterval);
+            }
+        }
+
+        function resetStopwatch() {
+            swRunning = false;
+            clearInterval(swInterval);
+            swTime = 0;
+            document.getElementById('stopwatch-display').innerText = '00:00.00';
+            document.getElementById('sw-start-btn').innerText = 'Старт';
+            document.getElementById('sw-start-btn').className = 'w-16 h-16 rounded-full bg-green-950 text-green-500 text-xs font-semibold';
+        }
+
+        function toggleTimer() {
+            const btn = document.getElementById('tm-start-btn');
+            if (!tmRunning) {
+                tmRunning = true;
+                btn.innerText = 'Пауза';
+                tmInterval = setInterval(() => {
+                    if (tmTime > 0) {
+                        tmTime--;
+                        const min = Math.floor(tmTime / 60);
+                        const sec = tmTime % 60;
+                        document.getElementById('timer-display').innerText = `${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+                    } else {
+                        clearInterval(tmInterval);
+                        triggerIslandNotification('Таймер', 'Время вышло!', 'fa-bell');
+                    }
+                }, 1000);
+            } else {
+                tmRunning = false;
+                btn.innerText = 'Старт';
+                clearInterval(tmInterval);
+            }
+        }
+
+        function resetTimer() {
+            tmRunning = false;
+            clearInterval(tmInterval);
+            tmTime = 300;
+            document.getElementById('timer-display').innerText = '05:00';
+            document.getElementById('tm-start-btn').innerText = 'Старт';
+        }
+    </script>
+</body>
+</html>
