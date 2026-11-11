@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Android Studio</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- JSZip для работы с APK (ZIP архивами) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <!-- ApkSigner для подписи APK -->
+  <script src="https://cdn.jsdelivr.net/npm/js-apk-signer@1.0.0/dist/apk-signer.min.js"></script>
+  <style>
+    /* Динамическая высота для защиты от перекрытия адресной строкой мобильного браузера */
+    .app-viewport {
+      height: 100vh;
+      height: 100dvh;
+    }
+    /* Скрываем скроллбар вкладок, но оставляем функционал */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans overflow-hidden select-none">
+
+  <!-- Главный контейнер на всю видимую высоту экрана (100dvh) -->
+  <div class="app-viewport w-full flex flex-col justify-between overflow-hidden">
+    
+    <!-- ШАПКА / ТОРБАР -->
+    <header class="bg-slate-900 border-b border-slate-800 px-3 py-2.5 flex items-center justify-between shrink-0 z-30">
+      <!-- Название -->
+      <div class="flex items-center space-x-2">
+        <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shadow-md shadow-indigo-600/30">
+          <span class="text-white font-bold text-sm">AS</span>
+        </div>
+        <h1 class="text-base font-bold text-slate-100 tracking-tight">Android Studio</h1>
+      </div>
+
+      <!-- Кнопки в правой части шапки -->
+      <div class="flex items-center space-x-2">
+        <!-- Кнопка 1: Открыть APK и переподписать -->
+        <label class="bg-slate-800 hover:bg-slate-700 active:scale-95 transition border border-slate-700 text-xs px-2.5 py-1.5 rounded-lg font-medium cursor-pointer flex items-center space-x-1.5 text-emerald-400 shadow-sm">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+          <span class="hidden sm:inline">Открыть & Подписать</span>
+          <span class="sm:hidden">Открыть APK</span>
+          <input type="file" id="quickApkInput" accept=".apk" class="hidden" onchange="handleQuickApkSign(this)"/>
+        </label>
+
+        <!-- Кнопка сборки / сохранения общего проекта -->
+        <button onclick="buildAndSignProject()" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition text-xs px-3 py-1.5 rounded-lg font-medium text-white flex items-center space-x-1 shadow-md shadow-indigo-600/30">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+          <span>Собрать APK</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- НАВИГАЦИОННЫЕ ВКЛАДКИ (Компактные, не выходящие за границы экрана) -->
+    <nav class="bg-slate-900/90 border-b border-slate-800 px-2 py-1.5 shrink-0 z-20">
+      <div class="flex space-x-1 overflow-x-auto no-scrollbar">
+        <button onclick="switchTab(0)" id="tab-btn-0" class="flex-1 min-w-[110px] py-2 px-3 text-xs font-semibold rounded-lg transition bg-indigo-600 text-white shadow-sm text-center truncate">
+          📁 Менеджер APK
+        </button>
+        <button onclick="switchTab(1)" id="tab-btn-1" class="flex-1 min-w-[110px] py-2 px-3 text-xs font-semibold rounded-lg transition text-slate-400 hover:bg-slate-800 hover:text-slate-200 text-center truncate">
+          🌐 Шаблон HTML
+        </button>
+        <button onclick="switchTab(2)" id="tab-btn-2" class="flex-1 min-w-[110px] py-2 px-3 text-xs font-semibold rounded-lg transition text-slate-400 hover:bg-slate-800 hover:text-slate-200 text-center truncate">
+          🎨 Вид. Конструктор
+        </button>
+      </div>
+    </nav>
+
+    <!-- ОСНОВНОЕ СОДЕРЖИМОЕ ВКЛАДОК -->
+    <main class="flex-1 relative overflow-hidden bg-slate-950 flex flex-col">
+      
+      <!-- ВКЛАДКА 0: МЕНЕДЖЕР ФАЙЛОВ И РЕДАКТИРОВАНИЯ APK -->
+      <div id="tab-content-0" class="absolute inset-0 p-3 flex flex-col space-y-3 overflow-hidden">
+        
+        <!-- Загрузчик APK -->
+        <div class="bg-slate-900 border border-slate-800 p-3 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-2 shrink-0">
+          <div class="flex items-center space-x-2 w-full sm:w-auto">
+            <svg class="w-5 h-5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+            <span class="text-xs text-slate-300 font-medium truncate" id="loadedApkName">APK-файл не выбран</span>
+          </div>
+          <div class="flex items-center space-x-2 w-full sm:w-auto">
+            <label class="flex-1 sm:flex-none bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-3 py-2 rounded-lg font-medium cursor-pointer text-center border border-slate-700 transition">
+              Выбрать APK
+              <input type="file" id="apkFileInput" accept=".apk" class="hidden" onchange="loadCustomApk(this)"/>
+            </label>
+            <button onclick="unpackSelectedApk()" class="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-2 rounded-lg font-medium transition shadow-sm">
+              Распаковать
+            </button>
+          </div>
+        </div>
+
+        <!-- Дерево файлов и Просмотр/Редактирование (Гибкое разделение для удобства на мобильных) -->
+        <div class="flex-1 flex flex-col md:flex-row gap-3 min-h-0">
+          <!-- Дерево файлов -->
+          <div class="w-full md:w-2/5 bg-slate-900 border border-slate-800 rounded-xl flex flex-col overflow-hidden">
+            <div class="bg-slate-800/50 px-3 py-2 border-b border-slate-800 flex justify-between items-center text-xs font-semibold text-slate-300">
+              <span>Структура файлов</span>
+              <span id="fileCount" class="bg-slate-800 text-slate-400 px-2 py-0.5 rounded text-[10px]">0 файлов</span>
+            </div>
+            <ul id="fileTree" class="flex-1 overflow-y-auto p-2 font-mono text-xs space-y-1 divide-y divide-slate-800/40">
+              <li class="text-slate-500 italic p-2 text-center">Загрузите или распакуйте APK...</li>
+            </ul>
+          </div>
+
+          <!-- Область редактирования файла -->
+          <div class="w-full md:w-3/5 bg-slate-900 border border-slate-800 rounded-xl flex flex-col overflow-hidden">
+            <div class="bg-slate-800/50 px-3 py-2 border-b border-slate-800 flex justify-between items-center">
+              <span id="selectedFileName" class="text-xs font-mono text-indigo-400 truncate max-w-[200px]">Файл не выбран</span>
+              <div class="flex items-center space-x-1.5">
+                <label class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] px-2 py-1 rounded cursor-pointer transition border border-slate-700">
+                  Заменить
+                  <input type="file" id="replaceFileInput" class="hidden" onchange="replaceCurrentFile(this)"/>
+                </label>
+                <button onclick="saveFileChanges()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] px-2.5 py-1 rounded transition shadow-sm">
+                  Сохранить
+                </button>
+              </div>
+            </div>
+            <div class="flex-1 p-2 flex flex-col min-h-0">
+              <textarea id="fileEditor" class="w-full flex-1 bg-slate-950 text-slate-200 p-2.5 text-xs font-mono rounded-lg border border-slate-800 focus:outline-none focus:border-indigo-500 resize-none" placeholder="Выберите текстовый или XML файл для редактирования..."></textarea>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ВКЛАДКА 1: СБОРКА ИЗ HTML-ШАБЛОНА -->
+      <div id="tab-content-1" class="absolute inset-0 p-4 hidden flex flex-col space-y-4 overflow-y-auto">
+        <div class="max-w-xl mx-auto w-full bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4">
+          <div>
+            <h2 class="text-base font-bold text-indigo-300">Сборка APK из HTML-шаблона</h2>
+            <p class="text-xs text-slate-400 mt-1">Упакуйте готовые веб-страницы (index.html, стили и скрипты) в полноценное мобильное приложение.</p>
+          </div>
+
+          <div class="space-y-3">
+            <label class="block">
+              <span class="text-xs font-medium text-slate-300 mb-1 block">Выберите файлы проекта (.html, .css, .js, картинки):</span>
+              <input type="file" id="htmlFiles" multiple accept=".html,.css,.js,.png,.jpg,.jpeg" class="block w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer bg-slate-950 border border-slate-800 rounded-xl p-1"/>
+            </label>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+              <div>
+                <label class="text-[11px] text-slate-400 block mb-1">Имя пакета (Package Name):</label>
+                <input type="text" id="appNamePkg" value="com.browser.app" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"/>
+              </div>
+              <div>
+                <label class="text-[11px] text-slate-400 block mb-1">Название приложения:</label>
+                <input type="text" id="appNameLabel" value="BrowserApp" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"/>
+              </div>
+            </div>
+
+            <button onclick="buildHtmlApp()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-xl text-xs font-medium transition shadow-md shadow-indigo-600/30">
+              Сформировать структуру APK
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ВКЛАДКА 2: ВИЗУАЛЬНЫЙ КОНСТРУКТОР (3 страницы, панели, кнопки, вкладки) -->
+      <div id="tab-content-2" class="absolute inset-0 p-3 hidden flex flex-col space-y-3 overflow-hidden">
+        
+        <!-- Внутренний выбор страниц проекта -->
+        <div class="bg-slate-900 border border-slate-800 p-2 rounded-xl flex items-center justify-between shrink-0">
+          <div class="flex space-x-1 overflow-x-auto no-scrollbar">
+            <button onclick="switchProjectPage(0)" id="page-btn-0" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white transition">Страница 1 (Левая)</button>
+            <button onclick="switchProjectPage(1)" id="page-btn-1" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:bg-slate-800 transition">Главная (Home)</button>
+            <button onclick="switchProjectPage(2)" id="page-btn-2" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:bg-slate-800 transition">Страница 3 (Правая)</button>
+          </div>
+          <span class="text-[11px] text-slate-400 hidden sm:inline">Трехстраничное WebApp</span>
+        </div>
+
+        <!-- Инструменты конструктора -->
+        <div class="bg-slate-900 border border-slate-800 p-2 rounded-xl flex flex-wrap gap-2 items-center shrink-0">
+          <span class="text-xs font-medium text-slate-400 mr-1">Добавить элемент:</span>
+          <button onclick="addElement('panel')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-2.5 py-1.5 rounded-lg border border-slate-700 transition flex items-center space-x-1">
+            <span>🔲 Панель</span>
+          </button>
+          <button onclick="addElement('button')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-2.5 py-1.5 rounded-lg border border-slate-700 transition flex items-center space-x-1">
+            <span>🔘 Кнопка</span>
+          </button>
+          <button onclick="addElement('text')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-2.5 py-1.5 rounded-lg border border-slate-700 transition flex items-center space-x-1">
+            <span>📝 Текст</span>
+          </button>
+          <button onclick="addElement('image')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-2.5 py-1.5 rounded-lg border border-slate-700 transition flex items-center space-x-1">
+            <span>🖼️ Картинка</span>
+          </button>
+        </div>
+
+        <!-- Холст для размещения элементов -->
+        <div class="flex-1 bg-slate-900 border border-slate-800 rounded-xl relative overflow-hidden flex flex-col">
+          <div class="bg-slate-800/40 px-3 py-1.5 border-b border-slate-800 flex justify-between items-center text-[11px] text-slate-400">
+            <span>Холст экрана приложения (Перетаскивайте элементы мышкой или пальцем)</span>
+            <span id="elementCount" class="text-indigo-400 font-medium">Элементов: 0</span>
+          </div>
+          <div id="canvasArea" class="flex-1 relative overflow-auto p-4 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px]">
+            <!-- Сюда добавляются элементы конструктора -->
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+
+    <!-- КОНСОЛЬ / ЛОГИ ВНИЗУ -->
+    <footer class="bg-slate-900 border-t border-slate-800 px-3 py-2 shrink-0">
+      <div class="flex justify-between items-center text-[11px] text-slate-400 mb-1">
+        <span class="font-semibold uppercase tracking-wider">Лог консоли:</span>
+        <button onclick="clearLogs()" class="hover:text-slate-200 transition">Очистить</button>
+      </div>
+      <div id="logs" class="text-[10px] font-mono text-slate-400 h-14 overflow-y-auto space-y-0.5 bg-slate-950 p-2 rounded-lg border border-slate-800">
+        <div>[System] Android Studio инициализирован. Готов к работе.</div>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО ДЛЯ РЕДАКТИРОВАНИЯ XML/ТЕКСТА С УДОБНОЙ ШИРИНОЙ -->
+  <div id="modalEditor" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-2xl max-h-[90vh] rounded-2xl flex flex-col overflow-hidden shadow-2xl">
+      <div class="bg-slate-800/80 px-4 py-3 border-b border-slate-800 flex justify-between items-center">
+        <h3 id="modalFileName" class="text-xs font-mono text-indigo-400 font-bold truncate">Редактирование файла</h3>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-white text-sm font-bold px-2 py-0.5 rounded-lg bg-slate-800">✕</button>
+      </div>
+      <div class="p-4 flex-1 flex flex-col min-h-0">
+        <textarea id="modalTextarea" class="w-full h-64 sm:h-80 bg-slate-950 text-slate-200 p-3 text-xs font-mono rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500 resize-none"></textarea>
+      </div>
+      <div class="bg-slate-800/80 px-4 py-3 border-t border-slate-800 flex justify-end space-x-2">
+        <button onclick="closeModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs px-4 py-2 rounded-xl transition">Отмена</button>
+        <button onclick="saveModalChanges()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-4 py-2 rounded-xl transition shadow-sm">Сохранить изменения</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let activeZip = new JSZip();
+    let currentSelectedFile = null;
+    let currentModalFileEntry = null;
+
+    // Структура для Визуального конструктора (3 страницы)
+    let projectPages = [
+      { id: 0, name: "Left Page", elements: [] },
+      { id: 1, name: "Home Page", elements: [] },
+      { id: 2, name: "Right Page", elements: [] }
+    ];
+    let activePageIndex = 1; // По умолчанию Home
+
+    function log(msg, type = 'info') {
+      const logs = document.getElementById('logs');
+      const colors = { info: 'text-slate-400', success: 'text-emerald-400', error: 'text-rose-400' };
+      logs.innerHTML += `<div class="${colors[type]}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
+      logs.scrollTop = logs.scrollHeight;
+    }
+
+    function clearLogs() {
+      document.getElementById('logs').innerHTML = '';
+    }
+
+    // Переключение вкладок верхнего уровня
+    function switchTab(index) {
+      for (let i = 0; i < 3; i++) {
+        const btn = document.getElementById(`tab-btn-${i}`);
+        const content = document.getElementById(`tab-content-${i}`);
+        if (i === index) {
+          btn.className = "flex-1 min-w-[110px] py-2 px-3 text-xs font-semibold rounded-lg transition bg-indigo-600 text-white shadow-sm text-center truncate";
+          content.classList.remove('hidden');
+        } else {
+          btn.className = "flex-1 min-w-[110px] py-2 px-3 text-xs font-semibold rounded-lg transition text-slate-400 hover:bg-slate-800 hover:text-slate-200 text-center truncate";
+          content.classList.add('hidden');
+        }
+      }
+    }
+
+    // Быстрая распаковка и подпись APK через кнопку в шапке
+    async function handleQuickApkSign(input) {
+      if (!input.files.length) return;
+      log('Быстрая загрузка и подпись APK...');
+      try {
+        activeZip = await JSZip.loadAsync(input.files[0]);
+        document.getElementById('loadedApkName').innerText = input.files[0].name;
+        refreshFileTree();
+        switchTab(0);
+        await signCurrentApk();
+      } catch (err) {
+        log(`Ошибка обработки APK: ${err.message}`, 'error');
+      }
+    }
+
+    // Загрузка пользовательского APK
+    async function loadCustomApk(input) {
+      if (!input.files.length) return;
+      document.getElementById('loadedApkName').innerText = input.files[0].name;
+      log(`Выбран APK: ${input.files[0].name}`);
+    }
+
+    async function unpackSelectedApk() {
+      const input = document.getElementById('apkFileInput');
+      if (!input.files.length) return log('Сначала выберите APK файл!', 'error');
+
+      log('Распаковка APK архива...');
+      try {
+        activeZip = await JSZip.loadAsync(input.files[0]);
+        log('APK успешно распакован в память!', 'success');
+        refreshFileTree();
+      } catch (err) {
+        log(`Ошибка распаковки: ${err.message}`, 'error');
+      }
+    }
+
+    // Обновление дерева файлов с поддержкой кодировки XML/Manifest
+    function refreshFileTree() {
+      const tree = document.getElementById('fileTree');
+      tree.innerHTML = '';
+      let count = 0;
+
+      activeZip.forEach((relativePath, zipEntry) => {
+        count++;
+        if (count > 150) return;
+        const li = document.createElement('li');
+        li.className = "cursor-pointer hover:text-indigo-300 truncate py-1.5 px-2 rounded hover:bg-slate-800/60 transition flex justify-between items-center";
+        
+        const nameSpan = document.createElement('span');
+        nameSpan.className = "truncate";
+        nameSpan.innerText = relativePath;
+        
+        const actionSpan = document.createElement('span');
+        actionSpan.className = "text-[10px] text-indigo-400 font-sans ml-2 shrink-0";
+        actionSpan.innerText = relativePath.endsWith('.xml') ? 'XML (Текст)' : '';
+
+        li.appendChild(nameSpan);
+        li.appendChild(actionSpan);
+        li.onclick = () => openFile(relativePath, zipEntry);
+        tree.appendChild(li);
+      });
+
+      document.getElementById('fileCount').innerText = `${Object.keys(activeZip.files).length} файлов`;
+    }
+
+    // Открытие файла (с исправлением кодировки бинарных XML Android через текстовый парсинг/декодирование)
+    async function openFile(path, entry) {
+      currentSelectedFile = path;
+      currentModalFileEntry = entry;
+      document.getElementById('selectedFileName').innerText = path;
+      const editor = document.getElementById('fileEditor');
+      
+      if (path.endsWith('.html') || path.endsWith('.css') || path.endsWith('.js') || path.endsWith('.json') || path.endsWith('.txt')) {
+        const text = await entry.async('string');
+        editor.value = text;
+        editor.disabled = false;
+      } else if (path.endsWith('.xml')) {
+        // Исправление кракозябр (Binary XML в Android APK или обычный текст)
+        try {
+          let text = await entry.async('string');
+          // Проверка на бинарный XML Android (начинается с нулевых байтов или содержит спец. символы)
+          if (text.includes('\u0003\u0000') || text.includes('\u0000\u0000')) {
+            // Простейшая очистка непечатных байтов для предотвращения кракозябр
+            text = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, " ");
+          }
+          editor.value = text;
+          editor.disabled = false;
+          // Автоматическое открытие в модальном окне для удобства
+          openModal(path, text);
+        } catch(e) {
+          editor.value = "[Ошибка чтения кодировки XML файла]";
+          editor.disabled = true;
+        }
+      } else {
+        editor.value = "[Бинарный файл. Прямое текстовое редактирование недоступно]";
+        editor.disabled = true;
+      }
+    }
+
+    // Модальное окно редактирования
+    function openModal(filename, content) {
+      document.getElementById('modalFileName').innerText = `Редактирование: ${filename}`;
+      document.getElementById('modalTextarea').value = content;
+      document.getElementById('modalEditor').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('modalEditor').classList.add('hidden');
+    }
+
+    function saveModalChanges() {
+      if (!currentSelectedFile) return;
+      const text = document.getElementById('modalTextarea').value;
+      document.getElementById('fileEditor').value = text;
+      activeZip.file(currentSelectedFile, text);
+      log(`Файл ${currentSelectedFile} обновлен!`, 'success');
+      closeModal();
+    }
+
+    function saveFileChanges() {
+      if (!currentSelectedFile) return;
+      const text = document.getElementById('fileEditor').value;
+      activeZip.file(currentSelectedFile, text);
+      log(`Файл ${currentSelectedFile} сохранен в памяти!`, 'success');
+    }
+
+    // Замена файла из памяти устройства
+    function replaceCurrentFile(input) {
+      if (!currentSelectedFile || !input.files.length) return;
+      const file = input.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        activeZip.file(currentSelectedFile, e.target.result);
+        log(`Файл ${currentSelectedFile} успешно заменен файлом с устройства (${file.name})!`, 'success');
+        openFile(currentSelectedFile, activeZip.file(currentSelectedFile));
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    // Сборка из HTML шаблона (Вкладка 1)
+    async function buildHtmlApp() {
+      const input = document.getElementById('htmlFiles');
+      const pkg = document.getElementById('appNamePkg').value || 'com.browser.app';
+      const label = document.getElementById('appNameLabel').value || 'BrowserApp';
+
+      activeZip = new JSZip();
+      log('Создание структуры WebApp APK...');
+
+      const wwwFolder = activeZip.folder("assets/www");
+
+      if (input.files.length > 0) {
+        for (let file of input.files) {
+          const content = await file.arrayBuffer();
+          wwwFolder.file(file.name, content);
+          log(`Добавлен файл: ${file.name}`);
+        }
+      } else {
+        // Дефолтный шаблон, если файлы не выбраны
+        wwwFolder.file("index.html", `<!DOCTYPE html>
+<html lang="ru">
+<head><meta charset="UTF-8"><title>${label}</title></head>
+<body style="font-family:sans-serif; text-align:center; padding-top:50px;">
+  <h1>Привет из ${label}!</h1>
+  <p>Приложение успешно собрано в Android Studio.</p>
+</body>
+</html>`);
+        log('Создан стандартный index.html шаблон.');
+      }
+
+      // AndroidManifest.xml
+      activeZip.file("AndroidManifest.xml", `<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="${pkg}">
+    <application android:label="${label}" android:icon="@drawable/ic_launcher">
+        <activity android:name=".MainActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>`);
+
+      refreshFileTree();
+      switchTab(0);
+      log('Структура проекта успешно создана и перенесена в Менеджер APK!', 'success');
+      await signCurrentApk();
+    }
+
+    // Визуальный конструктор (Вкладка 2)
+    function switchProjectPage(index) {
+      activePageIndex = index;
+      for (let i = 0; i < 3; i++) {
+        const btn = document.getElementById(`page-btn-${i}`);
+        if (i === index) {
+          btn.className = "px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white transition";
+        } else {
+          btn.className = "px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:bg-slate-800 transition";
+        }
+      }
+      renderCanvas();
+    }
+
+    function addElement(type) {
+      const page = projectPages[activePageIndex];
+      const newEl = {
+        id: Date.now(),
+        type: type,
+        x: 20 + (page.elements.length * 15) % 150,
+        y: 20 + (page.elements.length * 25) % 200,
+        text: type === 'button' ? 'Кнопка переключения' : type === 'text' ? 'Текстовый блок' : 'Панель / Блок',
+        link: 'home'
+      };
+      page.elements.push(newEl);
+      renderCanvas();
+      log(`Добавлен элемент (${type}) на страницу ${activePageIndex + 1}`);
+    }
+
+    function renderCanvas() {
+      const canvas = document.getElementById('canvasArea');
+      canvas.innerHTML = '';
+      const page = projectPages[activePageIndex];
+      document.getElementById('elementCount').innerText = `Элементов: ${page.elements.length}`;
+
+      page.elements.forEach((el, idx) => {
+        const div = document.createElement('div');
+        div.className = "absolute bg-slate-800 border border-slate-700 p-3 rounded-xl shadow-lg cursor-move select-none flex flex-col space-y-2 text-xs min-w-[140px]";
+        div.style.left = `${el.x}px`;
+        div.style.top = `${el.y}px`;
+
+        div.innerHTML = `
+          <div class="flex justify-between items-center text-[10px] text-slate-400 border-b border-slate-700/50 pb-1">
+            <span class="font-bold uppercase text-indigo-400">${el.type}</span>
+            <button onclick="removeElement(${el.id})" class="text-rose-400 hover:text-rose-300 font-bold">✕</button>
+          </div>
+          <input type="text" value="${el.text}" onchange="updateElText(${el.id}, this.value)" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none"/>
+        `;
+
+        // Простейшее перетаскивание мышей / пальцем
+        let isDragging = false, startX, startY;
+        div.onmousedown = (e) => { isDragging = true; startX = e.clientX - el.x; startY = e.clientY - el.y; };
+        document.onmousemove = (e) => {
+          if (!isDragging) return;
+          el.x = Math.max(0, e.clientX - startX);
+          el.y = Math.max(0, e.clientY - startY);
+          div.style.left = `${el.x}px`;
+          div.style.top = `${el.y}px`;
+        };
+        document.onmouseup = () => { isDragging = false; };
+
+        canvas.appendChild(div);
+      });
+    }
+
+    function removeElement(id) {
+      const page = projectPages[activePageIndex];
+      page.elements = page.elements.filter(e => e.id !== id);
+      renderCanvas();
+    }
+
+    function updateElText(id, val) {
+      const page = projectPages[activePageIndex];
+      const el = page.elements.find(e => e.id === id);
+      if (el) el.text = val;
+    }
+
+    // Автоматическая конвертация страниц конструктора в HTML и сборка в APK
+    async function buildAndSignProject() {
+      log('Компиляция страниц визуального конструктора в HTML-файлы...');
+      activeZip = new JSZip();
+      const wwwFolder = activeZip.folder("assets/www");
+
+      // Собираем 3 страницы в HTML файлы
+      projectPages.forEach((page, idx) => {
+        let filename = idx === 1 ? "index.html" : `page${idx + 1}.html`;
+        let htmlContent = `<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>${page.name}</title>
+  <style>
+    body { background: #0f172a; color: #f8fafc; font-family: sans-serif; padding: 20px; margin: 0; }
+    .nav { display: flex; gap: 10px; margin-bottom: 20px; background: #1e293b; padding: 10px; border-radius: 12px; }
+    .nav a { color: #38bdf8; text-decoration: none; font-size: 14px; }
+    .element { position: absolute; background: #1e293b; border: 1px solid #334155; padding: 12px; border-radius: 12px; }
+  </style>
+</head>
+<body>
+  <div class="nav">
+    <a href="page1.html">Страница 1</a>
+    <a href="index.html">Home</a>
+    <a href="page3.html">Страница 3</a>
+  </div>
+  <h1>${page.name}</h1>
+`;
+
+        page.elements.forEach(el => {
+          htmlContent += `  <div class="element" style="left: ${el.x}px; top: ${el.y + 60}px;">${el.text}</div>\n`;
+        });
+
+        htmlContent += `</body></html>`;
+        wwwFolder.file(filename, htmlContent);
+      });
+
+      // Манифест
+      activeZip.file("AndroidManifest.xml", `<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.constructor.app">
+    <application android:label="VisualApp">
+        <activity android:name=".MainActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>`);
+
+      log('Проект успешно скомпилирован в APK-структуру!', 'success');
+      switchTab(0);
+      refreshFileTree();
+      await signCurrentApk();
+    }
+
+    // Подпись APK через ApkSigner
+    async function signCurrentApk() {
+      if (Object.keys(activeZip.files).length === 0) {
+        return log('Проект пуст! Сначала создайте или загрузите APK.', 'error');
+      }
+
+      log('Генерация APK архива в памяти...');
+      try {
+        const unsignedBuffer = await activeZip.generateAsync({ type: "uint8array" });
+
+        log('Подпись APK с помощью ApkSigner...');
+        if (typeof ApkSigner !== 'undefined') {
+          const signedApkBuffer = await ApkSigner.sign(unsignedBuffer);
+          downloadFile(signedApkBuffer, "AndroidStudio-Signed.apk");
+          log('APK успешно подписан и скачан на устройство!', 'success');
+        } else {
+          log('Модуль подписи недоступен. Скачивание без подписи...', 'error');
+          downloadFile(unsignedBuffer, "AndroidStudio-Unsigned.apk");
+        }
+      } catch (err) {
+        log(`Ошибка при подписи APK: ${err.message}`, 'error');
+      }
+    }
+
+    function downloadFile(buffer, filename) {
+      const blob = new Blob([buffer], { type: "application/vnd.android.package-archive" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TypeArt Studio</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=Inter:wght@400;600;800&family=Playfair+Display:wght@400;800&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #111827;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4B5563;
+        }
+        .canvas-container {
+            background-image: radial-gradient(#1f2937 1px, transparent 1px);
+            background-size: 16px 16px;
+        }
+        .crt-overlay {
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%, 
+                rgba(0, 0, 0, 0.25) 50%
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 font-sans min-h-screen lg:h-screen flex flex-col overflow-x-hidden lg:overflow-hidden select-none">
+
+    <!-- Header -->
+    <header class="bg-gray-900 border-b border-gray-800 px-3 py-2.5 flex items-center justify-between gap-2 z-20 shrink-0">
+        <!-- Compact Brand/Title in 1 line -->
+        <div class="flex items-center space-x-2 overflow-hidden">
+            <div class="bg-indigo-600 text-white px-2 py-1 rounded-md font-black text-xs tracking-wider shadow-lg shadow-indigo-500/30 shrink-0">
+                TA
+            </div>
+            <h1 class="text-xs sm:text-sm font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent truncate">
+                TypeArt Studio
+            </h1>
+        </div>
+        
+        <!-- Responsive Export Buttons -->
+        <div class="flex items-center gap-1 shrink-0">
+            <button id="export-txt" class="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-200 text-[11px] font-semibold rounded border border-gray-700 transition flex items-center gap-1">
+                <i class="fa-solid font-mono fa-file-lines text-indigo-400"></i>
+                <span class="hidden sm:inline">TXT</span>
+            </button>
+            <button id="export-html" class="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-200 text-[11px] font-semibold rounded border border-gray-700 transition flex items-center gap-1">
+                <i class="fa-solid fa-code text-indigo-400"></i>
+                <span class="hidden sm:inline">HTML</span>
+            </button>
+            <button id="export-svg" class="px-2 py-1 bg-indigo-950 hover:bg-indigo-900 text-indigo-200 text-[11px] font-semibold rounded border border-indigo-700/50 transition flex items-center gap-1">
+                <i class="fa-solid fa-bezier-curve text-indigo-400"></i>
+                <span class="hidden sm:inline">SVG</span>
+            </button>
+            <button id="export-png" class="px-2.5 py-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-[11px] font-bold rounded shadow-md transition flex items-center gap-1">
+                <i class="fa-solid fa-download"></i>
+                <span>PNG</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+        
+        <!-- Mobile Toggle Button for Sidebar -->
+        <button id="toggle-sidebar" class="lg:hidden absolute bottom-4 right-4 z-30 bg-indigo-600 text-white w-12 h-12 rounded-full shadow-2xl flex items-center justify-center border border-indigo-400 transition transform active:scale-95">
+            <i class="fa-solid fa-sliders text-lg"></i>
+        </button>
+
+        <!-- Sidebar Controls (Closed by default on mobile) -->
+        <aside id="sidebar" class="w-full lg:w-96 bg-gray-900 border-r border-gray-800 flex flex-col h-auto lg:h-full z-20 overflow-y-auto transition-all duration-300 max-h-0 lg:max-h-none shadow-2xl lg:shadow-none">
+            <div class="p-4 lg:p-5 space-y-6">
+                
+                <!-- 1. Source Image Selection -->
+                <div class="space-y-2">
+                    <label class="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
+                        <i class="fa-solid fa-image text-indigo-400"></i> Исходное изображение
+                    </label>
+                    <div class="flex items-center justify-center w-full">
+                        <label for="image-input" class="flex flex-col items-center justify-center w-full h-20 lg:h-24 border-2 border-gray-700 border-dashed rounded-xl cursor-pointer bg-gray-950/50 hover:bg-gray-800/50 hover:border-indigo-500 transition">
+                            <div class="flex flex-col items-center justify-center pt-2 pb-2">
+                                <i class="fa-solid fa-cloud-arrow-up text-xl lg:text-2xl text-gray-400 mb-1"></i>
+                                <p class="text-xs text-gray-300 font-semibold text-center px-2">Нажмите для загрузки картинки</p>
+                                <p class="text-[10px] text-gray-500">PNG, JPG, WEBP, GIF</p>
+                            </div>
+                            <input id="image-input" type="file" accept="image/*" class="hidden" />
+                        </label>
+                    </div>
+                </div>
+
+                <hr class="border-gray-800">
+
+                <!-- Resolution Preset Selection -->
+                <div class="space-y-2">
+                    <label class="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
+                        <i class="fa-solid fa-expand text-indigo-400"></i> Качество / Разрешение предпросмотра
+                    </label>
+                    <select id="preview-quality" class="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-xs text-gray-200 outline-none">
+                        <option value="low" selected>Низкое (Быстрое / Превью)</option>
+                        <option value="medium">Среднее (Баланс)</option>
+                        <option value="original">Оригинал (Максимум)</option>
+                    </select>
+                </div>
+
+                <!-- 2. Composition Mode -->
+                <div class="space-y-3">
+                    <label class="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
+                        <i class="fa-solid fa-layer-group text-indigo-400"></i> Режим композиции
+                    </label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button id="mode-grid" class="mode-btn active bg-indigo-600 text-white p-2 rounded-lg text-center text-[11px] lg:text-xs font-semibold border border-indigo-500 flex flex-col items-center gap-1 transition">
+                            <i class="fa-solid fa-border-all text-base"></i> Сетка
+                        </button>
+                        <button id="mode-edge" class="mode-btn bg-gray-800 hover:bg-gray-700 text-gray-300 p-2 rounded-lg text-center text-[11px] lg:text-xs font-semibold border border-gray-700 flex flex-col items-center gap-1 transition">
+                            <i class="fa-solid fa-wand-magic-sparkles text-base"></i> Контуры
+                        </button>
+                        <button id="mode-cloud" class="mode-btn bg-gray-800 hover:bg-gray-700 text-gray-300 p-2 rounded-lg text-center text-[11px] lg:text-xs font-semibold border border-gray-700 flex flex-col items-center gap-1 transition">
+                            <i class="fa-solid fa-cloud text-base"></i> Облако
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 3. Text & Characters Input -->
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
+                            <i class="fa-solid fa-font text-indigo-400"></i> Символы / Текст
+                        </label>
+                        <select id="preset-select" class="bg-gray-800 text-gray-300 text-xs border border-gray-700 rounded px-2 py-1 outline-none">
+                            <option value="custom">Свой набор</option>
+                            <option value="standard">Стандарт ASCII</option>
+                            <option value="blocks">Блочные</option>
+                            <option value="matrix">Matrix Code</option>
+                            <option value="binary">Бинарный</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <textarea id="text-input" rows="2" class="w-full bg-gray-950 border border-gray-700 rounded-lg p-2.5 text-sm text-gray-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition font-mono resize-none">LOVE ART TYPE DESIGN CREATIVE 0123456789</textarea>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-[11px] text-gray-400 block mb-1">Режим текста</label>
+                            <select id="text-mode" class="w-full bg-gray-800 border border-gray-700 rounded-lg p-1.5 text-xs text-gray-200 outline-none">
+                                <option value="brightness">По яркости</option>
+                                <option value="sequence">Связный текст</option>
+                                <option value="random">Случайный</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[11px] text-gray-400 block mb-1">Регистр</label>
+                            <select id="text-case" class="w-full bg-gray-800 border border-gray-700 rounded-lg p-1.5 text-xs text-gray-200 outline-none">
+                                <option value="none">Как введено</option>
+                                <option value="upper">ALL CAPS</option>
+                                <option value="lower">lowercase</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="border-gray-800">
+
+                <!-- 4. Typography & Sizing -->
+                <div class="space-y-4">
+                    <label class="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-indigo-400"></i> Размер и сетка
+                    </label>
+
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-gray-300">Плотность сетки</span>
+                            <span id="density-val" class="text-indigo-400 font-mono">60px</span>
+                        </div>
+                        <input id="density-slider" type="range" min="20" max="150" value="60" class="w-full accent-indigo-500 h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-gray-300">Мин. размер</span>
+                                <span id="min-size-val" class="text-indigo-400 font-mono">8px</span>
+                            </div>
+                            <input id="min-size-slider" type="range" min="4" max="24" value="8" class="w-full accent-indigo-500 h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-gray-300">Макс. размер</span>
+                                <span id="max-size-val" class="text-indigo-400 font-mono">20px</span>
+                            </div>
+                            <input id="max-size-slider" type="range" min="10" max="48" value="20" class="w-full accent-indigo-500 h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-[11px] text-gray-400 block mb-1">Шрифт</label>
+                        <select id="font-family" class="w-full bg-gray-800 border border-gray-700 rounded-lg p-1.5 text-xs text-gray-200 outline-none">
+                            <option value="'Fira Code', monospace">Fira Code (Monospace)</option>
+                            <option value="'Inter', sans-serif">Inter (Modern Sans)</option>
+                            <option value="'Playfair Display', serif">Playfair (Classic Serif)</option>
+                            <option value="'Press Start 2P', monospace">Press Start 2P (Retro Pixel)</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-gray-300">Динамическая жирность</span>
+                        <input id="dynamic-weight" type="checkbox" checked class="w-4 h-4 accent-indigo-600 rounded cursor-pointer">
+                    </div>
+                </div>
+
+                <hr class="border-gray-800">
+
+                <!-- 5. Color & Style Effects -->
+                <div class="space-y-4">
+                    <label class="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
+                        <i class="fa-solid fa-palette text-indigo-400"></i> Цвет и эффекты
+                    </label>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-[11px] text-gray-400 block mb-1">Цвет символов</label>
+                            <div class="flex items-center gap-2">
+                                <input id="text-color" type="color" value="#ffffff" class="w-8 h-8 rounded bg-transparent border-0 cursor-pointer">
+                                <select id="color-mode" class="flex-1 bg-gray-800 border border-gray-700 rounded-lg p-1 text-xs text-gray-200 outline-none">
+                                    <option value="original">Из фото</option>
+                                    <option value="solid">Моно</option>
+                                    <option value="grayscale">Серого</option>
+                                    <option value="matrix">Matrix</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="text-[11px] text-gray-400 block mb-1">Фон холста</label>
+                            <div class="flex items-center gap-2">
+                                <input id="bg-color" type="color" value="#05050a" class="w-8 h-8 rounded bg-transparent border-0 cursor-pointer">
+                                <span class="text-xs text-gray-400 font-mono" id="bg-hex">#05050a</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-gray-300">Подмешивание оригинала (Blend)</span>
+                            <span id="blend-val" class="text-indigo-400 font-mono">0%</span>
+                        </div>
+                        <input id="blend-slider" type="range" min="0" max="100" value="0" class="w-full accent-indigo-500 h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer">
+                    </div>
+
+                    <div class="space-y-2 pt-1">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-gray-300 flex items-center gap-2">
+                                <i class="fa-solid fa-sun text-yellow-500 text-xs"></i> Neon Glow
+                            </span>
+                            <input id="fx-glow" type="checkbox" class="w-4 h-4 accent-indigo-600 rounded cursor-pointer">
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-gray-300 flex items-center gap-2">
+                                <i class="fa-solid fa-tv text-emerald-500 text-xs"></i> Retro CRT lines
+                            </span>
+                            <input id="fx-crt" type="checkbox" class="w-4 h-4 accent-indigo-600 rounded cursor-pointer">
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-gray-300 flex items-center gap-2">
+                                <i class="fa-solid fa-bolt text-indigo-400 text-xs"></i> Мерцание анимации
+                            </span>
+                            <input id="fx-animate" type="checkbox" class="w-4 h-4 accent-indigo-600 rounded cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="border-gray-800">
+
+                <!-- 6. Manual Touch-up Tools -->
+                <div class="space-y-3 pb-6">
+                    <label class="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
+                        <i class="fa-solid fa-paint-brush text-indigo-400"></i> Интерактив
+                    </label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button id="tool-none" class="tool-btn active bg-indigo-600 text-white p-2 rounded-lg text-center text-xs font-semibold border border-indigo-500 flex items-center justify-center gap-2 transition">
+                            <i class="fa-solid fa-mouse-pointer"></i> Просмотр
+                        </button>
+                        <button id="tool-erase" class="tool-btn bg-gray-800 hover:bg-gray-700 text-gray-300 p-2 rounded-lg text-center text-xs font-semibold border border-gray-700 flex items-center justify-center gap-2 transition">
+                            <i class="fa-solid fa-eraser"></i> Ластик
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- Main Workspace / Canvas View -->
+        <main class="flex-1 flex flex-col relative canvas-container overflow-hidden items-center justify-center p-3 lg:p-6 min-h-[50vh] lg:min-h-0">
+            
+            <div id="canvas-wrapper" class="relative shadow-2xl rounded-lg overflow-hidden max-w-full max-h-full flex items-center justify-center border border-gray-800 bg-gray-950">
+                <canvas id="main-canvas" class="block max-w-full max-h-[75vh] lg:max-h-[82vh] object-contain cursor-crosshair"></canvas>
+                <div id="crt-layer" class="absolute inset-0 crt-overlay hidden"></div>
+            </div>
+
+            <!-- Canvas Info Bar -->
+            <div class="absolute bottom-3 left-3 right-3 lg:bottom-4 lg:left-6 lg:right-6 flex justify-between items-center pointer-events-none">
+                <div class="bg-gray-900/90 backdrop-blur border border-gray-800 px-2.5 py-1 rounded-lg text-[10px] lg:text-xs font-mono text-gray-400 flex items-center gap-3 lg:gap-4 pointer-events-auto shadow-lg">
+                    <span>Разр: <strong id="info-res" class="text-gray-200">0 x 0</strong></span>
+                    <span>Символов: <strong id="info-chars" class="text-gray-200">0</strong></span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Hidden Export/Processing Canvas -->
+    <canvas id="process-canvas" class="hidden"></canvas>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        const imageInput = document.getElementById('image-input');
+        const mainCanvas = document.getElementById('main-canvas');
+        const ctx = mainCanvas.getContext('2d');
+        const processCanvas = document.getElementById('process-canvas');
+        const pCtx = processCanvas.getContext('2d');
+        const crtLayer = document.getElementById('crt-layer');
+        const sidebar = document.getElementById('sidebar');
+        const toggleSidebarBtn = document.getElementById('toggle-sidebar');
+        const previewQualitySelect = document.getElementById('preview-quality');
+
+        let sidebarOpen = false;
+        toggleSidebarBtn.addEventListener('click', () => {
+            sidebarOpen = !sidebarOpen;
+            if (sidebarOpen) {
+                sidebar.style.maxHeight = '80vh';
+                toggleSidebarBtn.innerHTML = '<i class="fa-solid fa-xmark text-lg"></i>';
+            } else {
+                sidebar.style.maxHeight = '0px';
+                toggleSidebarBtn.innerHTML = '<i class="fa-solid fa-sliders text-lg"></i>';
+            }
+        });
+
+        const textInput = document.getElementById('text-input');
+        const presetSelect = document.getElementById('preset-select');
+        const textModeSelect = document.getElementById('text-mode');
+        const textCaseSelect = document.getElementById('text-case');
+        const densitySlider = document.getElementById('density-slider');
+        const minSizeSlider = document.getElementById('min-size-slider');
+        const maxSizeSlider = document.getElementById('max-size-slider');
+        const fontFamilySelect = document.getElementById('font-family');
+        const dynamicWeightCheck = document.getElementById('dynamic-weight');
+        const textColorInput = document.getElementById('text-color');
+        const colorModeSelect = document.getElementById('color-mode');
+        const bgColorInput = document.getElementById('bg-color');
+        const blendSlider = document.getElementById('blend-slider');
+        const fxGlowCheck = document.getElementById('fx-glow');
+        const fxCrtCheck = document.getElementById('fx-crt');
+        const fxAnimateCheck = document.getElementById('fx-animate');
+
+        const modeGridBtn = document.getElementById('mode-grid');
+        const modeEdgeBtn = document.getElementById('mode-edge');
+        const modeCloudBtn = document.getElementById('mode-cloud');
+        const toolNoneBtn = document.getElementById('tool-none');
+        const toolEraseBtn = document.getElementById('tool-erase');
+
+        let loadedImage = null;
+        let currentMode = 'grid'; 
+        let currentTool = 'none'; 
+        let erasedPixels = new Set();
+        let animationFrameId = null;
+        let renderTimeout = null;
+
+        const PRESETS = {
+            standard: "@%#*+=-:. ",
+            blocks: "█▓▒░ ",
+            matrix: "ｦｱｳｴｵｶｷｹｺｻｼｽｾｿﾀﾂﾃﾅﾆﾇﾈﾊﾋﾎﾏﾐﾑﾒﾓﾔﾕﾗﾘﾜ10",
+            binary: "01"
+        };
+
+        function initDefaultCanvas() {
+            mainCanvas.width = 800;
+            mainCanvas.height = 600;
+            
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 800;
+            tempCanvas.height = 600;
+            const tCtx = tempCanvas.getContext('2d');
+            
+            const grad = tCtx.createRadialGradient(400, 300, 50, 400, 300, 250);
+            grad.addColorStop(0, '#818cf8');
+            grad.addColorStop(0.5, '#c084fc');
+            grad.addColorStop(1, '#05050a');
+            tCtx.fillStyle = grad;
+            tCtx.fillRect(0, 0, 800, 600);
+            
+            tCtx.fillStyle = '#ffffff';
+            tCtx.font = 'bold 90px sans-serif';
+            tCtx.textAlign = 'center';
+            tCtx.fillText('TypeArt', 400, 320);
+
+            const img = new Image();
+            img.src = tempCanvas.toDataURL();
+            img.onload = () => {
+                loadedImage = img;
+                scheduleRender();
+            };
+        }
+
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    loadedImage = img;
+                    erasedPixels.clear();
+                    scheduleRender();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        presetSelect.addEventListener('change', (e) => {
+            if (PRESETS[e.target.value]) {
+                textInput.value = PRESETS[e.target.value];
+                scheduleRender();
+            }
+        });
+
+        // Debounced Render Scheduler to eliminate UI lag during slider dragging
+        function scheduleRender() {
+            if (renderTimeout) cancelAnimationFrame(renderTimeout);
+            renderTimeout = requestAnimationFrame(() => {
+                render(false);
+            });
+        }
+
+        [
+            textInput, textModeSelect, textCaseSelect, fontFamilySelect, 
+            colorModeSelect, textColorInput, bgColorInput, dynamicWeightCheck,
+            fxGlowCheck, previewQualitySelect
+        ].forEach(el => el.addEventListener('input', scheduleRender));
+
+        densitySlider.addEventListener('input', (e) => {
+            document.getElementById('density-val').innerText = `${e.target.value}px`;
+            scheduleRender();
+        });
+
+        minSizeSlider.addEventListener('input', (e) => {
+            document.getElementById('min-size-val').innerText = `${e.target.value}px`;
+            scheduleRender();
+        });
+
+        maxSizeSlider.addEventListener('input', (e) => {
+            document.getElementById('max-size-val').innerText = `${e.target.value}px`;
+            scheduleRender();
+        });
+
+        blendSlider.addEventListener('input', (e) => {
+            document.getElementById('blend-val').innerText = `${e.target.value}%`;
+            scheduleRender();
+        });
+
+        bgColorInput.addEventListener('input', (e) => {
+            document.getElementById('bg-hex').innerText = e.target.value;
+        });
+
+        [modeGridBtn, modeEdgeBtn, modeCloudBtn].forEach(btn => {
+            btn.addEventListener('click', () => {
+                [modeGridBtn, modeEdgeBtn, modeCloudBtn].forEach(b => {
+                    b.classList.remove('active', 'bg-indigo-600', 'text-white', 'border-indigo-500');
+                    b.classList.add('bg-gray-800', 'text-gray-300', 'border-gray-700');
+                });
+                btn.classList.add('active', 'bg-indigo-600', 'text-white', 'border-indigo-500');
+                btn.classList.remove('bg-gray-800', 'text-gray-300', 'border-gray-700');
+                
+                if (btn === modeGridBtn) currentMode = 'grid';
+                if (btn === modeEdgeBtn) currentMode = 'edge';
+                if (btn === modeCloudBtn) currentMode = 'cloud';
+                scheduleRender();
+            });
+        });
+
+        [toolNoneBtn, toolEraseBtn].forEach(btn => {
+            btn.addEventListener('click', () => {
+                [toolNoneBtn, toolEraseBtn].forEach(b => {
+                    b.classList.remove('active', 'bg-indigo-600', 'text-white', 'border-indigo-500');
+                    b.classList.add('bg-gray-800', 'text-gray-300', 'border-gray-700');
+                });
+                btn.classList.add('active', 'bg-indigo-600', 'text-white', 'border-indigo-500');
+                btn.classList.remove('bg-gray-800', 'text-gray-300', 'border-gray-700');
+                
+                currentTool = (btn === toolEraseBtn) ? 'erase' : 'none';
+            });
+        });
+
+        fxCrtCheck.addEventListener('change', (e) => {
+            crtLayer.classList.toggle('hidden', !e.target.checked);
+        });
+
+        fxAnimateCheck.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                startAnimation();
+            } else {
+                stopAnimation();
+            }
+        });
+
+        function startAnimation() {
+            if (!animationFrameId) {
+                function loop() {
+                    render(false);
+                    animationFrameId = requestAnimationFrame(loop);
+                }
+                loop();
+            }
+        }
+
+        function stopAnimation() {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+                render(false);
+            }
+        }
+
+        let isMouseDown = false;
+        mainCanvas.addEventListener('mousedown', (e) => { isMouseDown = true; handleCanvasClick(e); });
+        mainCanvas.addEventListener('mousemove', (e) => { if (isMouseDown) handleCanvasClick(e); });
+        window.addEventListener('mouseup', () => { isMouseDown = false; });
+
+        mainCanvas.addEventListener('touchstart', (e) => { isMouseDown = true; handleTouchClick(e); });
+        mainCanvas.addEventListener('touchmove', (e) => { if (isMouseDown) handleTouchClick(e); });
+        window.addEventListener('touchend', () => { isMouseDown = false; });
+
+        function handleTouchClick(e) {
+            if (currentTool !== 'erase') return;
+            const touch = e.touches[0];
+            const rect = mainCanvas.getBoundingClientRect();
+            const scaleX = mainCanvas.width / rect.width;
+            const scaleY = mainCanvas.height / rect.height;
+            const x = Math.floor((touch.clientX - rect.left) * scaleX);
+            const y = Math.floor((touch.clientY - rect.top) * scaleY);
+
+            const step = parseInt(densitySlider.value);
+            const gridX = Math.floor(x / step);
+            const gridY = Math.floor(y / step);
+            erasedPixels.add(`${gridX},${gridY}`);
+            scheduleRender();
+        }
+
+        function handleCanvasClick(e) {
+            if (currentTool !== 'erase') return;
+            const rect = mainCanvas.getBoundingClientRect();
+            const scaleX = mainCanvas.width / rect.width;
+            const scaleY = mainCanvas.height / rect.height;
+            const x = Math.floor((e.clientX - rect.left) * scaleX);
+            const y = Math.floor((e.clientY - rect.top) * scaleY);
+
+            const step = parseInt(densitySlider.value);
+            const gridX = Math.floor(x / step);
+            const gridY = Math.floor(y / step);
+            erasedPixels.add(`${gridX},${gridY}`);
+            scheduleRender();
+        }
+
+        function getPreparedText() {
+            let raw = textInput.value || "TYPEART";
+            const cCase = textCaseSelect.value;
+            if (cCase === 'upper') raw = raw.toUpperCase();
+            if (cCase === 'lower') raw = raw.toLowerCase();
+            return raw;
+        }
+
+        function computeEdgeMap(imgData, w, h) {
+            const data = imgData.data;
+            const edges = new Float32Array(w * h);
+            
+            for (let y = 1; y < h - 1; y++) {
+                for (let x = 1; x < w - 1; x++) {
+                    const idx = (y * w + x) * 4;
+                    const getGray = (ox, oy) => {
+                        const i = ((y + oy) * w + (x + ox)) * 4;
+                        return 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+                    };
+
+                    const gx = 
+                        -1 * getGray(-1, -1) + 1 * getGray(1, -1) +
+                        -2 * getGray(-1,  0) + 2 * getGray(1,  0) +
+                        -1 * getGray(-1,  1) + 1 * getGray(1,  1);
+
+                    const gy = 
+                        -1 * getGray(-1, -1) - 2 * getGray(0, -1) - 1 * getGray(1, -1) +
+                         1 * getGray(-1,  1) + 2 * getGray(0,  1) + 1 * getGray(1,  1);
+
+                    edges[y * w + x] = Math.sqrt(gx * gx + gy * gy);
+                }
+            }
+            return edges;
+        }
+
+        // Core rendering engine (supports target Canvas to separate low-res preview from high-res export)
+        function executeRender(targetCanvas, targetCtx, scaleMultiplier = 1) {
+            if (!loadedImage) return 0;
+
+            const origW = loadedImage.width;
+            const origH = loadedImage.height;
+
+            const w = Math.round(origW * scaleMultiplier);
+            const h = Math.round(origH * scaleMultiplier);
+
+            targetCanvas.width = w;
+            targetCanvas.height = h;
+
+            const offCanvas = document.createElement('canvas');
+            offCanvas.width = w;
+            offCanvas.height = h;
+            const oCtx = offCanvas.getContext('2d');
+            oCtx.drawImage(loadedImage, 0, 0, w, h);
+            const imgData = oCtx.getImageData(0, 0, w, h);
+            const pixels = imgData.data;
+
+            targetCtx.fillStyle = bgColorInput.value;
+            targetCtx.fillRect(0, 0, w, h);
+
+            const blendOpacity = parseInt(blendSlider.value) / 100;
+            if (blendOpacity > 0) {
+                targetCtx.save();
+                targetCtx.globalAlpha = blendOpacity;
+                targetCtx.drawImage(loadedImage, 0, 0, w, h);
+                targetCtx.restore();
+            }
+
+            if (fxGlowCheck.checked) {
+                targetCtx.shadowColor = textColorInput.value;
+                targetCtx.shadowBlur = 10 * scaleMultiplier;
+            } else {
+                targetCtx.shadowBlur = 0;
+            }
+
+            const step = Math.max(8, Math.round(parseInt(densitySlider.value) * scaleMultiplier));
+            const minSize = Math.max(4, Math.round(parseInt(minSizeSlider.value) * scaleMultiplier));
+            const maxSize = Math.max(6, Math.round(parseInt(maxSizeSlider.value) * scaleMultiplier));
+            const fontFamily = fontFamilySelect.value;
+            const colorMode = colorModeSelect.value;
+            const textMode = textModeSelect.value;
+            const textRaw = getPreparedText();
+            const textList = textRaw.split(/(\s+)/).filter(s => s.trim().length > 0);
+            const charList = textRaw.replace(/\s+/g, '').split('');
+
+            let totalCharsDrawn = 0;
+            let sequenceIndex = 0;
+
+            targetCtx.textAlign = 'center';
+            targetCtx.textBaseline = 'middle';
+
+            if (currentMode === 'grid') {
+                for (let y = 0; y < h; y += step) {
+                    for (let x = 0; x < w; x += step) {
+                        const gridXKey = Math.floor((x / scaleMultiplier) / parseInt(densitySlider.value));
+                        const gridYKey = Math.floor((y / scaleMultiplier) / parseInt(densitySlider.value));
+                        if (erasedPixels.has(`${gridXKey},${gridYKey}`)) continue;
+
+                        const pxIdx = (y * w + x) * 4;
+                        const r = pixels[pxIdx];
+                        const g = pixels[pxIdx + 1];
+                        const b = pixels[pxIdx + 2];
+                        const brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+
+                        const fontSize = minSize + brightness * (maxSize - minSize);
+                        const weight = (dynamicWeightCheck.checked && brightness > 0.5) ? 'bold' : 'normal';
+                        targetCtx.font = `${weight} ${fontSize}px ${fontFamily}`;
+
+                        let char = '';
+                        if (textMode === 'brightness' && charList.length > 0) {
+                            const charIdx = Math.floor(brightness * (charList.length - 1));
+                            char = charList[charIdx];
+                        } else if (textMode === 'sequence' && textList.length > 0) {
+                            char = textList[sequenceIndex % textList.length];
+                            sequenceIndex++;
+                        } else {
+                            char = charList[Math.floor(Math.random() * charList.length)] || '*';
+                        }
+
+                        targetCtx.fillStyle = getCharColor(colorMode, r, g, b, brightness);
+                        targetCtx.fillText(char, x + step / 2, y + step / 2);
+                        totalCharsDrawn++;
+                    }
+                }
+            }
+            else if (currentMode === 'edge') {
+                const edgeMap = computeEdgeMap(imgData, w, h);
+                
+                for (let y = 0; y < h; y += step) {
+                    for (let x = 0; x < w; x += step) {
+                        const gridXKey = Math.floor((x / scaleMultiplier) / parseInt(densitySlider.value));
+                        const gridYKey = Math.floor((y / scaleMultiplier) / parseInt(densitySlider.value));
+                        if (erasedPixels.has(`${gridXKey},${gridYKey}`)) continue;
+
+                        const idx = y * w + x;
+                        const edgeVal = edgeMap[idx];
+                        const pxIdx = idx * 4;
+                        const r = pixels[pxIdx];
+                        const g = pixels[pxIdx + 1];
+                        const b = pixels[pxIdx + 2];
+                        const brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+
+                        if (edgeVal > 30 || brightness < 0.2) {
+                            const fontSize = Math.min(maxSize, Math.max(minSize, (edgeVal / 255) * maxSize * 1.5));
+                            targetCtx.font = `bold ${fontSize}px ${fontFamily}`;
+                            
+                            let char = charList[sequenceIndex % charList.length] || '#';
+                            sequenceIndex++;
+
+                            targetCtx.fillStyle = getCharColor(colorMode, r, g, b, brightness);
+                            targetCtx.fillText(char, x + step / 2, y + step / 2);
+                            totalCharsDrawn++;
+                        }
+                    }
+                }
+            }
+            else if (currentMode === 'cloud') {
+                const density = Math.floor((w * h) / (step * step * 1.5));
+                const angles = [0, 0, 0, 45, -45, 90];
+
+                for (let i = 0; i < density; i++) {
+                    const x = Math.floor(Math.random() * w);
+                    const y = Math.floor(Math.random() * h);
+
+                    const gridXKey = Math.floor((x / scaleMultiplier) / parseInt(densitySlider.value));
+                    const gridYKey = Math.floor((y / scaleMultiplier) / parseInt(densitySlider.value));
+                    if (erasedPixels.has(`${gridXKey},${gridYKey}`)) continue;
+
+                    const pxIdx = (y * w + x) * 4;
+                    const r = pixels[pxIdx];
+                    const g = pixels[pxIdx + 1];
+                    const b = pixels[pxIdx + 2];
+                    const brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+
+                    if (brightness > 0.05) {
+                        const fontSize = minSize + brightness * (maxSize - minSize);
+                        const angle = angles[Math.floor(Math.random() * angles.length)];
+
+                        targetCtx.save();
+                        targetCtx.translate(x, y);
+                        targetCtx.rotate((angle * Math.PI) / 180);
+                        
+                        targetCtx.font = `bold ${fontSize}px ${fontFamily}`;
+                        targetCtx.fillStyle = getCharColor(colorMode, r, g, b, brightness);
+
+                        const word = textList[Math.floor(Math.random() * textList.length)] || "ART";
+                        targetCtx.fillText(word, 0, 0);
+                        targetCtx.restore();
+                        
+                        totalCharsDrawn++;
+                    }
+                }
+            }
+
+            return totalCharsDrawn;
+        }
+
+        function render(forExport = false, exportMultiplier = 1) {
+            if (!loadedImage) return;
+
+            if (forExport) {
+                const expCanvas = document.createElement('canvas');
+                const expCtx = expCanvas.getContext('2d');
+                executeRender(expCanvas, expCtx, exportMultiplier);
+                return expCanvas;
+            } else {
+                // Determine preview resolution scale based on user setting
+                let scale = 0.5; // low default
+                const q = previewQualitySelect.value;
+                if (q === 'medium') scale = 0.75;
+                if (q === 'original') scale = 1.0;
+
+                const chars = executeRender(mainCanvas, ctx, scale);
+                document.getElementById('info-res.').innerText = ''; // clear helper
+                document.getElementById('info-res').innerText = `${loadedImage.width} x ${loadedImage.height}px`;
+                document.getElementById('info-chars').innerText = chars.toLocaleString();
+            }
+        }
+
+        function getCharColor(mode, r, g, b, brightness) {
+            if (mode === 'solid') return textColorInput.value;
+            if (mode === 'original') return `rgb(${r},${g},${b})`;
+            if (mode === 'grayscale') {
+                const gray = Math.floor(brightness * 255);
+                return `rgb(${gray},${gray},${gray})`;
+            }
+            if (mode === 'matrix') {
+                const green = Math.floor(100 + brightness * 155);
+                return `rgb(20, ${green}, 50)`;
+            }
+            return '#ffffff';
+        }
+
+        // EXPORT HANDLERS (Always render at full original resolution 1.0)
+        document.getElementById('export-png').addEventListener('click', () => {
+            const highResCanvas = render(true, 1.0);
+            const link = document.createElement('a');
+            link.download = `typeart-highres-${Date.now()}.png`;
+            link.href = highResCanvas.toDataURL('image/png');
+            link.click();
+        });
+
+        document.getElementById('export-txt').addEventListener('click', () => {
+            if (!loadedImage) return;
+            const w = loadedImage.width;
+            const h = loadedImage.height;
+            const step = parseInt(densitySlider.value);
+            const textRaw = getPreparedText();
+            const charList = textRaw.replace(/\s+/g, '').split('') || ['*'];
+
+            pCtx.drawImage(loadedImage, 0, 0, w, h);
+            const pixels = pCtx.getImageData(0, 0, w, h).data;
+            
+            let txtResult = '';
+            for (let y = 0; y < h; y += step * 1.8) {
+                for (let x = 0; x < w; x += step) {
+                    const idx = (Math.floor(y) * w + Math.floor(x)) * 4;
+                    const brightness = (0.299 * pixels[idx] + 0.587 * pixels[idx+1] + 0.114 * pixels[idx+2]) / 255;
+                    const charIdx = Math.floor(brightness * (charList.length - 1));
+                    txtResult += charList[charIdx] || ' ';
+                }
+                txtResult += '\n';
+            }
+
+            const blob = new Blob([txtResult], { type: 'text/plain;charset=utf-8' });
+            const link = document.createElement('a');
+            link.download = `typeart-${Date.now()}.txt`;
+            link.href = URL.createObjectURL(blob);
+            link.click();
+        });
+
+        document.getElementById('export-html').addEventListener('click', () => {
+            if (!loadedImage) return;
+            const w = loadedImage.width;
+            const h = loadedImage.height;
+            const step = parseInt(densitySlider.value);
+            const textRaw = getPreparedText();
+            const charList = textRaw.replace(/\s+/g, '').split('') || ['*'];
+
+            pCtx.drawImage(loadedImage, 0, 0, w, h);
+            const pixels = pCtx.getImageData(0, 0, w, h).data;
+
+            let htmlContent = `<div style="background-color: ${bgColorInput.value}; font-family: monospace; white-space: pre; line-height: 1; letter-spacing: 2px;">`;
+
+            for (let y = 0; y < h; y += step * 1.8) {
+                for (let x = 0; x < w; x += step) {
+                    const idx = (Math.floor(y) * w + Math.floor(x)) * 4;
+                    const r = pixels[idx], g = pixels[idx+1], b = pixels[idx+2];
+                    const brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+                    const charIdx = Math.floor(brightness * (charList.length - 1));
+                    const char = charList[charIdx] || ' ';
+                    const color = getCharColor(colorModeSelect.value, r, g, b, brightness);
+
+                    htmlContent += `<span style="color: ${color};">${char === ' ' ? '&nbsp;' : char}</span>`;
+                }
+                htmlContent += '<br>';
+            }
+            htmlContent += '</div>';
+
+            const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+            const link = document.createElement('a');
+            link.download = `typeart-${Date.now()}.html`;
+            link.href = URL.createObjectURL(blob);
+            link.click();
+        });
+
+        document.getElementById('export-svg').addEventListener('click', () => {
+            if (!loadedImage) return;
+            const w = loadedImage.width;
+            const h = loadedImage.height;
+
+            let svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" style="background:${bgColorInput.value}">`;
+            
+            const step = parseInt(densitySlider.value);
+            const minSize = parseInt(minSizeSlider.value);
+            const maxSize = parseInt(maxSizeSlider.value);
+            const fontFamily = fontFamilySelect.value.replace(/'/g, "");
+            const textRaw = getPreparedText();
+            const charList = textRaw.replace(/\s+/g, '').split('') || ['*'];
+
+            pCtx.drawImage(loadedImage, 0, 0, w, h);
+            const pixels = pCtx.getImageData(0, 0, w, h).data;
+
+            for (let y = 0; y < h; y += step) {
+                for (let x = 0; x < w; x += step) {
+                    const idx = (y * w + x) * 4;
+                    const r = pixels[idx], g = pixels[idx+1], b = pixels[idx+2];
+                    const brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+                    
+                    const fontSize = minSize + brightness * (maxSize - minSize);
+                    const charIdx = Math.floor(brightness * (charList.length - 1));
+                    const char = charList[charIdx] || '*';
+                    const color = getCharColor(colorModeSelect.value, r, g, b, brightness);
+
+                    svgString += `<text x="${x + step/2}" y="${y + step/2}" font-size="${fontSize}" font-family="${fontFamily}" fill="${color}" text-anchor="middle" dominant-baseline="middle">${char}</text>`;
+                }
+            }
+
+            svgString += `</svg>`;
+
+            const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+            const link = document.createElement('a');
+            link.download = `typeart-${Date.now()}.svg`;
+            link.href = URL.createObjectURL(blob);
+            link.click();
+        });
+
+        window.addEventListener('load', initDefaultCanvas);
+    </script>
+</body>
+</html>

@@ -1,0 +1,1524 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Character Studio</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Three.js Core -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Three.js OrbitControls & GLTFExporter -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+            overflow: hidden;
+            background-color: #07090e;
+            color: #f3f4f6;
+        }
+
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(99, 102, 241, 0.5);
+            border-radius: 4px;
+        }
+
+        .glass-panel {
+            background: rgba(13, 18, 30, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glass-btn {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .glass-btn:hover {
+            background: rgba(51, 65, 85, 0.8);
+            border-color: rgba(129, 140, 248, 0.4);
+        }
+        .glass-btn.active {
+            background: rgba(99, 102, 241, 0.35);
+            border-color: rgba(129, 140, 248, 0.6);
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+            color: #ffffff;
+        }
+
+        /* Navigation Tab label animation */
+        .tab-btn span {
+            max-width: 0;
+            opacity: 0;
+            overflow: hidden;
+            white-space: nowrap;
+            transition: max-width 0.3s ease, opacity 0.3s ease, margin-left 0.3s ease;
+            margin-left: 0rem;
+        }
+        .tab-btn.active span {
+            max-width: 100px;
+            opacity: 1;
+            margin-left: 0.5rem;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 5px;
+            cursor: pointer;
+            background: #1e293b;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        input[type=range]::-webkit-slider-thumb {
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #6366f1;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -5.5px;
+            box-shadow: 0 0 8px rgba(99, 102, 241, 0.6);
+            transition: transform 0.1s ease;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            background: #818cf8;
+        }
+
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            overflow: hidden;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+        input[type="color"]::-webkit-color-swatch {
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+        }
+
+        .record-pulse {
+            animation: pulse-red 1.5s infinite;
+        }
+        @keyframes pulse-red {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.95); }
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col md:flex-row overflow-hidden select-none bg-slate-950">
+
+    <!-- 3D VIEWPORT CONTAINER -->
+    <div id="viewport-container" class="relative flex-1 h-full w-full bg-slate-950">
+        <canvas id="avatar-canvas" class="w-full h-full block cursor-grab active:cursor-grabbing"></canvas>
+
+        <!-- TOP BAR OVERLAY -->
+        <div class="absolute top-4 left-4 right-4 flex justify-between items-center pointer-events-none z-10">
+            <div class="glass-panel px-4 py-2 rounded-full flex items-center space-x-2.5 pointer-events-auto shadow-xl">
+                <i data-lucide="sparkles" class="w-5 h-5 text-indigo-400"></i>
+                <span class="font-bold text-sm tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-purple-300 to-pink-300">Character Studio</span>
+            </div>
+
+            <div class="flex items-center space-x-2 pointer-events-auto">
+                <button id="btn-reset-cam" title="Сбросить камеру" class="glass-btn p-2.5 rounded-full text-slate-300 hover:text-white">
+                    <i data-lucide="camera" class="w-4 h-4"></i>
+                </button>
+                <button id="btn-toggle-grid" title="Сетка" class="glass-btn p-2.5 rounded-full text-indigo-400 hover:text-indigo-300 active">
+                    <i data-lucide="grid" class="w-4 h-4"></i>
+                </button>
+                <button id="btn-randomize" title="Случайная генерация" class="glass-btn px-3 py-2 rounded-full text-xs font-semibold text-amber-300 flex items-center space-x-1.5 hover:bg-amber-500/20">
+                    <i data-lucide="dices" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Случайный</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- RECORDING INDICATOR BADGE -->
+        <div id="recording-badge" class="hidden absolute top-16 left-1/2 transform -translate-x-1/2 glass-panel px-4 py-1.5 rounded-full flex items-center space-x-2 z-20 border-red-500/50 shadow-lg">
+            <span class="w-3 h-3 rounded-full bg-red-500 record-pulse"></span>
+            <span id="recording-timer" class="text-xs font-mono text-red-200">Запись: 0.0s</span>
+        </div>
+
+        <!-- CAMERA ANGLE TOOLBAR -->
+        <div class="absolute left-4 bottom-20 md:bottom-6 flex flex-col space-y-2 z-10 pointer-events-auto">
+            <button data-cam="full" title="В весь рост" class="glass-btn p-2.5 rounded-xl text-xs text-slate-300 hover:text-white flex items-center justify-center">
+                <i data-lucide="user" class="w-4 h-4"></i>
+            </button>
+            <button data-cam="bust" title="Портрет" class="glass-btn p-2.5 rounded-xl text-xs text-slate-300 hover:text-white flex items-center justify-center">
+                <i data-lucide="user-check" class="w-4 h-4"></i>
+            </button>
+            <button data-cam="face" title="Лицо" class="glass-btn p-2.5 rounded-xl text-xs text-slate-300 hover:text-white flex items-center justify-center">
+                <i data-lucide="smile" class="w-4 h-4"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- SIDE PANEL / DRAWER FOR CONTROLS -->
+    <div id="drawer-panel" class="glass-panel w-full md:w-[460px] h-[58vh] md:h-full flex flex-col z-20 transition-all duration-300 shadow-2xl rounded-t-3xl md:rounded-none">
+        
+        <!-- Mobile Drawer Drag Handle -->
+        <div class="w-full py-2 flex justify-center items-center md:hidden cursor-pointer" id="drawer-handle">
+            <div class="w-12 h-1.5 bg-slate-600 rounded-full"></div>
+        </div>
+
+        <!-- Navigation Tabs Header (Icon + Active Expand Label) -->
+        <div class="flex items-center justify-between border-b border-slate-800/80 px-2 py-1.5 overflow-x-auto no-scrollbar shrink-0">
+            <button data-tab="tab-demographics" class="tab-btn active text-indigo-400 border-b-2 border-indigo-500 font-semibold p-2.5 sm:px-3 sm:py-2 text-xs flex items-center whitespace-nowrap">
+                <i data-lucide="users" class="w-4 h-4 shrink-0"></i>
+                <span>Пол/Возраст</span>
+            </button>
+            <button data-tab="tab-head" class="tab-btn text-slate-400 font-medium p-2.5 sm:px-3 sm:py-2 text-xs flex items-center whitespace-nowrap">
+                <i data-lucide="smile" class="w-4 h-4 shrink-0"></i>
+                <span>Лицо</span>
+            </button>
+            <button data-tab="tab-body" class="tab-btn text-slate-400 font-medium p-2.5 sm:px-3 sm:py-2 text-xs flex items-center whitespace-nowrap">
+                <i data-lucide="accessibility" class="w-4 h-4 shrink-0"></i>
+                <span>Тело</span>
+            </button>
+            <button data-tab="tab-hair" class="tab-btn text-slate-400 font-medium p-2.5 sm:px-3 sm:py-2 text-xs flex items-center whitespace-nowrap">
+                <i data-lucide="palette" class="w-4 h-4 shrink-0"></i>
+                <span>Волосы</span>
+            </button>
+            <button data-tab="tab-style" class="tab-btn text-slate-400 font-medium p-2.5 sm:px-3 sm:py-2 text-xs flex items-center whitespace-nowrap">
+                <i data-lucide="shirt" class="w-4 h-4 shrink-0"></i>
+                <span>Одежда</span>
+            </button>
+            <button data-tab="tab-pose" class="tab-btn text-slate-400 font-medium p-2.5 sm:px-3 sm:py-2 text-xs flex items-center whitespace-nowrap">
+                <i data-lucide="play" class="w-4 h-4 shrink-0"></i>
+                <span>Позы</span>
+            </button>
+            <button data-tab="tab-export" class="tab-btn text-slate-400 font-medium p-2.5 sm:px-3 sm:py-2 text-xs flex items-center whitespace-nowrap">
+                <i data-lucide="camera" class="w-4 h-4 shrink-0"></i>
+                <span>Студия</span>
+            </button>
+        </div>
+
+        <!-- Scrollable Tab Content Container -->
+        <div class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-6">
+
+            <!-- TAB 1: DEMOGRAPHICS (GENDER & AGE) -->
+            <div id="tab-demographics" class="tab-content space-y-5">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-400">Демография персонажа</h3>
+                
+                <!-- Gender Selection -->
+                <div class="space-y-2.5 bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800">
+                    <label class="text-xs font-medium text-slate-300">Базовый тип / Пол</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button class="gender-btn glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate active" data-gender="female">Женский</button>
+                        <button class="gender-btn glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate" data-gender="male">Мужской</button>
+                        <button class="gender-btn glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate" data-gender="neutral">Нейтральный</button>
+                    </div>
+                </div>
+
+                <!-- Age Stage & Slider -->
+                <div class="space-y-3 bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800">
+                    <div class="flex justify-between text-xs">
+                        <span class="font-medium text-slate-300">Возраст (Биологический)</span>
+                        <span id="val-age" class="text-indigo-300 font-mono">25 лет</span>
+                    </div>
+                    <input type="range" id="param-age" min="18" max="75" step="1" value="25" class="w-full">
+                    <div class="grid grid-cols-3 gap-2 pt-1">
+                        <button class="age-preset glass-btn py-1.5 rounded-lg text-xs font-medium" data-age="20">Молодой (20)</button>
+                        <button class="age-preset glass-btn py-1.5 rounded-lg text-xs font-medium active" data-age="35">Взрослый (35)</button>
+                        <button class="age-preset glass-btn py-1.5 rounded-lg text-xs font-medium" data-age="60">Зрелый (60)</button>
+                    </div>
+                </div>
+
+                <!-- Height & Stature -->
+                <div class="space-y-3 bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800">
+                    <div class="flex justify-between text-xs">
+                        <span class="font-medium text-slate-300">Рост</span>
+                        <span id="val-height" class="text-indigo-300 font-mono">175 см</span>
+                    </div>
+                    <input type="range" id="param-height" min="0.75" max="1.3" step="0.01" value="1.0" class="w-full">
+                </div>
+            </div>
+
+            <!-- TAB 2: HEAD & FACIAL FEATURES -->
+            <div id="tab-head" class="tab-content hidden space-y-5">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-400">Детали лица и черепа</h3>
+                
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-400">Ширина лица</span>
+                            <span id="val-faceWidth" class="text-indigo-300 font-mono">1.0</span>
+                        </div>
+                        <input type="range" id="param-faceWidth" min="0.75" max="1.3" step="0.01" value="1.0" class="w-full">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-400">Высота / Овал лица</span>
+                            <span id="val-faceLength" class="text-indigo-300 font-mono">1.0</span>
+                        </div>
+                        <input type="range" id="param-faceLength" min="0.8" max="1.25" step="0.01" value="1.0" class="w-full">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-400">Челюсть и подбородок</span>
+                            <span id="val-jawWidth" class="text-indigo-300 font-mono">1.0</span>
+                        </div>
+                        <input type="range" id="param-jawWidth" min="0.6" max="1.4" step="0.02" value="1.0" class="w-full">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-400">Скулы</span>
+                            <span id="val-cheekbones" class="text-indigo-300 font-mono">1.0</span>
+                        </div>
+                        <input type="range" id="param-cheekbones" min="0.7" max="1.4" step="0.02" value="1.0" class="w-full">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-400">Размер и форма носа</span>
+                            <span id="val-noseWidth" class="text-indigo-300 font-mono">1.0</span>
+                        </div>
+                        <input type="range" id="param-noseWidth" min="0.6" max="1.5" step="0.02" value="1.0" class="w-full">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-400">Толщина губ</span>
+                            <span id="val-lipThickness" class="text-indigo-300 font-mono">1.0</span>
+                        </div>
+                        <input type="range" id="param-lipThickness" min="0.5" max="1.6" step="0.02" value="1.0" class="w-full">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-400">Размер глаз</span>
+                            <span id="val-eyeSize" class="text-indigo-300 font-mono">1.0</span>
+                        </div>
+                        <input type="range" id="param-eyeSize" min="0.7" max="1.4" step="0.02" value="1.0" class="w-full">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-400">Уши</span>
+                            <span id="val-earSize" class="text-indigo-300 font-mono">1.0</span>
+                        </div>
+                        <input type="range" id="param-earSize" min="0.7" max="1.3" step="0.02" value="1.0" class="w-full">
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: BODY ANATOMY & PHYSIQUE -->
+            <div id="tab-body" class="tab-content hidden space-y-5">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-400">Анатомия тела и пропорции</h3>
+                
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-400">Объем / Общая комплекция</span>
+                            <span id="val-build" class="text-indigo-300 font-mono">1.0</span>
+                        </div>
+                        <input type="range" id="param-build" min="0.7" max="1.4" step="0.02" value="1.0" class="w-full">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-400">Мышечный рельеф</span>
+                            <span id="val-muscleDef" class="text-indigo-300 font-mono">1.0</span>
+                        </div>
+                        <input type="range" id="param-muscleDef" min="0.2" max="2.0" step="0.05" value="1.0" class="w-full">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-400">Ширина плеч</span>
+                            <span id="val-shoulders" class="text-indigo-300 font-mono">1.0</span>
+                        </div>
+                        <input type="range" id="param-shoulders" min="0.7" max="1.4" step="0.02" value="1.0" class="w-full">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-400">Грудь / Объем грудной клетки</span>
+                            <span id="val-chest" class="text-indigo-300 font-mono">1.0</span>
+                        </div>
+                        <input type="range" id="param-chest" min="0.6" max="1.6" step="0.02" value="1.0" class="w-full">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-400">Живот / Талия</span>
+                            <span id="val-waist" class="text-indigo-300 font-mono">1.0</span>
+                        </div>
+                        <input type="range" id="param-waist" min="0.6" max="1.5" step="0.02" value="1.0" class="w-full">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-400">Бедра и таз</span>
+                            <span id="val-hips" class="text-indigo-300 font-mono">1.0</span>
+                        </div>
+                        <input type="range" id="param-hips" min="0.7" max="1.5" step="0.02" value="1.0" class="w-full">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-400">Длина ног</span>
+                            <span id="val-legLength" class="text-indigo-300 font-mono">1.0</span>
+                        </div>
+                        <input type="range" id="param-legLength" min="0.85" max="1.2" step="0.01" value="1.0" class="w-full">
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 4: HAIR, SKIN & MATERIALS -->
+            <div id="tab-hair" class="tab-content hidden space-y-5">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-400">Волосы, кожа и прическа</h3>
+
+                <!-- Skin Settings -->
+                <div class="space-y-3 bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800">
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-medium text-slate-300">Цвет кожи (PBR + SSS)</label>
+                        <input type="color" id="skinColor" value="#e0a385" class="bg-transparent">
+                    </div>
+                    <div class="grid grid-cols-4 gap-2 pt-1">
+                        <button class="w-full h-8 rounded-xl border border-slate-700 shadow" style="background:#ffdbac" onclick="setSkin('#ffdbac')"></button>
+                        <button class="w-full h-8 rounded-xl border border-slate-700 shadow" style="background:#e0a385" onclick="setSkin('#e0a385')"></button>
+                        <button class="w-full h-8 rounded-xl border border-slate-700 shadow" style="background:#8d5524" onclick="setSkin('#8d5524')"></button>
+                        <button class="w-full h-8 rounded-xl border border-slate-700 shadow" style="background:#3c2006" onclick="setSkin('#3c2006')"></button>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1 pt-1">
+                            <span class="text-slate-400">Влажность / Блеск кожи</span>
+                            <span id="val-skinShine" class="text-indigo-300 font-mono">0.2</span>
+                        </div>
+                        <input type="range" id="param-skinShine" min="0.0" max="0.8" step="0.05" value="0.2" class="w-full">
+                    </div>
+                </div>
+
+                <!-- Eye Color -->
+                <div class="flex items-center justify-between bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800">
+                    <label class="text-xs font-medium text-slate-300">Цвет глаз (Радужка)</label>
+                    <input type="color" id="eyeColor" value="#2b6cb0" class="bg-transparent">
+                </div>
+
+                <!-- Hairstyle Selection & Customization -->
+                <div class="space-y-3 bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800">
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-medium text-slate-300">Форма прически</label>
+                        <input type="color" id="hairColor" value="#2c1b18" class="bg-transparent" title="Цвет волос">
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button class="hairstyle-btn glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate active" data-style="short">Короткие</button>
+                        <button class="hairstyle-btn glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate" data-style="waves">Волны</button>
+                        <button class="hairstyle-btn glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate" data-style="afro">Афро/Кудри</button>
+                        <button class="hairstyle-btn glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate" data-style="ponytail">Хвост</button>
+                        <button class="hairstyle-btn glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate" data-style="bun">Пучок</button>
+                        <button class="hairstyle-btn glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate" data-style="bald">Лысый</button>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1 pt-1">
+                            <span class="text-slate-400">Объем / Длина волос</span>
+                            <span id="val-hairVolume" class="text-indigo-300 font-mono">1.0</span>
+                        </div>
+                        <input type="range" id="param-hairVolume" min="0.7" max="1.5" step="0.05" value="1.0" class="w-full">
+                    </div>
+                </div>
+
+                <!-- Facial Hair -->
+                <div class="space-y-3 bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800">
+                    <label class="text-xs font-medium text-slate-300">Борода и усы</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button class="facial-hair-btn glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate active" data-beard="none">Нет</button>
+                        <button class="facial-hair-btn glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate" data-beard="stubble">Щетина</button>
+                        <button class="facial-hair-btn glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate" data-beard="full">Борода</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 5: OUTFITS & ACCESSORIES -->
+            <div id="tab-style" class="tab-content hidden space-y-5">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-400">Одежда и аксессуары</h3>
+
+                <!-- Top Style -->
+                <div class="space-y-2.5 bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800">
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs font-medium text-slate-300">Верхний гардероб</label>
+                        <input type="color" id="topColor" value="#312e81" class="bg-transparent">
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button class="top-type-btn glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate active" data-top="tshirt">Футболка</button>
+                        <button class="top-type-btn glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate" data-top="jacket">Куртка</button>
+                        <button class="top-type-btn glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate" data-top="suit">Пиджак</button>
+                    </div>
+                </div>
+
+                <!-- Bottom Style -->
+                <div class="space-y-2.5 bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800">
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs font-medium text-slate-300">Нижний гардероб</label>
+                        <input type="color" id="bottomColor" value="#1e293b" class="bg-transparent">
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button class="bottom-type-btn glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate active" data-bottom="pants">Брюки</button>
+                        <button class="bottom-type-btn glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate" data-bottom="shorts">Шорты</button>
+                        <button class="bottom-type-btn glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate" data-bottom="skirt">Юбка</button>
+                    </div>
+                </div>
+
+                <!-- Shoes -->
+                <div class="space-y-2.5 bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800">
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs font-medium text-slate-300">Обувь</label>
+                        <input type="color" id="shoesColor" value="#ffffff" class="bg-transparent">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button class="shoe-btn glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate active" data-shoes="sneakers">Кроссовки</button>
+                        <button class="shoe-btn glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate" data-shoes="boots">Ботинки</button>
+                    </div>
+                </div>
+
+                <!-- Accessories -->
+                <div class="space-y-2 bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800">
+                    <label class="text-xs font-medium text-slate-300">Аксессуары</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button id="toggle-glasses" class="glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate flex items-center justify-center space-x-1">
+                            <i data-lucide="glasses" class="w-4 h-4 shrink-0"></i>
+                            <span class="truncate">Очки</span>
+                        </button>
+                        <button id="toggle-hat" class="glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate flex items-center justify-center space-x-1">
+                            <i data-lucide="hard-hat" class="w-4 h-4 shrink-0"></i>
+                            <span class="truncate">Кепка</span>
+                        </button>
+                        <button id="toggle-watch" class="glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate flex items-center justify-center space-x-1">
+                            <i data-lucide="watch" class="w-4 h-4 shrink-0"></i>
+                            <span class="truncate">Часы</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 6: POSES & EMOTIONS -->
+            <div id="tab-pose" class="tab-content hidden space-y-5">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-400">Позы и мимика лица</h3>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <button class="pose-btn glass-btn p-3 rounded-xl text-xs font-semibold text-left flex flex-col justify-between h-20 active" data-pose="idle">
+                        <i data-lucide="user" class="w-5 h-5 text-indigo-400"></i>
+                        <span class="truncate">Дыхание (Idle)</span>
+                    </button>
+                    <button class="pose-btn glass-btn p-3 rounded-xl text-xs font-semibold text-left flex flex-col justify-between h-20" data-pose="tpose">
+                        <i data-lucide="maximize-2" class="w-5 h-5 text-indigo-400"></i>
+                        <span class="truncate">T-Поза</span>
+                    </button>
+                    <button class="pose-btn glass-btn p-3 rounded-xl text-xs font-semibold text-left flex flex-col justify-between h-20" data-pose="walk">
+                        <i data-lucide="footprints" class="w-5 h-5 text-indigo-400"></i>
+                        <span class="truncate">Ходьба</span>
+                    </button>
+                    <button class="pose-btn glass-btn p-3 rounded-xl text-xs font-semibold text-left flex flex-col justify-between h-20" data-pose="hero">
+                        <i data-lucide="shield" class="w-5 h-5 text-indigo-400"></i>
+                        <span class="truncate">Героическая</span>
+                    </button>
+                    <button class="pose-btn glass-btn p-3 rounded-xl text-xs font-semibold text-left flex flex-col justify-between h-20" data-pose="model">
+                        <i data-lucide="sparkles" class="w-5 h-5 text-indigo-400"></i>
+                        <span class="truncate">Позирование</span>
+                    </button>
+                    <button class="pose-btn glass-btn p-3 rounded-xl text-xs font-semibold text-left flex flex-col justify-between h-20" data-pose="wave">
+                        <i data-lucide="hand" class="w-5 h-5 text-indigo-400"></i>
+                        <span class="truncate">Приветствие</span>
+                    </button>
+                </div>
+
+                <!-- Facial Expressions -->
+                <div class="space-y-2 bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800">
+                    <label class="text-xs font-medium text-slate-300">Мимика лица</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button class="expression-btn glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate active" data-expr="neutral">Нейтр.</button>
+                        <button class="expression-btn glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate" data-expr="smile">Улыбка</button>
+                        <button class="expression-btn glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate" data-expr="serious">Серьез.</button>
+                        <button class="expression-btn glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate" data-expr="surprised">Удивл.</button>
+                        <button class="expression-btn glass-btn py-2 px-1 rounded-xl text-xs font-medium text-center truncate" data-expr="wink">Подмиг.</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 7: ENVIRONMENT & EXPORT -->
+            <div id="tab-export" class="tab-content hidden space-y-5">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-400">Окружение (Сцены) и Экспорт</h3>
+
+                <!-- Studio Environments -->
+                <div class="space-y-3 bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800">
+                    <label class="text-xs font-medium text-slate-300">Фоновая обстановка</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button class="env-btn glass-btn py-2 px-2 rounded-xl text-xs font-medium text-center truncate active" data-env="studio">Фотостудия</button>
+                        <button class="env-btn glass-btn py-2 px-2 rounded-xl text-xs font-medium text-center truncate" data-env="room">Комната</button>
+                        <button class="env-btn glass-btn py-2 px-2 rounded-xl text-xs font-medium text-center truncate" data-env="cyberpunk">Киберпанк офис</button>
+                        <button class="env-btn glass-btn py-2 px-2 rounded-xl text-xs font-medium text-center truncate" data-env="transparent">Прозрачный фон</button>
+                    </div>
+                </div>
+
+                <!-- Export Suite -->
+                <div class="space-y-3 pt-2">
+                    <button id="btn-export-png" class="w-full py-3 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-semibold rounded-xl text-xs sm:text-sm shadow-lg shadow-indigo-600/30 flex items-center justify-center space-x-2 active:scale-98 transition-transform">
+                        <i data-lucide="camera" class="w-4 h-4 shrink-0"></i>
+                        <span>Сохранить фото (PNG)</span>
+                    </button>
+
+                    <button id="btn-export-video" class="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold rounded-xl text-xs sm:text-sm shadow-lg shadow-purple-600/30 flex items-center justify-center space-x-2 active:scale-98 transition-transform">
+                        <i data-lucide="video" class="w-4 h-4 shrink-0"></i>
+                        <span>Записать видео (WebM 5 сек)</span>
+                    </button>
+
+                    <button id="btn-export-gltf" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold rounded-xl text-xs sm:text-sm flex items-center justify-center space-x-2 active:scale-98 transition-transform">
+                        <i data-lucide="box" class="w-4 h-4 shrink-0"></i>
+                        <span>Экспорт 3D модели (.GLTF)</span>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- MAIN APPLICATION SCRIPT -->
+    <script>
+        lucide.createIcons();
+
+        // --- GLOBAL STATE CONFIGURATION ---
+        const state = {
+            gender: 'female', // female, male, neutral
+            age: 25,
+            
+            // Anatomical & Facial Sliders
+            faceWidth: 1.0,
+            faceLength: 1.0,
+            jawWidth: 1.0,
+            cheekbones: 1.0,
+            noseWidth: 1.0,
+            lipThickness: 1.0,
+            eyeSize: 1.0,
+            earSize: 1.0,
+
+            height: 1.0,
+            build: 1.0,
+            muscleDef: 1.0,
+            shoulders: 1.0,
+            chest: 1.0,
+            waist: 1.0,
+            hips: 1.0,
+            legLength: 1.0,
+
+            // Materials & Colors
+            skinColor: '#e0a385',
+            skinShine: 0.2,
+            hairColor: '#2c1b18',
+            eyeColor: '#2b6cb0',
+            topColor: '#312e81',
+            bottomColor: '#1e293b',
+            shoesColor: '#ffffff',
+
+            // Styles & Accessories
+            hairstyle: 'short',
+            hairVolume: 1.0,
+            facialHair: 'none',
+            topType: 'tshirt',
+            bottomType: 'pants',
+            shoeType: 'sneakers',
+
+            glasses: false,
+            hat: false,
+            watch: false,
+
+            // Poses & Environment
+            pose: 'idle',
+            expression: 'neutral',
+            environment: 'studio'
+        };
+
+        let scene, camera, renderer, controls;
+        let characterGroup, environmentGroup;
+        let bodyMaterials = {};
+        let bodyParts = {};
+        let gridHelper;
+        let skinNormalTexture, clothNormalTexture;
+        let clock = new THREE.Clock();
+
+        // --- PROCEDURAL NORMAL TEXTURES ---
+        function generateSkinMicroNormalTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            const imgData = ctx.createImageData(256, 256);
+            for (let i = 0; i < imgData.data.length; i += 4) {
+                const noise = (Math.random() - 0.5) * 20;
+                imgData.data[i] = 128 + noise;
+                imgData.data[i+1] = 128 + noise;
+                imgData.data[i+2] = 255;
+                imgData.data[i+3] = 255;
+            }
+            ctx.putImageData(imgData, 0, 0);
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set(12, 12);
+            return texture;
+        }
+
+        function generateFabricNormalTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128; canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#8080ff';
+            ctx.fillRect(0,0,128,128);
+            for (let y=0; y<128; y+=4) {
+                ctx.fillStyle = '#9090ff';
+                ctx.fillRect(0, y, 128, 1.5);
+            }
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set(16, 16);
+            return texture;
+        }
+
+        // --- SCENE INITIALIZATION & LIGHTING ---
+        function initScene() {
+            const container = document.getElementById('viewport-container');
+            const canvas = document.getElementById('avatar-canvas');
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x07090e);
+
+            camera = new THREE.PerspectiveCamera(42, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.set(0, 1.35, 3.6);
+
+            renderer = new THREE.WebGLRenderer({
+                canvas: canvas,
+                antialias: true,
+                alpha: true,
+                preserveDrawingBuffer: true
+            });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.15;
+            renderer.outputEncoding = THREE.sRGBEncoding;
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.target.set(0, 1.1, 0);
+            controls.minDistance = 0.8;
+            controls.maxDistance = 6.5;
+            controls.maxPolarAngle = Math.PI / 2 + 0.08;
+
+            // PMREM Environment Generator
+            const pmremGenerator = new THREE.PMREMGenerator(renderer);
+            pmremGenerator.compileEquirectangularShader();
+            
+            const envScene = new THREE.Scene();
+            envScene.background = new THREE.Color(0x1a2238);
+            const envLight1 = new THREE.PointLight(0xffffff, 8, 10);
+            envLight1.position.set(2, 3, 2);
+            const envLight2 = new THREE.PointLight(0x818cf8, 5, 10);
+            envLight2.position.set(-2, 1, -2);
+            envScene.add(envLight1, envLight2);
+            scene.environment = pmremGenerator.fromScene(envScene).texture;
+
+            // Studio Lighting
+            const keyLight = new THREE.DirectionalLight(0xfff5ea, 1.1);
+            keyLight.position.set(2.5, 3.5, 2.5);
+            keyLight.castShadow = true;
+            keyLight.shadow.mapSize.width = 2048;
+            keyLight.shadow.mapSize.height = 2048;
+            keyLight.shadow.bias = -0.0001;
+            scene.add(keyLight);
+
+            const fillLight = new THREE.DirectionalLight(0x818cf8, 0.5);
+            fillLight.position.set(-3, 2, 2);
+            scene.add(fillLight);
+
+            const rimLight = new THREE.DirectionalLight(0xc084fc, 0.75);
+            rimLight.position.set(0, 3, -3);
+            scene.add(rimLight);
+
+            gridHelper = new THREE.GridHelper(10, 20, 0x6366f1, 0x1e293b);
+            gridHelper.position.y = 0;
+            scene.add(gridHelper);
+
+            skinNormalTexture = generateSkinMicroNormalTexture();
+            clothNormalTexture = generateFabricNormalTexture();
+
+            // Build Environment and Character
+            updateEnvironmentScene();
+            buildCharacter();
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        // --- ENVIRONMENT SCENES BUILDER ---
+        function updateEnvironmentScene() {
+            if (environmentGroup) scene.remove(environmentGroup);
+            environmentGroup = new THREE.Group();
+            scene.add(environmentGroup);
+
+            const env = state.environment;
+            if (env === 'studio') {
+                scene.background = new THREE.Color(0x0a0f1d);
+                gridHelper.visible = true;
+
+                // Softboxes backdrop
+                const backdropGeo = new THREE.PlaneGeometry(12, 8);
+                const backdropMat = new THREE.MeshStandardMaterial({ color: 0x141b2d, roughness: 0.9 });
+                const backdrop = new THREE.Mesh(backdropGeo, backdropMat);
+                backdrop.position.set(0, 3, -3);
+                environmentGroup.add(backdrop);
+            } else if (env === 'room') {
+                scene.background = new THREE.Color(0x131824);
+                gridHelper.visible = false;
+
+                // Floor
+                const floorGeo = new THREE.PlaneGeometry(10, 10);
+                const floorMat = new THREE.MeshStandardMaterial({ color: 0x222a38, roughness: 0.8 });
+                const floor = new THREE.Mesh(floorGeo, floorMat);
+                floor.rotation.x = -Math.PI / 2;
+                floor.receiveShadow = true;
+                environmentGroup.add(floor);
+
+                // Back Wall
+                const wallGeo = new THREE.PlaneGeometry(10, 6);
+                const wallMat = new THREE.MeshStandardMaterial({ color: 0x283244, roughness: 0.85 });
+                const wall = new THREE.Mesh(wallGeo, wallMat);
+                wall.position.set(0, 3, -4);
+                environmentGroup.add(wall);
+            } else if (env === 'cyberpunk') {
+                scene.background = new THREE.Color(0x050510);
+                gridHelper.visible = false;
+
+                // Floor
+                const floorGeo = new THREE.PlaneGeometry(12, 12);
+                const floorMat = new THREE.MeshStandardMaterial({ color: 0x0f1225, roughness: 0.4, metalness: 0.6 });
+                const floor = new THREE.Mesh(floorGeo, floorMat);
+                floor.rotation.x = -Math.PI / 2;
+                environmentGroup.add(floor);
+
+                // Neon glowing strip
+                const neonGeo = new THREE.BoxGeometry(6, 0.05, 0.05);
+                const neonMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+                const neon = new THREE.Mesh(neonGeo, neonMat);
+                neon.position.set(0, 0.02, -2.5);
+                environmentGroup.add(neon);
+            } else if (env === 'transparent') {
+                scene.background = null;
+                gridHelper.visible = false;
+            }
+        }
+
+        // --- PROCEDURAL CHARACTER ASSEMBLY ---
+        function buildCharacter() {
+            if (characterGroup) scene.remove(characterGroup);
+
+            characterGroup = new THREE.Group();
+            scene.add(characterGroup);
+
+            // Age roughness factor
+            const ageRoughness = 0.52 + (state.age - 18) * 0.003;
+
+            // Materials
+            bodyMaterials.skin = new THREE.MeshPhysicalMaterial({
+                color: new THREE.Color(state.skinColor),
+                roughness: ageRoughness - state.skinShine * 0.2,
+                metalness: 0.02,
+                clearcoat: state.skinShine,
+                clearcoatRoughness: 0.3,
+                transmission: 0.04,
+                thickness: 0.4,
+                normalMap: skinNormalTexture,
+                normalScale: new THREE.Vector2(0.04 * state.muscleDef, 0.04 * state.muscleDef),
+                envMapIntensity: 0.8
+            });
+
+            bodyMaterials.hair = new THREE.MeshStandardMaterial({
+                color: new THREE.Color(state.hairColor),
+                roughness: 0.75,
+                metalness: 0.1
+            });
+
+            bodyMaterials.top = new THREE.MeshStandardMaterial({
+                color: new THREE.Color(state.topColor),
+                roughness: 0.7,
+                normalMap: clothNormalTexture,
+                normalScale: new THREE.Vector2(0.05, 0.05)
+            });
+            bodyMaterials.bottom = new THREE.MeshStandardMaterial({
+                color: new THREE.Color(state.bottomColor),
+                roughness: 0.8,
+                normalMap: clothNormalTexture,
+                normalScale: new THREE.Vector2(0.08, 0.08)
+            });
+            bodyMaterials.shoes = new THREE.MeshStandardMaterial({
+                color: new THREE.Color(state.shoesColor),
+                roughness: 0.4,
+                metalness: 0.1
+            });
+            bodyMaterials.black = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4 });
+            bodyMaterials.metal = new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 0.85, roughness: 0.2 });
+
+            // --- HEAD ---
+            const headGroup = new THREE.Group();
+            headGroup.position.y = 1.65;
+            characterGroup.add(headGroup);
+            bodyParts.head = headGroup;
+
+            const headGeo = new THREE.SphereGeometry(0.138, 32, 32);
+            const headMesh = new THREE.Mesh(headGeo, bodyMaterials.skin);
+            headMesh.scale.set(state.faceWidth, 1.1 * state.faceLength, 1.05);
+            headMesh.castShadow = true;
+            headGroup.add(headMesh);
+            bodyParts.headMesh = headMesh;
+
+            // Jaw & Chin
+            const jawGeo = new THREE.CylinderGeometry(0.105 * state.jawWidth, 0.078, 0.09, 16);
+            const jawMesh = new THREE.Mesh(jawGeo, bodyMaterials.skin);
+            jawMesh.position.set(0, -0.075, 0.03);
+            headGroup.add(jawMesh);
+
+            // Ears (Left & Right)
+            const earGeo = new THREE.SphereGeometry(0.024 * state.earSize, 16, 16);
+            const leftEar = new THREE.Mesh(earGeo, bodyMaterials.skin);
+            leftEar.position.set(0.13 * state.faceWidth, 0, -0.01);
+            leftEar.scale.set(0.4, 1.2, 0.8);
+            const rightEar = leftEar.clone();
+            rightEar.position.x = -leftEar.position.x;
+            headGroup.add(leftEar, rightEar);
+
+            // Eyes
+            bodyParts.leftEye = createDualLayerEye(true);
+            bodyParts.rightEye = createDualLayerEye(false);
+            headGroup.add(bodyParts.leftEye, bodyParts.rightEye);
+
+            // Eyebrows
+            const eyebrowGeo = new THREE.BoxGeometry(0.036, 0.008, 0.01);
+            const leftEyebrow = new THREE.Mesh(eyebrowGeo, bodyMaterials.hair);
+            leftEyebrow.position.set(0.045, 0.05, 0.125);
+            const rightEyebrow = leftEyebrow.clone();
+            rightEyebrow.position.x = -0.045;
+            headGroup.add(leftEyebrow, rightEyebrow);
+            bodyParts.leftEyebrow = leftEyebrow;
+            bodyParts.rightEyebrow = rightEyebrow;
+
+            // Nose
+            const noseGeo = new THREE.CylinderGeometry(0.01 * state.noseWidth, 0.015, 0.05, 16);
+            const nose = new THREE.Mesh(noseGeo, bodyMaterials.skin);
+            nose.position.set(0, -0.005, 0.135);
+            nose.rotation.x = 0.25;
+            headGroup.add(nose);
+            bodyParts.nose = nose;
+
+            // Lips
+            const mouthGeo = new THREE.CylinderGeometry(0.024, 0.024, 0.009 * state.lipThickness, 16);
+            const lipsMat = new THREE.MeshPhysicalMaterial({ color: 0x9e4747, roughness: 0.3, clearcoat: 0.5 });
+            const lips = new THREE.Mesh(mouthGeo, lipsMat);
+            lips.position.set(0, -0.058, 0.124);
+            lips.rotation.x = Math.PI / 2;
+            headGroup.add(lips);
+            bodyParts.lips = lips;
+
+            // Hair & Facial Hair
+            const hairGroup = new THREE.Group();
+            headGroup.add(hairGroup);
+            bodyParts.hairGroup = hairGroup;
+            updateHairstyle();
+
+            const beardGroup = new THREE.Group();
+            headGroup.add(beardGroup);
+            bodyParts.beardGroup = beardGroup;
+            updateFacialHair();
+
+            // --- TORSO ---
+            const torsoGroup = new THREE.Group();
+            torsoGroup.position.y = 1.25;
+            characterGroup.add(torsoGroup);
+            bodyParts.torso = torsoGroup;
+
+            // Demographics & Gender modifications
+            let chestTopWidth = 0.165;
+            let chestBottomWidth = 0.13;
+            if (state.gender === 'female') {
+                chestTopWidth = 0.155 * state.chest;
+                chestBottomWidth = 0.12 * state.waist;
+            } else if (state.gender === 'male') {
+                chestTopWidth = 0.185 * state.chest * state.shoulders;
+                chestBottomWidth = 0.135 * state.waist;
+            } else {
+                chestTopWidth = 0.16 * state.chest;
+                chestBottomWidth = 0.125 * state.waist;
+            }
+
+            const chestGeo = new THREE.CylinderGeometry(chestTopWidth * state.build, chestBottomWidth * state.build, 0.46, 24);
+            const chestMesh = new THREE.Mesh(chestGeo, bodyMaterials.top);
+            chestMesh.castShadow = true;
+            torsoGroup.add(chestMesh);
+
+            // Female Breasts Mesh if female
+            if (state.gender === 'female' && state.chest > 1.0) {
+                const breastGeo = new THREE.SphereGeometry(0.045 * state.chest, 16, 16);
+                const leftBreast = new THREE.Mesh(breastGeo, bodyMaterials.top);
+                leftBreast.position.set(0.048 * state.chest, 0.08, 0.1);
+                leftBreast.scale.set(1.2, 1.0, 1.1);
+                const rightBreast = leftBreast.clone();
+                rightBreast.position.x = -leftBreast.position.x;
+                torsoGroup.add(leftBreast, rightBreast);
+            }
+
+            // Hips & Pelvis
+            const hipsWidth = state.gender === 'female' ? 0.165 * state.hips : 0.145 * state.hips;
+            const hipsGeo = new THREE.CylinderGeometry(chestBottomWidth * state.build, hipsWidth * state.build, 0.22, 24);
+            const hipsMesh = new THREE.Mesh(hipsGeo, bodyMaterials.bottom);
+            hipsMesh.position.y = -0.29;
+            hipsMesh.castShadow = true;
+            torsoGroup.add(hipsMesh);
+
+            // Arms & Legs
+            bodyParts.leftArm = createArm(true);
+            bodyParts.rightArm = createArm(false);
+            torsoGroup.add(bodyParts.leftArm, bodyParts.rightArm);
+
+            bodyParts.leftLeg = createLeg(true, hipsWidth);
+            bodyParts.rightLeg = createLeg(false, hipsWidth);
+            characterGroup.add(bodyParts.leftLeg, bodyParts.rightLeg);
+
+            // Accessories
+            const accGroup = new THREE.Group();
+            headGroup.add(accGroup);
+            bodyParts.accGroup = accGroup;
+            updateAccessories();
+
+            applyMorphScales();
+        }
+
+        // Helper: Create Refractive Dual-Layer Eye
+        function createDualLayerEye(isLeft) {
+            const eyeGroup = new THREE.Group();
+            const side = isLeft ? 1 : -1;
+            eyeGroup.position.set(side * 0.042, 0.022, 0.112);
+            eyeGroup.scale.setScalar(state.eyeSize);
+
+            const irisGeo = new THREE.SphereGeometry(0.018, 24, 24);
+            const irisMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(state.eyeColor), roughness: 0.4 });
+            const innerMesh = new THREE.Mesh(irisGeo, irisMat);
+            innerMesh.rotation.y = Math.PI;
+
+            const corneaGeo = new THREE.SphereGeometry(0.019, 24, 24);
+            const corneaMat = new THREE.MeshPhysicalMaterial({
+                color: 0xffffff, transparent: true, opacity: 0.1, roughness: 0.0, ior: 1.376, transmission: 0.95, clearcoat: 1.0
+            });
+            const outerMesh = new THREE.Mesh(corneaGeo, corneaMat);
+
+            eyeGroup.add(innerMesh, outerMesh);
+            return eyeGroup;
+        }
+
+        // Helper: Create Arm
+        function createArm(isLeft) {
+            const side = isLeft ? 1 : -1;
+            const armGroup = new THREE.Group();
+            armGroup.position.set(side * 0.185 * state.shoulders * state.build, 0.16, 0);
+
+            const upperArmGeo = new THREE.CylinderGeometry(0.044 * state.build, 0.038 * state.build, 0.3, 16);
+            const upperArm = new THREE.Mesh(upperArmGeo, bodyMaterials.top);
+            upperArm.position.y = -0.15;
+            upperArm.castShadow = true;
+            armGroup.add(upperArm);
+
+            const forearmGroup = new THREE.Group();
+            forearmGroup.position.y = -0.3;
+            const forearmGeo = new THREE.CylinderGeometry(0.038 * state.build, 0.032 * state.build, 0.28, 16);
+            const forearm = new THREE.Mesh(forearmGeo, bodyMaterials.skin);
+            forearm.position.y = -0.14;
+            forearm.castShadow = true;
+            forearmGroup.add(forearm);
+            armGroup.add(forearmGroup);
+
+            const handGeo = new THREE.SphereGeometry(0.035, 16, 16);
+            const hand = new THREE.Mesh(handGeo, bodyMaterials.skin);
+            hand.position.y = -0.3;
+            hand.scale.set(0.6, 1.2, 0.85);
+            forearmGroup.add(hand);
+
+            return armGroup;
+        }
+
+        // Helper: Create Leg
+        function createLeg(isLeft, hipsWidth) {
+            const side = isLeft ? 1 : -1;
+            const legGroup = new THREE.Group();
+            legGroup.position.set(side * hipsWidth * 0.65, 0.98, 0);
+
+            const thighGeo = new THREE.CylinderGeometry(0.065 * state.build, 0.05 * state.build, 0.45, 16);
+            const thigh = new THREE.Mesh(thighGeo, bodyMaterials.bottom);
+            thigh.position.y = -0.225;
+            thigh.castShadow = true;
+            legGroup.add(thigh);
+
+            const shinGroup = new THREE.Group();
+            shinGroup.position.y = -0.45;
+            const shinGeo = new THREE.CylinderGeometry(0.05 * state.build, 0.04 * state.build, 0.45, 16);
+            const shin = new THREE.Mesh(shinGeo, bodyMaterials.bottom);
+            shin.position.y = -0.225;
+            shin.castShadow = true;
+            shinGroup.add(shin);
+            legGroup.add(shinGroup);
+
+            const shoeGeo = new THREE.BoxGeometry(0.085, 0.065, 0.2);
+            const shoe = new THREE.Mesh(shoeGeo, bodyMaterials.shoes);
+            shoe.position.set(0, -0.47, 0.04);
+            shoe.castShadow = true;
+            shinGroup.add(shoe);
+
+            return legGroup;
+        }
+
+        // Hairstyle Builder with Volume
+        function updateHairstyle() {
+            const hairGroup = bodyParts.hairGroup;
+            hairGroup.clear();
+
+            if (state.hairstyle === 'bald') return;
+
+            const vol = state.hairVolume;
+            if (state.hairstyle === 'short') {
+                const geo = new THREE.SphereGeometry(0.142 * vol, 32, 16, 0, Math.PI * 2, 0, Math.PI / 1.9);
+                const mesh = new THREE.Mesh(geo, bodyMaterials.hair);
+                mesh.position.y = 0.01;
+                hairGroup.add(mesh);
+            } else if (state.hairstyle === 'waves') {
+                const geo = new THREE.SphereGeometry(0.148 * vol, 32, 16, 0, Math.PI * 2, 0, Math.PI / 1.8);
+                const mesh = new THREE.Mesh(geo, bodyMaterials.hair);
+                mesh.position.y = 0.015;
+                hairGroup.add(mesh);
+            } else if (state.hairstyle === 'afro') {
+                const afroGeo = new THREE.SphereGeometry(0.18 * vol, 32, 32);
+                const afroMesh = new THREE.Mesh(afroGeo, bodyMaterials.hair);
+                afroMesh.position.y = 0.04;
+                hairGroup.add(afroMesh);
+            } else if (state.hairstyle === 'ponytail') {
+                const topGeo = new THREE.SphereGeometry(0.142, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+                const topMesh = new THREE.Mesh(topGeo, bodyMaterials.hair);
+                const tailGeo = new THREE.ConeGeometry(0.05 * vol, 0.32 * vol, 16);
+                const tailMesh = new THREE.Mesh(tailGeo, bodyMaterials.hair);
+                tailMesh.position.set(0, 0.04, -0.16);
+                tailMesh.rotation.x = -2.2;
+                hairGroup.add(topMesh, tailMesh);
+            } else if (state.hairstyle === 'bun') {
+                const topGeo = new THREE.SphereGeometry(0.142, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+                const topMesh = new THREE.Mesh(topGeo, bodyMaterials.hair);
+                const bunGeo = new THREE.SphereGeometry(0.06 * vol, 16, 16);
+                const bunMesh = new THREE.Mesh(bunGeo, bodyMaterials.hair);
+                bunMesh.position.set(0, 0.12, -0.12);
+                hairGroup.add(topMesh, bunMesh);
+            }
+        }
+
+        function updateFacialHair() {
+            const beardGroup = bodyParts.beardGroup;
+            beardGroup.clear();
+            if (state.facialHair === 'none' || state.gender === 'female') return;
+
+            if (state.facialHair === 'stubble') {
+                const geo = new THREE.CylinderGeometry(0.11, 0.088, 0.08, 16, 1, true, 0, Math.PI);
+                const mat = new THREE.MeshStandardMaterial({ color: state.hairColor, roughness: 0.9, transparent: true, opacity: 0.6 });
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.set(0, -0.06, 0.04);
+                mesh.rotation.y = Math.PI / 2;
+                beardGroup.add(mesh);
+            } else if (state.facialHair === 'full') {
+                const geo = new THREE.CylinderGeometry(0.115, 0.092, 0.12, 16);
+                const mesh = new THREE.Mesh(geo, bodyMaterials.hair);
+                mesh.position.set(0, -0.08, 0.04);
+                beardGroup.add(mesh);
+            }
+        }
+
+        function updateAccessories() {
+            const accGroup = bodyParts.accGroup;
+            accGroup.clear();
+
+            if (state.glasses) {
+                const frameGeo = new THREE.TorusGeometry(0.028, 0.004, 8, 24);
+                const leftFrame = new THREE.Mesh(frameGeo, bodyMaterials.black);
+                leftFrame.position.set(0.042, 0.02, 0.13);
+                const rightFrame = new THREE.Mesh(frameGeo, bodyMaterials.black);
+                rightFrame.position.set(-0.042, 0.02, 0.13);
+                accGroup.add(leftFrame, rightFrame);
+            }
+            if (state.hat) {
+                const capGeo = new THREE.SphereGeometry(0.15, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+                const cap = new THREE.Mesh(capGeo, bodyMaterials.top);
+                cap.position.y = 0.02;
+                const visorGeo = new THREE.BoxGeometry(0.15, 0.01, 0.12);
+                const visor = new THREE.Mesh(visorGeo, bodyMaterials.top);
+                visor.position.set(0, 0.02, 0.18);
+                accGroup.add(cap, visor);
+            }
+        }
+
+        function applyMorphScales() {
+            characterGroup.scale.set(state.height, state.height, state.height);
+            if (bodyParts.leftLeg && bodyParts.rightLeg) {
+                bodyParts.leftLeg.scale.y = state.legLength;
+                bodyParts.rightLeg.scale.y = state.legLength;
+            }
+        }
+
+        // --- ANIMATIONS & POSES ---
+        function updatePoseAndAnimation(time) {
+            const pose = state.pose;
+            bodyParts.head.rotation.set(0, 0, 0);
+            bodyParts.leftArm.rotation.set(0, 0, -0.15);
+            bodyParts.rightArm.rotation.set(0, 0, 0.15);
+            bodyParts.leftLeg.rotation.set(0, 0, 0);
+            bodyParts.rightLeg.rotation.set(0, 0, 0);
+
+            if (pose === 'idle') {
+                const breath = Math.sin(time * 2.2) * 0.025;
+                bodyParts.torso.position.y = 1.25 + breath * 0.1;
+                bodyParts.leftArm.rotation.z = -0.15 + breath * 0.15;
+                bodyParts.rightArm.rotation.z = 0.15 - breath * 0.15;
+            } else if (pose === 'tpose') {
+                bodyParts.leftArm.rotation.set(0, 0, -Math.PI / 2);
+                bodyParts.rightArm.rotation.set(0, 0, Math.PI / 2);
+            } else if (pose === 'walk') {
+                const swing = Math.sin(time * 4.5);
+                bodyParts.leftArm.rotation.x = swing * 0.45;
+                bodyParts.rightArm.rotation.x = -swing * 0.45;
+                bodyParts.leftLeg.rotation.x = -swing * 0.45;
+                bodyParts.rightLeg.rotation.x = swing * 0.45;
+            } else if (pose === 'hero') {
+                bodyParts.leftArm.rotation.set(0.3, 0, -0.4);
+                bodyParts.rightArm.rotation.set(0.3, 0, 0.4);
+                bodyParts.head.rotation.x = -0.1;
+            } else if (pose === 'model') {
+                bodyParts.torso.rotation.y = 0.28;
+                bodyParts.head.rotation.y = -0.18;
+                bodyParts.leftArm.rotation.z = -0.35;
+                bodyParts.rightArm.rotation.z = 0.55;
+            } else if (pose === 'wave') {
+                bodyParts.rightArm.rotation.z = 2.45;
+                bodyParts.rightArm.rotation.x = Math.sin(time * 8) * 0.25;
+            }
+
+            // Expressions
+            if (state.expression === 'smile') {
+                bodyParts.lips.scale.set(1.2, 1.4, 1);
+            } else if (state.expression === 'serious') {
+                bodyParts.leftEyebrow.rotation.z = 0.1;
+                bodyParts.rightEyebrow.rotation.z = -0.1;
+            } else if (state.expression === 'surprised') {
+                bodyParts.lips.scale.set(0.8, 2.0, 1);
+            } else if (state.expression === 'wink') {
+                bodyParts.leftEye.scale.set(state.eyeSize, 0.1, state.eyeSize);
+            } else {
+                bodyParts.leftEye.scale.setScalar(state.eyeSize);
+                bodyParts.lips.scale.set(1, state.lipThickness, 1);
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = clock.getElapsedTime();
+            updatePoseAndAnimation(time);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('viewport-container');
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        window.setSkin = function(colorHex) {
+            state.skinColor = colorHex;
+            document.getElementById('skinColor').value = colorHex;
+            bodyMaterials.skin.color.set(colorHex);
+        };
+
+        // --- BIND UI CONTROLS ---
+        function setupUI() {
+            // Navigation Tabs with Active Label Reveal
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.tab-btn').forEach(b => {
+                        b.classList.remove('active', 'text-indigo-400', 'border-b-2', 'border-indigo-500');
+                        b.classList.add('text-slate-400');
+                    });
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+
+                    btn.classList.add('active', 'text-indigo-400', 'border-b-2', 'border-indigo-500');
+                    btn.classList.remove('text-slate-400');
+                    const tabId = btn.getAttribute('data-tab');
+                    document.getElementById(tabId).classList.remove('hidden');
+                });
+            });
+
+            // Sliders binding
+            const sliders = [
+                'faceWidth', 'faceLength', 'jawWidth', 'cheekbones', 'noseWidth', 'lipThickness', 'eyeSize', 'earSize',
+                'height', 'build', 'muscleDef', 'shoulders', 'chest', 'waist', 'hips', 'legLength', 'skinShine', 'hairVolume', 'age'
+            ];
+            sliders.forEach(id => {
+                const input = document.getElementById(`param-${id}`);
+                const display = document.getElementById(`val-${id}`);
+                if (!input) return;
+
+                input.addEventListener('input', (e) => {
+                    const val = parseFloat(e.target.value);
+                    state[id] = val;
+                    if (display) {
+                        if (id === 'height') display.textContent = `${Math.round(val * 175)} см`;
+                        else if (id === 'age') display.textContent = `${Math.round(val)} лет`;
+                        else display.textContent = val.toFixed(2);
+                    }
+
+                    if (id === 'skinShine') {
+                        bodyMaterials.skin.clearcoat = val;
+                    } else if (id === 'muscleDef') {
+                        bodyMaterials.skin.normalScale.set(0.04 * val, 0.04 * val);
+                    } else if (['height', 'legLength'].includes(id)) {
+                        applyMorphScales();
+                    } else {
+                        buildCharacter();
+                    }
+                });
+            });
+
+            // Gender Selection
+            document.querySelectorAll('.gender-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.gender-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    state.gender = btn.getAttribute('data-gender');
+                    buildCharacter();
+                });
+            });
+
+            // Age Presets
+            document.querySelectorAll('.age-preset').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.age-preset').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    const ageVal = parseInt(btn.getAttribute('data-age'));
+                    state.age = ageVal;
+                    document.getElementById('param-age').value = ageVal;
+                    document.getElementById('val-age').textContent = `${ageVal} лет`;
+                    buildCharacter();
+                });
+            });
+
+            // Color Pickers
+            document.getElementById('skinColor').addEventListener('input', (e) => setSkin(e.target.value));
+            document.getElementById('hairColor').addEventListener('input', (e) => {
+                state.hairColor = e.target.value;
+                bodyMaterials.hair.color.set(e.target.value);
+            });
+            document.getElementById('eyeColor').addEventListener('input', (e) => {
+                state.eyeColor = e.target.value;
+                buildCharacter();
+            });
+            document.getElementById('topColor').addEventListener('input', (e) => {
+                state.topColor = e.target.value;
+                bodyMaterials.top.color.set(e.target.value);
+            });
+            document.getElementById('bottomColor').addEventListener('input', (e) => {
+                state.bottomColor = e.target.value;
+                bodyMaterials.bottom.color.set(e.target.value);
+            });
+            document.getElementById('shoesColor').addEventListener('input', (e) => {
+                state.shoesColor = e.target.value;
+                bodyMaterials.shoes.color.set(e.target.value);
+            });
+
+            // Hairstyle buttons
+            document.querySelectorAll('.hairstyle-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.hairstyle-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    state.hairstyle = btn.getAttribute('data-style');
+                    updateHairstyle();
+                });
+            });
+
+            // Facial hair buttons
+            document.querySelectorAll('.facial-hair-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.facial-hair-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    state.facialHair = btn.getAttribute('data-beard');
+                    updateFacialHair();
+                });
+            });
+
+            // Accessories
+            document.getElementById('toggle-glasses').addEventListener('click', function() {
+                state.glasses = !state.glasses;
+                this.classList.toggle('active', state.glasses);
+                updateAccessories();
+            });
+            document.getElementById('toggle-hat').addEventListener('click', function() {
+                state.hat = !state.hat;
+                this.classList.toggle('active', state.hat);
+                updateAccessories();
+            });
+            document.getElementById('toggle-watch').addEventListener('click', function() {
+                state.watch = !state.watch;
+                this.classList.toggle('active', state.watch);
+            });
+
+            // Poses & Expressions
+            document.querySelectorAll('.pose-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.pose-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    state.pose = btn.getAttribute('data-pose');
+                });
+            });
+
+            document.querySelectorAll('.expression-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.expression-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    state.expression = btn.getAttribute('data-expr');
+                });
+            });
+
+            // Environments
+            document.querySelectorAll('.env-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.env-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    state.environment = btn.getAttribute('data-env');
+                    updateEnvironmentScene();
+                });
+            });
+
+            // Camera presets
+            document.querySelectorAll('[data-cam]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const preset = btn.getAttribute('data-cam');
+                    if (preset === 'full') {
+                        camera.position.set(0, 1.25, 3.6);
+                        controls.target.set(0, 1.0, 0);
+                    } else if (preset === 'bust') {
+                        camera.position.set(0, 1.48, 1.7);
+                        controls.target.set(0, 1.42, 0);
+                    } else if (preset === 'face') {
+                        camera.position.set(0, 1.65, 0.75);
+                        controls.target.set(0, 1.65, 0);
+                    }
+                });
+            });
+
+            document.getElementById('btn-reset-cam').addEventListener('click', () => {
+                camera.position.set(0, 1.35, 3.6);
+                controls.target.set(0, 1.1, 0);
+            });
+
+            document.getElementById('btn-toggle-grid').addEventListener('click', function() {
+                gridHelper.visible = !gridHelper.visible;
+                this.classList.toggle('active', gridHelper.visible);
+            });
+
+            // Randomizer
+            document.getElementById('btn-randomize').addEventListener('click', () => {
+                state.height = 0.85 + Math.random() * 0.35;
+                state.build = 0.8 + Math.random() * 0.4;
+                state.chest = 0.8 + Math.random() * 0.5;
+                state.hips = 0.8 + Math.random() * 0.5;
+                state.skinColor = '#' + Math.floor(Math.random()*16777215).toString(16);
+                state.hairColor = '#' + Math.floor(Math.random()*16777215).toString(16);
+                state.topColor = '#' + Math.floor(Math.random()*16777215).toString(16);
+                
+                document.getElementById('skinColor').value = state.skinColor;
+                document.getElementById('hairColor').value = state.hairColor;
+                document.getElementById('topColor').value = state.topColor;
+                buildCharacter();
+            });
+
+            // PNG Export
+            document.getElementById('btn-export-png').addEventListener('click', () => {
+                renderer.render(scene, camera);
+                const link = document.createElement('a');
+                link.download = `character-studio-${Date.now()}.png`;
+                link.href = renderer.domElement.toDataURL('image/png');
+                link.click();
+            });
+
+            // WebM Recording
+            document.getElementById('btn-export-video').addEventListener('click', () => {
+                const stream = renderer.domElement.captureStream(60);
+                const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+                const chunks = [];
+
+                const badge = document.getElementById('recording-badge');
+                const timer = document.getElementById('recording-timer');
+                badge.classList.remove('hidden');
+
+                let startTime = Date.now();
+                const interval = setInterval(() => {
+                    timer.textContent = `Запись: ${((Date.now() - startTime) / 1000).toFixed(1)}s`;
+                }, 100);
+
+                recorder.ondataavailable = (e) => chunks.push(e.data);
+                recorder.onstop = () => {
+                    clearInterval(interval);
+                    badge.classList.add('hidden');
+                    const blob = new Blob(chunks, { type: 'video/webm' });
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `character-video-${Date.now()}.webm`;
+                    a.click();
+                };
+
+                recorder.start();
+                setTimeout(() => recorder.stop(), 5000);
+            });
+
+            // GLTF Export
+            document.getElementById('btn-export-gltf').addEventListener('click', () => {
+                const exporter = new THREE.GLTFExporter();
+                exporter.parse(
+                    characterGroup,
+                    (gltf) => {
+                        const blob = new Blob([JSON.stringify(gltf, null, 2)], { type: 'application/json' });
+                        const link = document.createElement('a');
+                        link.href = URL.createObjectURL(blob);
+                        link.download = `character-model-${Date.now()}.gltf`;
+                        link.click();
+                    },
+                    { binary: false }
+                );
+            });
+        }
+
+        window.onload = function() {
+            initScene();
+            setupUI();
+            animate();
+        };
+    </script>
+</body>
+</html>

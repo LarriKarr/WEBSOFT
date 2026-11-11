@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CryptoSuite</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        .tab-btn .tab-label {
+            display: none;
+        }
+        .tab-btn.tab-active .tab-label {
+            display: inline;
+        }
+        .tab-btn.tab-active {
+            background-color: #1e293b;
+            color: #60a5fa;
+            border-bottom: 2px solid #3b82f6;
+        }
+        .custom-textarea {
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            color: #f1f5f9;
+        }
+        .custom-textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col pb-6">
+
+    <!-- Header -->
+    <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-30 px-3 py-2.5 shadow-md">
+        <div class="max-w-xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-2.5">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0">
+                    <i class="fa-solid fa-shield-halved text-white text-sm"></i>
+                </div>
+                <h1 class="font-bold text-base tracking-wide text-slate-100">CryptoSuite</h1>
+            </div>
+            <span class="text-[10px] uppercase font-semibold tracking-wider text-slate-500 bg-slate-800 px-2 py-1 rounded-md">v2.0</span>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="bg-slate-900/95 backdrop-blur-md border-b border-slate-800 sticky top-[49px] z-20 px-2">
+        <div class="max-w-xl mx-auto flex justify-between items-center space-x-1 py-1.5 overflow-x-auto text-xs">
+            <button onclick="switchTab('text-crypto')" id="tab-text-crypto" class="tab-btn tab-active px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 transition flex items-center space-x-1.5 whitespace-nowrap shrink-0">
+                <i class="fa-solid fa-lock text-xs"></i>
+                <span class="tab-label font-medium">Шифр</span>
+            </button>
+            <button onclick="switchTab('encoding')" id="tab-encoding" class="tab-btn px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 transition flex items-center space-x-1.5 whitespace-nowrap shrink-0">
+                <i class="fa-solid fa-code text-xs"></i>
+                <span class="tab-label font-medium">Код</span>
+            </button>
+            <button onclick="switchTab('steganography')" id="tab-steganography" class="tab-btn px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 transition flex items-center space-x-1.5 whitespace-nowrap shrink-0">
+                <i class="fa-solid fa-image text-xs"></i>
+                <span class="tab-label font-medium">Стегано</span>
+            </button>
+            <button onclick="switchTab('audio-code')" id="tab-audio-code" class="tab-btn px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 transition flex items-center space-x-1.5 whitespace-nowrap shrink-0">
+                <i class="fa-solid fa-music text-xs"></i>
+                <span class="tab-label font-medium">Аудио</span>
+            </button>
+            <button onclick="switchTab('file-convert')" id="tab-file-convert" class="tab-btn px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 transition flex items-center space-x-1.5 whitespace-nowrap shrink-0">
+                <i class="fa-solid fa-folder-open text-xs"></i>
+                <span class="tab-label font-medium">Файлы</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <main class="max-w-xl mx-auto w-full px-3 pt-4 flex-1">
+
+        <!-- TAB 1: TEXT CRYPTO -->
+        <section id="pane-text-crypto" class="tab-pane space-y-4">
+            <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-3.5 shadow-lg space-y-3.5">
+                <div>
+                    <label class="text-xs font-semibold text-slate-300 block mb-1">Алгоритм</label>
+                    <select id="crypto-algorithm" onchange="onCryptoAlgoChange()" class="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-2 text-xs focus:outline-none focus:border-blue-500">
+                        <option value="AES-GCM">AES-256-GCM (Надежный)</option>
+                        <option value="AES-CBC">AES-256-CBC</option>
+                        <option value="Caesar">Шифр Цезаря (Сдвиг)</option>
+                        <option value="Vigenere">Шифр Виженера (Слово)</option>
+                        <option value="ROT13">ROT13</option>
+                        <option value="XOR">XOR (Hex Key)</option>
+                    </select>
+                </div>
+
+                <!-- Key Controls Area -->
+                <div id="crypto-key-container" class="grid grid-cols-1 gap-2.5">
+                    <div>
+                        <label class="block text-[11px] font-medium text-slate-400 mb-1" id="label-crypto-key">Секретный ключ / Пароль</label>
+                        <div class="relative">
+                            <input type="password" id="crypto-key" placeholder="Введите ключ..." class="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-2 text-xs focus:outline-none focus:border-blue-500 pr-9">
+                            <button onclick="togglePasswordVisibility('crypto-key', this)" class="absolute right-2.5 top-2 text-slate-500 hover:text-slate-300 p-0.5">
+                                <i class="fa-solid fa-eye text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="crypto-extra-param" class="hidden">
+                        <label class="block text-[11px] font-medium text-slate-400 mb-1" id="label-extra-param">Сдвиг</label>
+                        <input type="number" id="crypto-param-num" value="3" class="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-2 text-xs focus:outline-none focus:border-blue-500">
+                    </div>
+                </div>
+
+                <!-- Input Text -->
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-[11px] font-medium text-slate-400">Исходный текст</label>
+                        <button onclick="clearText('crypto-input')" class="text-[11px] text-slate-500 hover:text-slate-300">Очистить</button>
+                    </div>
+                    <textarea id="crypto-input" rows="3" placeholder="Введите текст..." class="custom-textarea w-full rounded-lg p-2.5 text-xs"></textarea>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="processCrypto(true)" class="bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-medium py-2 px-2 rounded-lg shadow transition flex items-center justify-center space-x-1 text-xs min-w-0">
+                        <i class="fa-solid fa-lock text-[10px] shrink-0"></i>
+                        <span class="truncate">Зашифровать</span>
+                    </button>
+                    <button onclick="processCrypto(false)" class="bg-slate-700 hover:bg-slate-600 active:bg-slate-800 text-slate-200 font-medium py-2 px-2 rounded-lg shadow transition flex items-center justify-center space-x-1 text-xs min-w-0">
+                        <i class="fa-solid fa-lock-open text-[10px] shrink-0"></i>
+                        <span class="truncate">Расшифровать</span>
+                    </button>
+                </div>
+
+                <!-- Output Text -->
+                <div>
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <label class="text-[11px] font-medium text-slate-400 truncate">Результат</label>
+                        <div class="flex items-center space-x-2 shrink-0">
+                            <button onclick="copyToClipboard('crypto-output')" class="text-[11px] text-blue-400 hover:text-blue-300 flex items-center space-x-1">
+                                <i class="fa-regular fa-copy"></i>
+                                <span>Копия</span>
+                            </button>
+                            <button onclick="downloadText('crypto-output', 'result.txt')" class="text-[11px] text-slate-400 hover:text-slate-200 flex items-center space-x-1">
+                                <i class="fa-solid fa-download"></i>
+                                <span>Файл</span>
+                            </button>
+                        </div>
+                    </div>
+                    <textarea id="crypto-output" rows="3" readonly placeholder="Здесь появится результат..." class="custom-textarea w-full rounded-lg p-2.5 text-xs bg-slate-900/90 text-emerald-400 font-mono"></textarea>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: ENCODING -->
+        <section id="pane-encoding" class="tab-pane hidden space-y-4">
+            <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-3.5 shadow-lg space-y-3.5">
+                <div>
+                    <label class="text-xs font-semibold text-slate-300 block mb-1">Формат кодирования</label>
+                    <select id="encoding-type" class="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-2 text-xs focus:outline-none focus:border-blue-500">
+                        <option value="base64">Base64</option>
+                        <option value="hex">Hex (Шестнадцатеричный)</option>
+                        <option value="binary">Binary (Двоичный 01)</option>
+                        <option value="url">URL Encode / Decode</option>
+                        <option value="html">HTML Entities</option>
+                    </select>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-[11px] font-medium text-slate-400">Входные данные</label>
+                        <button onclick="clearText('encode-input')" class="text-[11px] text-slate-500 hover:text-slate-300">Очистить</button>
+                    </div>
+                    <textarea id="encode-input" rows="3" placeholder="Введите текст..." class="custom-textarea w-full rounded-lg p-2.5 text-xs"></textarea>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="processEncoding(true)" class="bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 px-2 rounded-lg shadow transition text-xs truncate">
+                        Закодировать
+                    </button>
+                    <button onclick="processEncoding(false)" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium py-2 px-2 rounded-lg shadow transition text-xs truncate">
+                        Декодировать
+                    </button>
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <label class="text-[11px] font-medium text-slate-400 truncate">Результат</label>
+                        <div class="flex items-center space-x-2 shrink-0">
+                            <button onclick="copyToClipboard('encode-output')" class="text-[11px] text-blue-400 hover:text-blue-300">Копия</button>
+                            <button onclick="downloadText('encode-output', 'encoded.txt')" class="text-[11px] text-slate-400 hover:text-slate-200">Файл</button>
+                        </div>
+                    </div>
+                    <textarea id="encode-output" rows="3" readonly placeholder="Результат..." class="custom-textarea w-full rounded-lg p-2.5 text-xs bg-slate-900/90 text-cyan-400 font-mono"></textarea>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: STEGANOGRAPHY -->
+        <section id="pane-steganography" class="tab-pane hidden space-y-4">
+            <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-3.5 shadow-lg space-y-3.5">
+                <div class="border-b border-slate-700/50 pb-2">
+                    <h3 class="text-xs font-semibold text-slate-200">Стеганография (Скрытие текста в PNG)</h3>
+                </div>
+
+                <div class="grid grid-cols-2 gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800 text-xs">
+                    <button onclick="setStegoMode('hide')" id="stego-mode-hide" class="py-1.5 rounded-md font-medium bg-blue-600 text-white transition">Скрыть</button>
+                    <button onclick="setStegoMode('extract')" id="stego-mode-extract" class="py-1.5 rounded-md font-medium text-slate-400 transition">Извлечь</button>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-medium text-slate-400 mb-1">Изображение (PNG/JPG)</label>
+                    <input type="file" id="stego-file-input" accept="image/*" class="hidden" onchange="handleStegoFileSelect(event)">
+                    <div onclick="document.getElementById('stego-file-input').click()" class="border border-dashed border-slate-700 hover:border-blue-500 rounded-lg p-3 text-center cursor-pointer bg-slate-900/50 transition">
+                        <i class="fa-solid fa-cloud-arrow-up text-lg text-slate-400 mb-1"></i>
+                        <p class="text-xs text-slate-300 truncate" id="stego-file-name">Выберите файл</p>
+                    </div>
+                </div>
+
+                <div id="stego-hide-controls" class="space-y-2.5">
+                    <textarea id="stego-secret-text" rows="2" placeholder="Секретный текст..." class="custom-textarea w-full rounded-lg p-2.5 text-xs"></textarea>
+                    <button onclick="processSteganographyHide()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 px-3 rounded-lg shadow transition text-xs flex items-center justify-center space-x-1.5">
+                        <i class="fa-solid fa-wand-magic-sparkles text-[10px]"></i>
+                        <span>Внедрить текст в картинку</span>
+                    </button>
+                </div>
+
+                <div id="stego-extract-controls" class="hidden space-y-2.5">
+                    <button onclick="processSteganographyExtract()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-3 rounded-lg shadow transition text-xs flex items-center justify-center space-x-1.5">
+                        <i class="fa-solid fa-key text-[10px]"></i>
+                        <span>Прочитать скрытый текст</span>
+                    </button>
+                    <textarea id="stego-extracted-text" rows="2" readonly placeholder="Извлеченное сообщение..." class="custom-textarea w-full rounded-lg p-2.5 text-xs bg-slate-900/90 text-emerald-400 font-mono"></textarea>
+                </div>
+
+                <div id="stego-result-container" class="hidden space-y-2 pt-2 border-t border-slate-700/50">
+                    <div class="flex justify-center bg-slate-900 rounded-lg p-1 border border-slate-800">
+                        <canvas id="stego-canvas" class="max-w-full max-h-48 rounded object-contain"></canvas>
+                    </div>
+                    <button onclick="downloadStegoImage()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 px-3 rounded-lg shadow transition text-xs flex items-center justify-center space-x-1.5">
+                        <i class="fa-solid fa-download text-[10px]"></i>
+                        <span>Скачать PNG</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 4: AUDIO CODE -->
+        <section id="pane-audio-code" class="tab-pane hidden space-y-4">
+            <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-3.5 shadow-lg space-y-3.5">
+                <div class="border-b border-slate-700/50 pb-2">
+                    <h3 class="text-xs font-semibold text-slate-200">Аудио-сигнал (Звуковое кодирование)</h3>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-medium text-slate-400 mb-1">Текст для звука</label>
+                    <textarea id="audio-input-text" rows="2" placeholder="Сообщение..." class="custom-textarea w-full rounded-lg p-2.5 text-xs">HELLO CRYPTO</textarea>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-[10px] font-medium text-slate-400 mb-1">Длительность (мс)</label>
+                        <input type="number" id="audio-tone-duration" value="120" class="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded-lg px-2 py-1.5 text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-medium text-slate-400 mb-1">Частота (Гц)</label>
+                        <input type="number" id="audio-base-freq" value="440" class="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded-lg px-2 py-1.5 text-xs">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="playAudioCode()" class="bg-amber-600 hover:bg-amber-500 text-white font-medium py-2 px-2 rounded-lg shadow transition text-xs flex items-center justify-center space-x-1 min-w-0">
+                        <i class="fa-solid fa-play text-[10px]"></i>
+                        <span class="truncate">Играть</span>
+                    </button>
+                    <button onclick="generateAudioWav()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium py-2 px-2 rounded-lg shadow transition text-xs flex items-center justify-center space-x-1 min-w-0">
+                        <i class="fa-solid fa-file-wave text-[10px]"></i>
+                        <span class="truncate">Создать WAV</span>
+                    </button>
+                </div>
+
+                <div id="audio-player-container" class="hidden pt-2 border-t border-slate-700/50">
+                    <audio id="audio-player" controls class="w-full bg-slate-900 rounded-lg p-1 h-10"></audio>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 5: FILE CONVERTER -->
+        <section id="pane-file-convert" class="tab-pane hidden space-y-4">
+            <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-3.5 shadow-lg space-y-3.5">
+                <div class="border-b border-slate-700/50 pb-2">
+                    <h3 class="text-xs font-semibold text-slate-200">Файлы в Base64 / Hex</h3>
+                </div>
+
+                <div>
+                    <input type="file" id="file-convert-input" class="w-full text-[11px] text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[11px] file:font-medium file:bg-slate-700 file:text-slate-200 hover:file:bg-slate-600 cursor-pointer">
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="processFileEncode('base64')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-2 rounded-lg shadow transition text-xs truncate">В Base64</button>
+                    <button onclick="processFileEncode('hex')" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium py-2 px-2 rounded-lg shadow transition text-xs truncate">В Hex</button>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-[11px] font-medium text-slate-400">Дамп файла</label>
+                        <button onclick="copyToClipboard('file-dump-output')" class="text-[11px] text-blue-400 hover:text-blue-300">Копия</button>
+                    </div>
+                    <textarea id="file-dump-output" rows="3" placeholder="Base64 или Hex дамп..." class="custom-textarea w-full rounded-lg p-2.5 text-[11px] bg-slate-900/90 text-emerald-400 font-mono"></textarea>
+                </div>
+
+                <div class="pt-3 border-t border-slate-700/50 space-y-2">
+                    <input type="text" id="restore-filename" value="restored.png" placeholder="Имя файла (file.png)" class="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-1.5 text-xs">
+                    <button onclick="downloadFileFromBase64()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 px-3 rounded-lg shadow transition text-xs flex items-center justify-center space-x-1.5">
+                        <i class="fa-solid fa-download text-[10px]"></i>
+                        <span>Скачать из Base64</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-slate-800 text-slate-100 border border-slate-700 text-xs px-3 py-2 rounded-lg shadow-2xl flex items-center space-x-2 transition-all">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400 text-xs"></i>
+        <span id="toast-message" class="truncate max-w-[200px]">Уведомление</span>
+    </div>
+
+    <!-- JavaScript Core Logic -->
+    <script>
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('tab-active'));
+            
+            document.getElementById(`pane-${tabId}`).classList.remove('hidden');
+            document.getElementById(`tab-${tabId}`).classList.add('tab-active');
+        }
+
+        function togglePasswordVisibility(inputId, btn) {
+            const input = document.getElementById(inputId);
+            const icon = btn.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fa-solid fa-eye-slash text-xs';
+            } else {
+                input.type = 'password';
+                icon.className = 'fa-solid fa-eye text-xs';
+            }
+        }
+
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toast-icon');
+            const msg = document.getElementById('toast-message');
+
+            msg.textContent = message;
+            icon.className = isError 
+                ? 'fa-solid fa-circle-exclamation text-rose-400 text-xs' 
+                : 'fa-solid fa-circle-check text-emerald-400 text-xs';
+
+            toast.classList.remove('hidden');
+            setTimeout(() => { toast.classList.add('hidden'); }, 2500);
+        }
+
+        function copyToClipboard(elementId) {
+            const textarea = document.getElementById(elementId);
+            if (!textarea.value) { showToast('Нечего копировать', true); return; }
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showToast('Скопировано');
+            } catch (err) {
+                showToast('Ошибка копирования', true);
+            }
+        }
+
+        function clearText(elementId) {
+            document.getElementById(elementId).value = '';
+        }
+
+        function downloadText(elementId, filename) {
+            const text = document.getElementById(elementId).value;
+            if (!text) { showToast('Нет данных', true); return; }
+            const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+
+        function onCryptoAlgoChange() {
+            const algo = document.getElementById('crypto-algorithm').value;
+            const extraContainer = document.getElementById('crypto-extra-param');
+            const labelKey = document.getElementById('label-crypto-key');
+
+            if (algo === 'Caesar') {
+                labelKey.textContent = 'Ключ не нужен';
+                extraContainer.classList.remove('hidden');
+            } else if (algo === 'ROT13') {
+                labelKey.textContent = 'Фиксированный (13)';
+                extraContainer.classList.add('hidden');
+            } else {
+                labelKey.textContent = 'Секретный ключ / Пароль';
+                extraContainer.classList.add('hidden');
+            }
+        }
+
+        async function processCrypto(encrypt) {
+            const algo = document.getElementById('crypto-algorithm').value;
+            const input = document.getElementById('crypto-input').value;
+            const keyText = document.getElementById('crypto-key').value;
+            const output = document.getElementById('crypto-output');
+
+            if (!input) { showToast('Введите текст', true); return; }
+
+            try {
+                if (algo.startsWith('AES')) {
+                    if (!keyText) { showToast('Введите пароль', true); return; }
+                    output.value = encrypt ? await encryptAES(input, keyText, algo) : await decryptAES(input, keyText, algo);
+                } else if (algo === 'Caesar') {
+                    const shift = parseInt(document.getElementById('crypto-param-num').value) || 3;
+                    output.value = caesarCipher(input, encrypt ? shift : -shift);
+                } else if (algo === 'Vigenere') {
+                    if (!keyText) { showToast('Введите ключ', true); return; }
+                    output.value = vigenereCipher(input, keyText, encrypt);
+                } else if (algo === 'ROT13') {
+                    output.value = caesarCipher(input, 13);
+                } else if (algo === 'XOR') {
+                    if (!keyText) { showToast('Введите ключ', true); return; }
+                    output.value = xorCipher(input, keyText);
+                }
+                showToast(encrypt ? 'Зашифровано' : 'Расшифровано');
+            } catch (e) {
+                showToast('Ошибка: проверьте ключ', true);
+            }
+        }
+
+        async function getCryptoKey(passphrase, salt, mode) {
+            const enc = new TextEncoder();
+            const keyMaterial = await crypto.subtle.importKey(
+                "raw", enc.encode(passphrase), { name: "PBKDF2" }, false, ["deriveKey"]
+            );
+            return crypto.subtle.deriveKey(
+                { name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" },
+                keyMaterial,
+                { name: mode, length: 256 },
+                false,
+                ["encrypt", "decrypt"]
+            );
+        }
+
+        async function encryptAES(text, passphrase, mode) {
+            const enc = new TextEncoder();
+            const salt = crypto.getRandomValues(new Uint8Array(16));
+            const iv = crypto.getRandomValues(new Uint8Array(mode === 'AES-GCM' ? 12 : 16));
+            const key = await getCryptoKey(passphrase, salt, mode);
+
+            const encrypted = await crypto.subtle.encrypt({ name: mode, iv: iv }, key, enc.encode(text));
+            const combined = new Uint8Array(salt.length + iv.length + encrypted.byteLength);
+            combined.set(salt, 0);
+            combined.set(iv, salt.length);
+            combined.set(new Uint8Array(encrypted), salt.length + iv.length);
+
+            return btoa(String.fromCharCode(...combined));
+        }
+
+        async function decryptAES(cipherB64, passphrase, mode) {
+            const combined = Uint8Array.from(atob(cipherB64), c => c.charCodeAt(0));
+            const salt = combined.slice(0, 16);
+            const ivLength = mode === 'AES-GCM' ? 12 : 16;
+            const iv = combined.slice(16, 16 + ivLength);
+            const data = combined.slice(16 + ivLength);
+
+            const key = await getCryptoKey(passphrase, salt, mode);
+            const decrypted = await crypto.subtle.decrypt({ name: mode, iv: iv }, key, data);
+            return new TextDecoder().decode(decrypted);
+        }
+
+        function caesarCipher(str, shift) {
+            return str.replace(/[a-zA-Zа-яА-Я]/g, c => {
+                const code = c.charCodeAt(0);
+                if (code >= 65 && code <= 90) return String.fromCharCode((code - 65 + shift % 26 + 26) % 26 + 65);
+                if (code >= 97 && code <= 122) return String.fromCharCode((code - 97 + shift % 26 + 26) % 26 + 97);
+                if (code >= 1040 && code <= 1071) return String.fromCharCode((code - 1040 + shift % 32 + 32) % 32 + 1040);
+                if (code >= 1072 && code <= 1103) return String.fromCharCode((code - 1072 + shift % 32 + 32) % 32 + 1072);
+                return c;
+            });
+        }
+
+        function vigenereCipher(text, key, encrypt = true) {
+            let res = '';
+            let keyIdx = 0;
+            key = key.toLowerCase();
+            for (let i = 0; i < text.length; i++) {
+                const c = text[i];
+                const code = c.charCodeAt(0);
+                if ((code >= 65 && code <= 90) || (code >= 97 && code <= 122)) {
+                    const base = code >= 97 ? 97 : 65;
+                    const kShift = key[keyIdx % key.length].charCodeAt(0) - 97;
+                    const shift = encrypt ? kShift : -kShift;
+                    res += String.fromCharCode((code - base + shift + 26) % 26 + base);
+                    keyIdx++;
+                } else {
+                    res += c;
+                }
+            }
+            return res;
+        }
+
+        function xorCipher(text, key) {
+            let res = '';
+            for (let i = 0; i < text.length; i++) {
+                res += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+            }
+            return res;
+        }
+
+        function processEncoding(encode) {
+            const type = document.getElementById('encoding-type').value;
+            const input = document.getElementById('encode-input').value;
+            const output = document.getElementById('encode-output');
+
+            if (!input) { showToast('Введите данные', true); return; }
+
+            try {
+                if (type === 'base64') {
+                    output.value = encode ? btoa(unescape(encodeURIComponent(input))) : decodeURIComponent(escape(atob(input)));
+                } else if (type === 'hex') {
+                    if (encode) {
+                        output.value = Array.from(new TextEncoder().encode(input)).map(b => b.toString(16).padStart(2, '0')).join(' ');
+                    } else {
+                        const bytes = new Uint8Array(input.trim().split(/\s+/).map(h => parseInt(h, 16)));
+                        output.value = new TextDecoder().decode(bytes);
+                    }
+                } else if (type === 'binary') {
+                    if (encode) {
+                        output.value = input.split('').map(c => c.charCodeAt(0).toString(2).padStart(8, '0')).join(' ');
+                    } else {
+                        output.value = input.trim().split(/\s+/).map(b => String.fromCharCode(parseInt(b, 2))).join('');
+                    }
+                } else if (type === 'url') {
+                    output.value = encode ? encodeURIComponent(input) : decodeURIComponent(input);
+                } else if (type === 'html') {
+                    if (encode) {
+                        output.value = input.replace(/[\u00A0-\u9999<>\&]/g, i => '&#' + i.charCodeAt(0) + ';');
+                    } else {
+                        const doc = new DOMParser().parseFromString(input, 'text/html');
+                        output.value = doc.body.textContent;
+                    }
+                }
+                showToast('Готово');
+            } catch (e) {
+                showToast('Ошибка формата', true);
+            }
+        }
+
+        let loadedStegoImage = null;
+
+        function setStegoMode(mode) {
+            const isHide = mode === 'hide';
+            document.getElementById('stego-mode-hide').className = isHide ? 'py-1.5 rounded-md font-medium bg-blue-600 text-white transition' : 'py-1.5 rounded-md font-medium text-slate-400 transition';
+            document.getElementById('stego-mode-extract').className = !isHide ? 'py-1.5 rounded-md font-medium bg-blue-600 text-white transition' : 'py-1.5 rounded-md font-medium text-slate-400 transition';
+
+            document.getElementById('stego-hide-controls').classList.toggle('hidden', !isHide);
+            document.getElementById('stego-extract-controls').classList.toggle('hidden', isHide);
+        }
+
+        function handleStegoFileSelect(evt) {
+            const file = evt.target.files[0];
+            if (!file) return;
+
+            document.getElementById('stego-file-name').textContent = file.name;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    loadedStegoImage = img;
+                    showToast('Картинка загружена');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function processSteganographyHide() {
+            if (!loadedStegoImage) { showToast('Выберите картинку', true); return; }
+            const secretText = document.getElementById('stego-secret-text').value;
+            if (!secretText) { showToast('Введите текст', true); return; }
+
+            const canvas = document.getElementById('stego-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = loadedStegoImage.width;
+            canvas.height = loadedStegoImage.height;
+
+            ctx.drawImage(loadedStegoImage, 0, 0);
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imgData.data;
+
+            const fullMsg = secretText + "###END###";
+            let binaryMsg = '';
+            for (let i = 0; i < fullMsg.length; i++) {
+                binaryMsg += fullMsg.charCodeAt(i).toString(2).padStart(8, '0');
+            }
+
+            if (binaryMsg.length > data.length / 4) {
+                showToast('Текст слишком велик', true);
+                return;
+            }
+
+            for (let i = 0; i < binaryMsg.length; i++) {
+                data[i * 4] = (data[i * 4] & 0xFE) | parseInt(binaryMsg[i]);
+            }
+
+            ctx.putImageData(imgData, 0, 0);
+            document.getElementById('stego-result-container').classList.remove('hidden');
+            showToast('Текст закодирован!');
+        }
+
+        function processSteganographyExtract() {
+            if (!loadedStegoImage) { showToast('Выберите картинку', true); return; }
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = loadedStegoImage.width;
+            canvas.height = loadedStegoImage.height;
+
+            ctx.drawImage(loadedStegoImage, 0, 0);
+            const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+
+            let binaryMsg = '';
+            let extractedText = '';
+
+            for (let i = 0; i < data.length; i += 4) {
+                binaryMsg += (data[i] & 1).toString();
+                if (binaryMsg.length === 8) {
+                    const charCode = parseInt(binaryMsg, 2);
+                    extractedText += String.fromCharCode(charCode);
+                    binaryMsg = '';
+
+                    if (extractedText.endsWith("###END###")) {
+                        extractedText = extractedText.replace("###END###", "");
+                        break;
+                    }
+                }
+            }
+
+            document.getElementById('stego-extracted-text').value = extractedText;
+            showToast('Текст извлечен');
+        }
+
+        function downloadStegoImage() {
+            const canvas = document.getElementById('stego-canvas');
+            const link = document.createElement('a');
+            link.download = 'stego.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        let audioCtx = null;
+
+        function playAudioCode() {
+            const text = document.getElementById('audio-input-text').value;
+            if (!text) { showToast('Введите текст', true); return; }
+
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            const duration = parseInt(document.getElementById('audio-tone-duration').value) / 1000;
+            const baseFreq = parseInt(document.getElementById('audio-base-freq').value);
+
+            let now = audioCtx.currentTime;
+            for (let i = 0; i < text.length; i++) {
+                const charCode = text.charCodeAt(i);
+                const freq = baseFreq + (charCode * 5);
+
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, now);
+
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + duration - 0.01);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start(now);
+                osc.stop(now + duration);
+
+                now += duration;
+            }
+            showToast('Воспроизведение...');
+        }
+
+        function generateAudioWav() {
+            const text = document.getElementById('audio-input-text').value;
+            if (!text) { showToast('Введите текст', true); return; }
+
+            const sampleRate = 44100;
+            const toneDuration = parseInt(document.getElementById('audio-tone-duration').value) / 1000;
+            const baseFreq = parseInt(document.getElementById('audio-base-freq').value);
+            const totalSamples = Math.floor(sampleRate * toneDuration * text.length);
+
+            const buffer = new Float32Array(totalSamples);
+            let offset = 0;
+
+            for (let i = 0; i < text.length; i++) {
+                const freq = baseFreq + (text.charCodeAt(i) * 5);
+                const numSamples = Math.floor(sampleRate * toneDuration);
+                for (let j = 0; j < numSamples; j++) {
+                    const t = j / sampleRate;
+                    buffer[offset + j] = Math.sin(2 * Math.PI * freq * t) * 0.3;
+                }
+                offset += numSamples;
+            }
+
+            const wavBuffer = createWavBuffer(buffer, sampleRate);
+            const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+            const player = document.getElementById('audio-player');
+            player.src = URL.createObjectURL(blob);
+            document.getElementById('audio-player-container').classList.remove('hidden');
+            showToast('WAV файл готов');
+        }
+
+        function createWavBuffer(samples, sampleRate) {
+            const buffer = new ArrayBuffer(44 + samples.length * 2);
+            const view = new DataView(buffer);
+
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, 36 + samples.length * 2, true);
+            writeString(view, 8, 'WAVE');
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            writeString(view, 36, 'data');
+            view.setUint32(40, samples.length * 2, true);
+
+            let index = 44;
+            for (let i = 0; i < samples.length; i++) {
+                const s = Math.max(-1, Math.min(1, samples[i]));
+                view.setInt16(index, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+                index += 2;
+            }
+
+            return buffer;
+        }
+
+        function writeString(view, offset, string) {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        }
+
+        function processFileEncode(type) {
+            const fileInput = document.getElementById('file-convert-input');
+            const file = fileInput.files[0];
+            if (!file) { showToast('Выберите файл', true); return; }
+
+            const reader = new FileReader();
+            if (type === 'base64') {
+                reader.onload = (e) => {
+                    document.getElementById('file-dump-output').value = e.target.result;
+                    showToast('Base64 готово');
+                };
+                reader.readAsDataURL(file);
+            } else {
+                reader.onload = (e) => {
+                    const bytes = new Uint8Array(e.target.result);
+                    const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(' ');
+                    document.getElementById('file-dump-output').value = hex;
+                    showToast('Hex готов');
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        }
+
+        function downloadFileFromBase64() {
+            const dataUrl = document.getElementById('file-dump-output').value.trim();
+            const filename = document.getElementById('restore-filename').value || 'file.png';
+
+            if (!dataUrl.startsWith('data:')) {
+                showToast('Введите DataURL', true);
+                return;
+            }
+
+            const link = document.createElement('a');
+            link.href = dataUrl;
+            link.download = filename;
+            link.click();
+            showToast('Скачивание...');
+        }
+    </script>
+</body>
+</html>

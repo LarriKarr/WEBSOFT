@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D Mobile Modeler</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- OBJExporter -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/OBJExporter.js"></script>
+    <!-- STLExporter -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/STLExporter.js"></script>
+
+    <style>
+        * {
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #121212;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        /* Custom scrollbar for panels */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+        /* Slider styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: #2a2a2a;
+            height: 8px;
+            border-radius: 4px;
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body class="text-gray-100 flex flex-col h-screen overflow-hidden select-none">
+
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container"></div>
+
+    <!-- Top Overlay Header -->
+    <header class="absolute top-0 left-0 right-0 z-10 flex justify-between items-center p-3 pointer-events-none">
+        <div class="flex items-center space-x-2 pointer-events-auto bg-gray-900/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-gray-700/50 shadow-lg">
+            <i class="fa-solid font-bold text-blue-500 text-lg fa-cube"></i>
+            <span class="font-bold text-sm tracking-wide">3D Studio</span>
+        </div>
+
+        <!-- Mode Toggle & Quick Actions -->
+        <div class="flex items-center space-x-2 pointer-events-auto">
+            <!-- Mode Switcher (Camera vs Select) -->
+            <button id="btn-mode-toggle" class="bg-blue-600 hover:bg-blue-500 text-white p-2.5 rounded-full shadow-lg border border-blue-400/30 flex items-center justify-center transition active:scale-95">
+                <i id="mode-icon" class="fa-solid fa-hand text-base"></i>
+            </button>
+            <!-- Scene Outliner Button -->
+            <button id="btn-open-outliner" class="bg-gray-900/80 hover:bg-gray-800 backdrop-blur-md text-gray-200 p-2.5 rounded-full shadow-lg border border-gray-700/50 flex items-center justify-center active:scale-95">
+                <i class="fa-solid fa-layer-group text-base"></i>
+            </button>
+            <!-- Menu / Export Button -->
+            <button id="btn-open-menu" class="bg-gray-900/80 hover:bg-gray-800 backdrop-blur-md text-gray-200 p-2.5 rounded-full shadow-lg border border-gray-700/50 flex items-center justify-center active:scale-95">
+                <i class="fa-solid fa-ellipsis-vertical text-base px-1"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Bottom Action Bar & Tool Floating Buttons -->
+    <div class="absolute bottom-4 left-4 right-4 z-10 flex flex-col items-center pointer-events-none space-y-3">
+        
+        <!-- Object Transform & Editing Bar (Visible when object selected) -->
+        <div id="selection-toolbar" class="hidden pointer-events-auto bg-gray-900/90 backdrop-blur-md p-1.5 rounded-2xl border border-gray-700/60 shadow-xl flex items-center space-x-1 max-w-full overflow-x-auto">
+            <button id="tab-btn-translate" class="tool-tab-btn bg-blue-600 text-white px-3 py-2 rounded-xl text-xs font-semibold flex items-center space-x-1.5 active:scale-95">
+                <i class="fa-solid fa-arrows-up-down-left-right"></i>
+                <span>Сдвиг</span>
+            </button>
+            <button id="tab-btn-rotate" class="tool-tab-btn bg-gray-800 text-gray-300 px-3 py-2 rounded-xl text-xs font-semibold flex items-center space-x-1.5 active:scale-95">
+                <i class="fa-solid fa-rotate"></i>
+                <span>Поворот</span>
+            </button>
+            <button id="tab-btn-scale" class="tool-tab-btn bg-gray-800 text-gray-300 px-3 py-2 rounded-xl text-xs font-semibold flex items-center space-x-1.5 active:scale-95">
+                <i class="fa-solid fa-expand"></i>
+                <span>Масштаб</span>
+            </button>
+            <button id="tab-btn-material" class="tool-tab-btn bg-gray-800 text-gray-300 px-3 py-2 rounded-xl text-xs font-semibold flex items-center space-x-1.5 active:scale-95">
+                <i class="fa-solid fa-palette"></i>
+                <span>Мат-л</span>
+            </button>
+            <div class="h-6 w-px bg-gray-700 mx-1"></div>
+            <button id="btn-duplicate" class="bg-gray-800 hover:bg-gray-700 text-emerald-400 p-2 rounded-xl text-xs active:scale-95">
+                <i class="fa-solid fa-clone text-base"></i>
+            </button>
+            <button id="btn-delete" class="bg-gray-800 hover:bg-gray-700 text-rose-500 p-2 rounded-xl text-xs active:scale-95">
+                <i class="fa-solid fa-trash text-base"></i>
+            </button>
+        </div>
+
+        <!-- Add Primitive Floating Action Button -->
+        <div class="pointer-events-auto flex items-center justify-center">
+            <button id="btn-add-primitive" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-5 py-3 rounded-full shadow-2xl border border-blue-400/40 flex items-center space-x-2 active:scale-95 transition-all">
+                <i class="fa-solid fa-plus text-base"></i>
+                <span class="text-sm font-semibold">Добавить 3D</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Collapsible Inspector Panel (Transform / Material Controls) -->
+    <div id="inspector-panel" class="hidden absolute bottom-20 left-4 right-4 z-20 pointer-events-auto bg-gray-900/95 backdrop-blur-lg border border-gray-700/70 rounded-2xl p-4 shadow-2xl max-h-[45vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-3 pb-2 border-b border-gray-800">
+            <h3 id="panel-title" class="font-bold text-sm text-gray-200">Перемещение</h3>
+            <button id="btn-close-inspector" class="text-gray-400 hover:text-white p-1">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+
+        <!-- Translate Section -->
+        <div id="section-translate" class="space-y-3 inspector-section">
+            <div>
+                <div class="flex justify-between text-xs text-rose-400 mb-1"><span>Позиция X</span><span id="val-posX">0.0</span></div>
+                <input type="range" id="slider-posX" min="-10" max="10" step="0.1" value="0">
+            </div>
+            <div>
+                <div class="flex justify-between text-xs text-emerald-400 mb-1"><span>Позиция Y</span><span id="val-posY">0.0</span></div>
+                <input type="range" id="slider-posY" min="-10" max="10" step="0.1" value="0">
+            </div>
+            <div>
+                <div class="flex justify-between text-xs text-blue-400 mb-1"><span>Позиция Z</span><span id="val-posZ">0.0</span></div>
+                <input type="range" id="slider-posZ" min="-10" max="10" step="0.1" value="0">
+            </div>
+        </div>
+
+        <!-- Rotate Section -->
+        <div id="section-rotate" class="space-y-3 inspector-section hidden">
+            <div>
+                <div class="flex justify-between text-xs text-rose-400 mb-1"><span>Вращение X (deg)</span><span id="val-rotX">0</span></div>
+                <input type="range" id="slider-rotX" min="-180" max="180" step="1" value="0">
+            </div>
+            <div>
+                <div class="flex justify-between text-xs text-emerald-400 mb-1"><span>Вращение Y (deg)</span><span id="val-rotY">0</span></div>
+                <input type="range" id="slider-rotY" min="-180" max="180" step="1" value="0">
+            </div>
+            <div>
+                <div class="flex justify-between text-xs text-blue-400 mb-1"><span>Вращение Z (deg)</span><span id="val-rotZ">0</span></div>
+                <input type="range" id="slider-rotZ" min="-180" max="180" step="1" value="0">
+            </div>
+        </div>
+
+        <!-- Scale Section -->
+        <div id="section-scale" class="space-y-3 inspector-section hidden">
+            <div class="flex items-center justify-between pb-2">
+                <span class="text-xs text-gray-400">Пропорциональный масштаб</span>
+                <input type="checkbox" id="chk-uniform-scale" checked class="w-4 h-4 accent-blue-600 rounded">
+            </div>
+            <div>
+                <div class="flex justify-between text-xs text-rose-400 mb-1"><span>Масштаб X</span><span id="val-scaleX">1.0</span></div>
+                <input type="range" id="slider-scaleX" min="0.1" max="5" step="0.1" value="1">
+            </div>
+            <div id="wrapper-scaleY">
+                <div class="flex justify-between text-xs text-emerald-400 mb-1"><span>Масштаб Y</span><span id="val-scaleY">1.0</span></div>
+                <input type="range" id="slider-scaleY" min="0.1" max="5" step="0.1" value="1">
+            </div>
+            <div id="wrapper-scaleZ">
+                <div class="flex justify-between text-xs text-blue-400 mb-1"><span>Масштаб Z</span><span id="val-scaleZ">1.0</span></div>
+                <input type="range" id="slider-scaleZ" min="0.1" max="5" step="0.1" value="1">
+            </div>
+        </div>
+
+        <!-- Material Section -->
+        <div id="section-material" class="space-y-3 inspector-section hidden">
+            <div class="flex items-center justify-between">
+                <span class="text-xs text-gray-300">Цвет</span>
+                <input type="color" id="picker-color" value="#3b82f6" class="w-10 h-8 bg-transparent border-0 rounded cursor-pointer">
+            </div>
+            <div>
+                <div class="flex justify-between text-xs text-gray-400 mb-1"><span>Металличность</span><span id="val-metal">0.1</span></div>
+                <input type="range" id="slider-metal" min="0" max="1" step="0.05" value="0.1">
+            </div>
+            <div>
+                <div class="flex justify-between text-xs text-gray-400 mb-1"><span>Шероховатость</span><span id="val-rough">0.5</span></div>
+                <input type="range" id="slider-rough" min="0" max="1" step="0.05" value="0.5">
+            </div>
+            <div>
+                <div class="flex justify-between text-xs text-gray-400 mb-1"><span>Прозрачность</span><span id="val-opacity">1.0</span></div>
+                <input type="range" id="slider-opacity" min="0.1" max="1" step="0.05" value="1">
+            </div>
+            <div class="flex items-center justify-between pt-1">
+                <span class="text-xs text-gray-300">Сетка (Wireframe)</span>
+                <input type="checkbox" id="chk-wireframe" class="w-4 h-4 accent-blue-600 rounded">
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Primitive Modal -->
+    <div id="modal-add" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-gray-900 border border-gray-800 w-full sm:max-w-sm rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b border-gray-800 pb-3">
+                <h3 class="font-bold text-lg text-gray-100">Добавить объект</h3>
+                <button id="btn-close-add-modal" class="text-gray-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+                <button class="btn-create-primitive flex flex-col items-center justify-center p-3 bg-gray-800 hover:bg-gray-700 rounded-xl active:scale-95 transition" data-type="box">
+                    <i class="fa-solid fa-cube text-blue-400 text-2xl mb-1"></i>
+                    <span class="text-xs font-medium">Куб</span>
+                </button>
+                <button class="btn-create-primitive flex flex-col items-center justify-center p-3 bg-gray-800 hover:bg-gray-700 rounded-xl active:scale-95 transition" data-type="sphere">
+                    <i class="fa-solid fa-globe text-emerald-400 text-2xl mb-1"></i>
+                    <span class="text-xs font-medium">Сфера</span>
+                </button>
+                <button class="btn-create-primitive flex flex-col items-center justify-center p-3 bg-gray-800 hover:bg-gray-700 rounded-xl active:scale-95 transition" data-type="cylinder">
+                    <i class="fa-solid fa-database text-amber-400 text-2xl mb-1"></i>
+                    <span class="text-xs font-medium">Цилиндр</span>
+                </button>
+                <button class="btn-create-primitive flex flex-col items-center justify-center p-3 bg-gray-800 hover:bg-gray-700 rounded-xl active:scale-95 transition" data-type="cone">
+                    <i class="fa-solid fa-play -rotate-90 text-purple-400 text-2xl mb-1"></i>
+                    <span class="text-xs font-medium">Конус</span>
+                </button>
+                <button class="btn-create-primitive flex flex-col items-center justify-center p-3 bg-gray-800 hover:bg-gray-700 rounded-xl active:scale-95 transition" data-type="torus">
+                    <i class="fa-regular fa-circle-dot text-rose-400 text-2xl mb-1"></i>
+                    <span class="text-xs font-medium">Тор</span>
+                </button>
+                <button class="btn-create-primitive flex flex-col items-center justify-center p-3 bg-gray-800 hover:bg-gray-700 rounded-xl active:scale-95 transition" data-type="plane">
+                    <i class="fa-solid fa-vector-square text-cyan-400 text-2xl mb-1"></i>
+                    <span class="text-xs font-medium">Плоскость</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scene Outliner Modal -->
+    <div id="modal-outliner" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-gray-900 border border-gray-800 w-full max-w-sm rounded-2xl p-5 shadow-2xl flex flex-col max-h-[70vh]">
+            <div class="flex justify-between items-center border-b border-gray-800 pb-3 mb-3">
+                <h3 class="font-bold text-lg text-gray-100">Иерархия сцены</h3>
+                <button id="btn-close-outliner-modal" class="text-gray-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div id="outliner-list" class="flex-1 overflow-y-auto space-y-2 pr-1">
+                <!-- Outliner items generated dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Options & Export Modal -->
+    <div id="modal-menu" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-gray-900 border border-gray-800 w-full max-w-sm rounded-2xl p-5 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b border-gray-800 pb-3">
+                <h3 class="font-bold text-lg text-gray-100">Меню и экспорт</h3>
+                <button id="btn-close-menu-modal" class="text-gray-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div class="space-y-2">
+                <button id="btn-export-obj" class="w-full bg-gray-800 hover:bg-gray-700 text-left px-4 py-3 rounded-xl font-medium flex items-center justify-between active:scale-95 transition">
+                    <div class="flex items-center space-x-3">
+                        <i class="fa-solid fa-file-export text-blue-400"></i>
+                        <span>Экспорт в OBJ</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-xs text-gray-500"></i>
+                </button>
+                <button id="btn-export-stl" class="w-full bg-gray-800 hover:bg-gray-700 text-left px-4 py-3 rounded-xl font-medium flex items-center justify-between active:scale-95 transition">
+                    <div class="flex items-center space-x-3">
+                        <i class="fa-solid fa-cube text-emerald-400"></i>
+                        <span>Экспорт в STL (3D печать)</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-xs text-gray-500"></i>
+                </button>
+                <div class="h-px bg-gray-800 my-2"></div>
+                <button id="btn-clear-scene" class="w-full bg-rose-950/40 border border-rose-800/40 hover:bg-rose-900/50 text-rose-400 text-left px-4 py-3 rounded-xl font-medium flex items-center space-x-3 active:scale-95 transition">
+                    <i class="fa-solid fa-trash-can"></i>
+                    <span>Очистить сцену</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="hidden fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-gray-800/90 text-white border border-gray-700 text-xs px-4 py-2 rounded-full shadow-lg transition-all duration-300 pointer-events-none">
+        <span id="toast-message">Сообщение</span>
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        // State Management
+        const state = {
+            sceneObjects: [],
+            selectedObject: null,
+            interactionMode: 'camera', // 'camera' or 'select'
+            activeTab: 'translate', // 'translate', 'rotate', 'scale', 'material'
+            uniformScale: true,
+            objectCounter: {
+                box: 0,
+                sphere: 0,
+                cylinder: 0,
+                cone: 0,
+                torus: 0,
+                plane: 0
+            }
+        };
+
+        // Three.js Globals
+        let scene, camera, renderer, controls, raycaster, mouse;
+        let selectionBox = null;
+
+        // Initialize 3D Engine & Event Listeners
+        window.onload = function() {
+            initScene();
+            initListeners();
+            animate();
+            createPrimitive('box'); // Default starting object
+        };
+
+        function initScene() {
+            const container = document.getElementById('canvas-container');
+
+            // Scene setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x121212);
+            scene.fog = new THREE.FogExp2(0x121212, 0.03);
+
+            // Camera setup
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(5, 5, 7);
+
+            // Renderer setup
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            // Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2 + 0.1; // Allow going slightly below ground
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(10, 20, 15);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 1024;
+            dirLight.shadow.mapSize.height = 1024;
+            dirLight.shadow.camera.near = 0.5;
+            dirLight.shadow.camera.far = 50;
+            scene.add(dirLight);
+
+            const fillLight = new THREE.DirectionalLight(0x3b82f6, 0.3);
+            fillLight.position.set(-10, 10, -10);
+            scene.add(fillLight);
+
+            // Grid Floor
+            const gridHelper = new THREE.GridHelper(20, 20, 0x3b82f6, 0x333333);
+            gridHelper.position.y = -0.01;
+            scene.add(gridHelper);
+
+            // Shadow Plane
+            const planeGeometry = new THREE.PlaneGeometry(50, 50);
+            const planeMaterial = new THREE.ShadowMaterial({ opacity: 0.3 });
+            const shadowPlane = new THREE.Mesh(planeGeometry, planeMaterial);
+            shadowPlane.rotation.x = -Math.PI / 2;
+            shadowPlane.receiveShadow = true;
+            scene.add(shadowPlane);
+
+            // Raycaster for object selection
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Selection Wireframe Box
+        function updateSelectionHighlight() {
+            if (selectionBox) {
+                scene.remove(selectionBox);
+                selectionBox.geometry.dispose();
+                selectionBox = null;
+            }
+
+            if (state.selectedObject) {
+                const boxHelper = new THREE.BoxHelper(state.selectedObject, 0x3b82f6);
+                selectionBox = boxHelper;
+                scene.add(selectionBox);
+            }
+        }
+
+        // Object Creation Logic
+        function createPrimitive(type) {
+            let geometry;
+            state.objectCounter[type]++;
+            const name = `${type.charAt(0).toUpperCase() + type.slice(1)} #${state.objectCounter[type]}`;
+
+            switch(type) {
+                case 'box':
+                    geometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+                    break;
+                case 'sphere':
+                    geometry = new THREE.SphereGeometry(1, 32, 16);
+                    break;
+                case 'cylinder':
+                    geometry = new THREE.CylinderGeometry(0.8, 0.8, 1.8, 32);
+                    break;
+                case 'cone':
+                    geometry = new THREE.ConeGeometry(1, 1.8, 32);
+                    break;
+                case 'torus':
+                    geometry = new THREE.TorusGeometry(0.9, 0.3, 16, 32);
+                    break;
+                case 'plane':
+                    geometry = new THREE.PlaneGeometry(2, 2);
+                    break;
+            }
+
+            const material = new THREE.MeshStandardMaterial({
+                color: Math.floor(Math.random()*16777215),
+                metalness: 0.1,
+                roughness: 0.5
+            });
+
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            mesh.position.set(0, type === 'plane' ? 0.01 : 1, 0);
+            if (type === 'plane') mesh.rotation.x = -Math.PI / 2;
+
+            mesh.userData = { id: Date.now(), name: name, type: type };
+            
+            scene.add(mesh);
+            state.sceneObjects.push(mesh);
+            selectObject(mesh);
+            showToast(`Создан: ${name}`);
+        }
+
+        // Select Object Logic
+        function selectObject(obj) {
+            state.selectedObject = obj;
+            updateSelectionHighlight();
+            updateUIForSelection();
+        }
+
+        function deselectObject() {
+            state.selectedObject = null;
+            updateSelectionHighlight();
+            updateUIForSelection();
+        }
+
+        // UI Interactions & Bindings
+        function initListeners() {
+            // Window resize
+            window.addEventListener('resize', onWindowResize);
+
+            // Canvas Pointer Click/Tap Selection
+            const canvasEl = renderer.domElement;
+            canvasEl.addEventListener('pointerdown', onPointerDown);
+
+            // Mode Toggle
+            document.getElementById('btn-mode-toggle').addEventListener('click', toggleInteractionMode);
+
+            // Floating action & Modals
+            document.getElementById('btn-add-primitive').addEventListener('click', () => {
+                document.getElementById('modal-add').classList.remove('hidden');
+            });
+            document.getElementById('btn-close-add-modal').addEventListener('click', () => {
+                document.getElementById('modal-add').classList.add('hidden');
+            });
+
+            document.querySelectorAll('.btn-create-primitive').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const type = e.currentTarget.getAttribute('data-type');
+                    createPrimitive(type);
+                    document.getElementById('modal-add').classList.add('hidden');
+                });
+            });
+
+            // Outliner Modal
+            document.getElementById('btn-open-outliner').addEventListener('click', openOutlinerModal);
+            document.getElementById('btn-close-outliner-modal').addEventListener('click', () => {
+                document.getElementById('modal-outliner').classList.add('hidden');
+            });
+
+            // Menu Modal
+            document.getElementById('btn-open-menu').addEventListener('click', () => {
+                document.getElementById('modal-menu').classList.remove('hidden');
+            });
+            document.getElementById('btn-close-menu-modal').addEventListener('click', () => {
+                document.getElementById('modal-menu').classList.add('hidden');
+            });
+
+            // Inspector Panel Tabs
+            const tabs = ['translate', 'rotate', 'scale', 'material'];
+            tabs.forEach(tab => {
+                document.getElementById(`tab-btn-${tab}`).addEventListener('click', () => {
+                    switchTab(tab);
+                });
+            });
+
+            document.getElementById('btn-close-inspector').addEventListener('click', () => {
+                document.getElementById('inspector-panel').classList.add('hidden');
+            });
+
+            // Object Actions
+            document.getElementById('btn-delete').addEventListener('click', deleteSelectedObject);
+            document.getElementById('btn-duplicate').addEventListener('click', duplicateSelectedObject);
+
+            // Transform Inputs (Sliders)
+            setupSlider('slider-posX', 'val-posX', (val) => { if(state.selectedObject) state.selectedObject.position.x = val; });
+            setupSlider('slider-posY', 'val-posY', (val) => { if(state.selectedObject) state.selectedObject.position.y = val; });
+            setupSlider('slider-posZ', 'val-posZ', (val) => { if(state.selectedObject) state.selectedObject.position.z = val; });
+
+            setupSlider('slider-rotX', 'val-rotX', (val) => { if(state.selectedObject) state.selectedObject.rotation.x = THREE.MathUtils.degToRad(val); });
+            setupSlider('slider-rotY', 'val-rotY', (val) => { if(state.selectedObject) state.selectedObject.rotation.y = THREE.MathUtils.degToRad(val); });
+            setupSlider('slider-rotZ', 'val-rotZ', (val) => { if(state.selectedObject) state.selectedObject.rotation.z = THREE.MathUtils.degToRad(val); });
+
+            // Scale Sliders & Uniform Checkbox
+            const chkUniform = document.getElementById('chk-uniform-scale');
+            chkUniform.addEventListener('change', (e) => {
+                state.uniformScale = e.target.checked;
+                document.getElementById('wrapper-scaleY').style.display = state.uniformScale ? 'none' : 'block';
+                document.getElementById('wrapper-scaleZ').style.display = state.uniformScale ? 'none' : 'block';
+            });
+
+            setupSlider('slider-scaleX', 'val-scaleX', (val) => {
+                if(!state.selectedObject) return;
+                state.selectedObject.scale.x = val;
+                if(state.uniformScale) {
+                    state.selectedObject.scale.y = val;
+                    state.selectedObject.scale.z = val;
+                    document.getElementById('slider-scaleY').value = val;
+                    document.getElementById('val-scaleY').textContent = val.toFixed(1);
+                    document.getElementById('slider-scaleZ').value = val;
+                    document.getElementById('val-scaleZ').textContent = val.toFixed(1);
+                }
+            });
+            setupSlider('slider-scaleY', 'val-scaleY', (val) => { if(state.selectedObject) state.selectedObject.scale.y = val; });
+            setupSlider('slider-scaleZ', 'val-scaleZ', (val) => { if(state.selectedObject) state.selectedObject.scale.z = val; });
+
+            // Material Controls
+            document.getElementById('picker-color').addEventListener('input', (e) => {
+                if(state.selectedObject) state.selectedObject.material.color.set(e.target.value);
+            });
+            setupSlider('slider-metal', 'val-metal', (val) => { if(state.selectedObject) state.selectedObject.material.metalness = val; });
+            setupSlider('slider-rough', 'val-rough', (val) => { if(state.selectedObject) state.selectedObject.material.roughness = val; });
+            setupSlider('slider-opacity', 'val-opacity', (val) => {
+                if(state.selectedObject) {
+                    state.selectedObject.material.transparent = val < 1.0;
+                    state.selectedObject.material.opacity = val;
+                }
+            });
+            document.getElementById('chk-wireframe').addEventListener('change', (e) => {
+                if(state.selectedObject) state.selectedObject.material.wireframe = e.target.checked;
+            });
+
+            // Clear Scene & Export Buttons
+            document.getElementById('btn-clear-scene').addEventListener('click', clearScene);
+            document.getElementById('btn-export-obj').addEventListener('click', exportOBJ);
+            document.getElementById('btn-export-stl').addEventListener('click', exportSTL);
+        }
+
+        function setupSlider(id, valId, callback) {
+            const slider = document.getElementById(id);
+            const valSpan = document.getElementById(valId);
+            slider.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                valSpan.textContent = val.toFixed(1);
+                callback(val);
+                if (selectionBox) selectionBox.update();
+            });
+        }
+
+        function onPointerDown(event) {
+            // Only perform raycasting if mode is 'select' or if clicking with touch intention
+            if (state.interactionMode !== 'select') return;
+
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(state.sceneObjects, false);
+
+            if (intersects.length > 0) {
+                selectObject(intersects[0].object);
+            } else {
+                deselectObject();
+            }
+        }
+
+        function toggleInteractionMode() {
+            const btn = document.getElementById('btn-mode-toggle');
+            const icon = document.getElementById('mode-icon');
+            
+            if (state.interactionMode === 'camera') {
+                state.interactionMode = 'select';
+                controls.enabled = false;
+                btn.classList.remove('bg-blue-600');
+                btn.classList.add('bg-emerald-600');
+                icon.className = 'fa-solid fa-arrow-pointer text-base';
+                showToast('Режим: Выбор объектов');
+            } else {
+                state.interactionMode = 'camera';
+                controls.enabled = true;
+                btn.classList.remove('bg-emerald-600');
+                btn.classList.add('bg-blue-600');
+                icon.className = 'fa-solid fa-hand text-base';
+                showToast('Режим: Камера (Вращение)');
+            }
+        }
+
+        function switchTab(tabName) {
+            state.activeTab = tabName;
+            document.querySelectorAll('.tool-tab-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-600', 'text-white');
+                btn.classList.add('bg-gray-800', 'text-gray-300');
+            });
+            document.getElementById(`tab-btn-${tabName}`).classList.remove('bg-gray-800', 'text-gray-300');
+            document.getElementById(`tab-btn-${tabName}`).classList.add('bg-blue-600', 'text-white');
+
+            // Hide all sections
+            document.querySelectorAll('.inspector-section').forEach(sec => sec.classList.add('hidden'));
+            
+            // Show selected section
+            document.getElementById(`section-${tabName}`).classList.remove('hidden');
+
+            // Update Panel Title
+            const titles = { translate: 'Сдвиг', rotate: 'Поворот', scale: 'Масштаб', material: 'Материал' };
+            document.getElementById('panel-title').textContent = titles[tabName];
+
+            // Open Inspector Panel if closed
+            document.getElementById('inspector-panel').classList.remove('hidden');
+
+            syncInspectorValues();
+        }
+
+        function updateUIForSelection() {
+            const toolbar = document.getElementById('selection-toolbar');
+            const inspector = document.getElementById('inspector-panel');
+
+            if (state.selectedObject) {
+                toolbar.classList.remove('hidden');
+                syncInspectorValues();
+            } else {
+                toolbar.classList.add('hidden');
+                inspector.classList.add('hidden');
+            }
+        }
+
+        function syncInspectorValues() {
+            const obj = state.selectedObject;
+            if (!obj) return;
+
+            // Translate
+            document.getElementById('slider-posX').value = obj.position.x;
+            document.getElementById('val-posX').textContent = obj.position.x.toFixed(1);
+            document.getElementById('slider-posY').value = obj.position.y;
+            document.getElementById('val-posY').textContent = obj.position.y.toFixed(1);
+            document.getElementById('slider-posZ').value = obj.position.z;
+            document.getElementById('val-posZ').textContent = obj.position.z.toFixed(1);
+
+            // Rotate
+            const rotX = THREE.MathUtils.radToDeg(obj.rotation.x);
+            const rotY = THREE.MathUtils.radToDeg(obj.rotation.y);
+            const rotZ = THREE.MathUtils.radToDeg(obj.rotation.z);
+            document.getElementById('slider-rotX').value = rotX;
+            document.getElementById('val-rotX').textContent = Math.round(rotX);
+            document.getElementById('slider-rotY').value = rotY;
+            document.getElementById('val-rotY').textContent = Math.round(rotY);
+            document.getElementById('slider-rotZ').value = rotZ;
+            document.getElementById('val-rotZ').textContent = Math.round(rotZ);
+
+            // Scale
+            document.getElementById('slider-scaleX').value = obj.scale.x;
+            document.getElementById('val-scaleX').textContent = obj.scale.x.toFixed(1);
+            document.getElementById('slider-scaleY').value = obj.scale.y;
+            document.getElementById('val-scaleY').textContent = obj.scale.y.toFixed(1);
+            document.getElementById('slider-scaleZ').value = obj.scale.z;
+            document.getElementById('val-scaleZ').textContent = obj.scale.z.toFixed(1);
+
+            // Material
+            document.getElementById('picker-color').value = '#' + obj.material.color.getHexString();
+            document.getElementById('slider-metal').value = obj.material.metalness;
+            document.getElementById('val-metal').textContent = obj.material.metalness.toFixed(2);
+            document.getElementById('slider-rough').value = obj.material.roughness;
+            document.getElementById('val-rough').textContent = obj.material.roughness.toFixed(2);
+            document.getElementById('slider-opacity').value = obj.material.opacity;
+            document.getElementById('val-opacity').textContent = obj.material.opacity.toFixed(2);
+            document.getElementById('chk-wireframe').checked = obj.material.wireframe;
+        }
+
+        function deleteSelectedObject() {
+            if (!state.selectedObject) return;
+            scene.remove(state.selectedObject);
+            state.sceneObjects = state.sceneObjects.filter(item => item !== state.selectedObject);
+            showToast(`Удален: ${state.selectedObject.userData.name}`);
+            deselectObject();
+        }
+
+        function duplicateSelectedObject() {
+            if (!state.selectedObject) return;
+            const orig = state.selectedObject;
+            const clone = orig.clone();
+            clone.material = orig.material.clone();
+            clone.position.x += 0.5;
+            clone.position.z += 0.5;
+            
+            const type = orig.userData.type || 'box';
+            state.objectCounter[type]++;
+            clone.userData = { id: Date.now(), name: `${orig.userData.name} (Копия)`, type: type };
+
+            scene.add(clone);
+            state.sceneObjects.push(clone);
+            selectObject(clone);
+            showToast('Объект продублирован');
+        }
+
+        function openOutlinerModal() {
+            const listContainer = document.getElementById('outliner-list');
+            listContainer.innerHTML = '';
+
+            if (state.sceneObjects.length === 0) {
+                listContainer.innerHTML = '<div class="text-center text-gray-500 py-4 text-sm">Сцена пуста</div>';
+            } else {
+                state.sceneObjects.forEach(obj => {
+                    const isSelected = state.selectedObject === obj;
+                    const item = document.createElement('div');
+                    item.className = `flex justify-between items-center p-3 rounded-xl cursor-pointer transition ${isSelected ? 'bg-blue-600/30 border border-blue-500/50' : 'bg-gray-800 hover:bg-gray-700'}`;
+                    item.innerHTML = `
+                        <div class="flex items-center space-x-3">
+                            <i class="fa-solid fa-cube text-blue-400"></i>
+                            <span class="text-sm font-medium ${isSelected ? 'text-blue-300' : 'text-gray-200'}">${obj.userData.name}</span>
+                        </div>
+                        ${isSelected ? '<i class="fa-solid fa-check text-blue-400 text-xs"></i>' : ''}
+                    `;
+                    item.addEventListener('click', () => {
+                        selectObject(obj);
+                        document.getElementById('modal-outliner').classList.add('hidden');
+                    });
+                    listContainer.appendChild(item);
+                });
+            }
+
+            document.getElementById('modal-outliner').classList.remove('hidden');
+        }
+
+        function clearScene() {
+            state.sceneObjects.forEach(obj => scene.remove(obj));
+            state.sceneObjects = [];
+            deselectObject();
+            document.getElementById('modal-menu').classList.add('hidden');
+            showToast('Сцена очищена');
+        }
+
+        function exportOBJ() {
+            if (state.sceneObjects.length === 0) {
+                showToast('Сцена пуста!');
+                return;
+            }
+            const exporter = new THREE.OBJExporter();
+            const result = exporter.parse(scene);
+            downloadFile(result, 'model.obj', 'text/plain');
+            document.getElementById('modal-menu').classList.add('hidden');
+            showToast('Экспорт в OBJ завершен');
+        }
+
+        function exportSTL() {
+            if (state.sceneObjects.length === 0) {
+                showToast('Сцена пуста!');
+                return;
+            }
+            const exporter = new THREE.STLExporter();
+            const result = exporter.parse(scene, { binary: true });
+            downloadFile(result, 'model.stl', 'application/octet-stream');
+            document.getElementById('modal-menu').classList.add('hidden');
+            showToast('Экспорт в STL завершен');
+        }
+
+        function downloadFile(data, filename, type) {
+            const blob = new Blob([data], { type: type });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').textContent = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 2000);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    </script>
+</body>
+</html>
