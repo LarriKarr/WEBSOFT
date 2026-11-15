@@ -1,1 +1,1838 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>3D Mobile Animation Studio Pro (Modular)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root { --app-height: 100dvh; }
+        html, body {
+            height: var(--app-height); width: 100vw; margin: 0; padding: 0;
+            overflow: hidden; touch-action: none; overscroll-behavior: none;
+            user-select: none; -webkit-user-select: none;
+            background: #0f1115; color: #f3f4f6;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        #canvas-container { width: 100%; height: 100%; position: absolute; inset: 0; z-index: 1; }
+        .glass-panel {
+            background: rgba(15, 18, 26, 0.88);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .custom-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.25); border-radius: 4px; }
+        input[type="range"] { accent-color: #6366f1; }
 
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.9; }
+            50% { transform: scale(1.25); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.9; }
+        }
+        .notify-dot { animation: pulse-ring 1.6s infinite ease-in-out; }
+        @keyframes spin-slow { to { transform: rotate(360deg); } }
+        .loader-ring { animation: spin-slow 1.1s linear infinite; }
+    </style>
+</head>
+<body class="relative">
+
+    <!-- LOADING OVERLAY -->
+    <div id="loading-overlay" class="fixed inset-0 z-[100] bg-[#0b0d12] flex flex-col items-center justify-center p-6 transition-opacity duration-500">
+        <div class="relative w-20 h-20 mb-5 flex items-center justify-center">
+            <div class="absolute inset-0 rounded-full border-4 border-indigo-500/20"></div>
+            <div class="absolute inset-0 rounded-full border-4 border-transparent border-t-indigo-500 border-r-emerald-400 loader-ring"></div>
+            <span id="loading-percent" class="text-sm font-mono font-bold text-indigo-300">0%</span>
+        </div>
+        <div class="text-sm font-bold text-white tracking-wide mb-2">3D Studio Pro (Modular)</div>
+        <div id="loading-status" class="text-[11px] text-gray-400 mb-4">Загрузка ресурсов из assets/...</div>
+        <div class="w-64 h-2 bg-gray-800 rounded-full overflow-hidden border border-white/10">
+            <div id="loading-bar" class="h-full bg-gradient-to-r from-indigo-500 to-emerald-400 transition-all duration-200" style="width: 0%;"></div>
+        </div>
+    </div>
+
+    <!-- 3D Viewport -->
+    <div id="canvas-container"></div>
+
+    <!-- Floating Top Left: Add Object (+) -->
+    <button id="btn-open-creator" onclick="openCreatorModal()" title="Добавить объект"
+        class="fixed top-4 left-4 z-30 w-12 h-12 rounded-full bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white shadow-xl shadow-indigo-950/60 border border-indigo-400/30 flex items-center justify-center transition">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+        </svg>
+    </button>
+
+    <!-- Floating Top Right: Project Settings & Scene Catalog -->
+    <button id="btn-open-settings" onclick="openProjectModal()" title="Настройки проекта и объекты"
+        class="fixed top-4 right-4 z-30 w-12 h-12 rounded-full glass-panel hover:bg-gray-800/90 active:scale-95 text-gray-100 shadow-xl flex items-center justify-center transition">
+        <svg class="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        <span id="settings-red-dot" class="hidden notify-dot absolute top-0.5 right-0.5 w-3 h-3 rounded-full bg-red-500 ring-2 ring-[#0f1115]"></span>
+    </button>
+
+    <!-- Selected Object Floating Action Bar -->
+    <div id="selected-bar" class="fixed right-4 w-80 z-30 glass-panel rounded-2xl p-3 shadow-2xl hidden" style="top: 4.5rem;">
+        <div class="flex items-center justify-between border-b border-white/10 pb-2 mb-2">
+            <div>
+                <div id="sel-title" class="text-xs font-bold text-indigo-300">Объект</div>
+                <div id="sel-coords" class="text-[10px] font-mono text-gray-400">X: 0.00 | Y: 0.00 | Z: 0.00</div>
+            </div>
+            <button onclick="deselectObject()" class="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 text-xs">✕</button>
+        </div>
+
+        <div class="flex items-center gap-2 mb-2 bg-black/30 px-2.5 py-1.5 rounded-xl border border-white/5">
+            <span class="text-[10px] text-emerald-400 font-bold shrink-0">Высота Y:</span>
+            <input type="range" id="sel-y-slider" min="0" max="8" step="0.05" value="0" oninput="setSelectedHeight(this.value)" class="flex-1 h-4">
+            <button onclick="setSelectedHeight(0)" class="text-[10px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-gray-300" title="Опустить на пол">0</button>
+        </div>
+
+        <div class="grid grid-cols-3 gap-1.5 text-[11px]">
+            <button id="btn-open-motion" onclick="openMotionModal()" class="py-2 px-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold active:scale-95 transition flex flex-col items-center gap-0.5">
+                <span>🎬 Действия</span>
+            </button>
+            <button onclick="toggleSelectedVisibility()" class="py-2 px-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 font-medium active:scale-95 transition flex flex-col items-center gap-0.5">
+                <span>👁 Скрыть</span>
+            </button>
+            <button onclick="rotateSelected45()" class="py-2 px-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 font-medium active:scale-95 transition flex flex-col items-center gap-0.5">
+                <span>↻ Поворот</span>
+            </button>
+        </div>
+        <div class="text-[9px] text-gray-400 mt-1.5 text-center">Перетаскивание по плоскости X/Z • Зажмите Shift или тяните за зелёную ось Y для высоты</div>
+    </div>
+
+    <!-- Bottom Minimal Transport & Timeline Bar -->
+    <div id="bottom-transport" class="fixed bottom-3 left-3 right-3 z-20 glass-panel rounded-2xl px-3 py-2 shadow-2xl flex items-center gap-2.5">
+        <button onclick="togglePlayback()" id="play-btn" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white active:scale-95 transition shrink-0">
+            ▶ Старт
+        </button>
+        <span id="time-display" class="text-[11px] font-mono text-indigo-300 shrink-0">0.0 / 10.0с</span>
+        <input type="range" id="timeline-scrubber" min="0" max="10" step="0.05" value="0" oninput="seekTime(this.value)" class="flex-1 min-w-0">
+        <button onclick="recordVideo()" id="rec-btn" class="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-xs font-bold text-white active:scale-95 transition flex items-center gap-1.5 shrink-0 shadow-lg shadow-red-950/50">
+            <span class="w-2 h-2 rounded-full bg-white"></span>
+            <span id="rec-btn-label">REC</span>
+        </button>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- MODAL 1: LIVE OBJECT CREATOR                                            -->
+    <!-- ======================================================================= -->
+    <div id="creator-modal" class="fixed inset-x-3 bottom-3 sm:inset-auto sm:left-4 sm:w-96 max-h-[62dvh] sm:max-h-[84dvh] z-40 glass-panel rounded-3xl shadow-2xl flex flex-col hidden" style="top: auto;">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
+            <span class="text-sm font-bold text-white">Конструктор объекта</span>
+            <button onclick="cancelCreatorModal()" class="text-xs px-2.5 py-1 rounded-lg bg-white/10 text-gray-300 hover:text-white">Отмена</button>
+        </div>
+
+        <div class="p-3.5 overflow-y-auto custom-scroll space-y-3 text-xs flex-1">
+            <div class="grid grid-cols-5 gap-1 bg-black/40 p-1 rounded-xl border border-white/5">
+                <button onclick="selectCreatorCategory('character')" id="cat-character" class="py-1.5 rounded-lg bg-indigo-600 text-white font-semibold text-[10px]">Человек</button>
+                <button onclick="selectCreatorCategory('car')" id="cat-car" class="py-1.5 rounded-lg text-gray-400 font-medium text-[10px]">Транспорт</button>
+                <button onclick="selectCreatorCategory('animal')" id="cat-animal" class="py-1.5 rounded-lg text-gray-400 font-medium text-[10px]">Животные</button>
+                <button onclick="selectCreatorCategory('crowd')" id="cat-crowd" class="py-1.5 rounded-lg text-gray-400 font-medium text-[10px]">Массовка</button>
+                <button onclick="selectCreatorCategory('static')" id="cat-static" class="py-1.5 rounded-lg text-gray-400 font-medium text-[10px]">Статичные</button>
+            </div>
+
+            <div>
+                <label class="text-[10px] text-gray-400 block mb-1">Имя объекта</label>
+                <input type="text" id="inp-obj-name" value="Аватар" oninput="updateLiveDraft()" class="w-full bg-gray-900/90 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white">
+            </div>
+
+            <div id="creator-fields-character" class="space-y-2.5">
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-[10px] text-gray-400 block mb-0.5">Пол</label>
+                        <select id="char-gender" onchange="onGenderChange()" class="w-full bg-gray-900 border border-white/10 rounded-lg p-1.5 text-xs">
+                            <option value="male">Мужской</option>
+                            <option value="female">Женский</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-gray-400 block mb-0.5">Комплекция</label>
+                        <select id="char-physique" onchange="updateLiveDraft()" class="w-full bg-gray-900 border border-white/10 rounded-lg p-1.5 text-xs">
+                            <option value="slim">Худощавый</option>
+                            <option value="average" selected>Средний</option>
+                            <option value="athletic">Атлетичный</option>
+                            <option value="heavy">Плотный</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-[10px] text-gray-400 block mb-0.5">Рост</label>
+                        <input type="range" id="char-height" min="0.85" max="1.2" step="0.05" value="1.0" oninput="updateLiveDraft()" class="w-full h-6">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-gray-400 block mb-0.5">Эмоция</label>
+                        <select id="char-expression" onchange="updateLiveDraft()" class="w-full bg-gray-900 border border-white/10 rounded-lg p-1.5 text-xs">
+                            <option value="neutral">Спокойная</option>
+                            <option value="happy">Улыбка</option>
+                            <option value="angry">Злость</option>
+                            <option value="surprised">Удивление</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-[10px] text-gray-400 block mb-0.5">Причёска</label>
+                        <select id="char-hair" onchange="updateLiveDraft()" class="w-full bg-gray-900 border border-white/10 rounded-lg p-1.5 text-xs">
+                            <option value="short">Короткая стрижка</option>
+                            <option value="long">Длинные волосы</option>
+                            <option value="bob">Каре</option>
+                            <option value="ponytail">Хвост</option>
+                            <option value="mohawk">Ирокез</option>
+                            <option value="rocker">Под рокера (патлы)</option>
+                            <option value="bald">Лысый</option>
+                        </select>
+                    </div>
+                    <div class="relative">
+                        <label class="text-[10px] text-gray-400 block mb-0.5">Аксессуары (можно совмещать)</label>
+                        <button type="button" id="acc-dropdown-btn" onclick="toggleAccessoriesDropdown(event)"
+                            class="w-full bg-gray-900 border border-white/10 rounded-lg p-1.5 text-xs text-left flex items-center justify-between text-gray-200 hover:border-indigo-500/50">
+                            <span id="acc-dropdown-label" class="truncate">Не выбрано</span>
+                            <span class="text-[10px] text-gray-400 ml-1">▼</span>
+                        </button>
+                        <div id="acc-dropdown-menu" onclick="event.stopPropagation()"
+                            class="hidden absolute right-0 left-0 mt-1 max-h-48 overflow-y-auto custom-scroll bg-gray-950 border border-white/15 rounded-xl p-1.5 shadow-2xl z-50 space-y-0.5">
+                            <label class="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-white/10 cursor-pointer text-[11px]">
+                                <input type="checkbox" value="cap" class="char-acc-cb accent-indigo-500" onchange="onAccessoriesChange()">
+                                <span>Кепка</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-white/10 cursor-pointer text-[11px]">
+                                <input type="checkbox" value="beanie" class="char-acc-cb accent-indigo-500" onchange="onAccessoriesChange()">
+                                <span>Шапка</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-white/10 cursor-pointer text-[11px]">
+                                <input type="checkbox" value="hat" class="char-acc-cb accent-indigo-500" onchange="onAccessoriesChange()">
+                                <span>Шляпа</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-white/10 cursor-pointer text-[11px]">
+                                <input type="checkbox" value="glasses" class="char-acc-cb accent-indigo-500" onchange="onAccessoriesChange()">
+                                <span>Очки</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-white/10 cursor-pointer text-[11px]">
+                                <input type="checkbox" value="beard" class="char-acc-cb accent-indigo-500" onchange="onAccessoriesChange()">
+                                <span>Борода</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-white/10 cursor-pointer text-[11px]">
+                                <input type="checkbox" value="mustache" class="char-acc-cb accent-indigo-500" onchange="onAccessoriesChange()">
+                                <span>Усы</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-white/10 cursor-pointer text-[11px]">
+                                <input type="checkbox" value="watch" class="char-acc-cb accent-indigo-500" onchange="onAccessoriesChange()">
+                                <span>Наручные часы</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-white/10 cursor-pointer text-[11px]">
+                                <input type="checkbox" value="tie" class="char-acc-cb accent-indigo-500" onchange="onAccessoriesChange()">
+                                <span>Галстук</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-white/10 cursor-pointer text-[11px]">
+                                <input type="checkbox" value="chain" class="char-acc-cb accent-indigo-500" onchange="onAccessoriesChange()">
+                                <span>Цепь на шею</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-white/10 cursor-pointer text-[11px]">
+                                <input type="checkbox" value="headphones" class="char-acc-cb accent-indigo-500" onchange="onAccessoriesChange()">
+                                <span>Наушники</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-white/10 cursor-pointer text-[11px]">
+                                <input type="checkbox" value="pistol" class="char-acc-cb accent-indigo-500" onchange="onAccessoriesChange()">
+                                <span>Пистолет</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-white/10 cursor-pointer text-[11px]">
+                                <input type="checkbox" value="camera" class="char-acc-cb accent-indigo-500" onchange="onAccessoriesChange()">
+                                <span>Фотоаппарат на шее</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-[10px] text-gray-400 block mb-0.5">Тип низа</label>
+                        <select id="char-bottom-type" onchange="updateLiveDraft()" class="w-full bg-gray-900 border border-white/10 rounded-lg p-1.5 text-xs">
+                            <option value="pants">Штаны / Брюки</option>
+                            <option value="shorts">Шорты</option>
+                            <option value="skirt">Юбка</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-gray-400 block mb-0.5">Обувь</label>
+                        <select id="char-shoes-type" onchange="updateLiveDraft()" class="w-full bg-gray-900 border border-white/10 rounded-lg p-1.5 text-xs">
+                            <option value="sneakers">Кроссовки</option>
+                            <option value="boots">Сапоги / Берцы</option>
+                            <option value="formal">Туфли</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-5 gap-1.5 pt-1">
+                    <div>
+                        <label class="text-[9px] text-gray-400 block">Кожа</label>
+                        <input type="color" id="char-skin" value="#f5cba7" oninput="updateLiveDraft()" class="w-full h-7 rounded bg-transparent cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="text-[9px] text-gray-400 block">Волосы</label>
+                        <input type="color" id="char-haircol" value="#2c1e16" oninput="updateLiveDraft()" class="w-full h-7 rounded bg-transparent cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="text-[9px] text-gray-400 block">Верх</label>
+                        <input type="color" id="char-top" value="#3b82f6" oninput="updateLiveDraft()" class="w-full h-7 rounded bg-transparent cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="text-[9px] text-gray-400 block">Низ</label>
+                        <input type="color" id="char-bottom" value="#1e293b" oninput="updateLiveDraft()" class="w-full h-7 rounded bg-transparent cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="text-[9px] text-gray-400 block">Обувь</label>
+                        <input type="color" id="char-shoes-col" value="#f8fafc" oninput="updateLiveDraft()" class="w-full h-7 rounded bg-transparent cursor-pointer">
+                    </div>
+                </div>
+            </div>
+
+            <div id="creator-fields-car" class="space-y-2.5 hidden">
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-[10px] text-gray-400 block mb-0.5">Тип транспорта</label>
+                        <select id="car-model" onchange="updateLiveDraft()" class="w-full bg-gray-900 border border-white/10 rounded-lg p-1.5 text-xs">
+                            <option value="sedan">Седан</option>
+                            <option value="suv">Внедорожник</option>
+                            <option value="sports">Спорткар</option>
+                            <option value="pickup">Пикап</option>
+                            <option value="microbus">Микроавтобус</option>
+                            <option value="truck">Грузовик</option>
+                            <option value="bicycle">Велосипед</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-gray-400 block mb-0.5">Цвет кузова / рамы</label>
+                        <input type="color" id="car-color" value="#ef4444" oninput="updateLiveDraft()" class="w-full h-8 bg-transparent cursor-pointer">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-[10px] text-gray-400 block mb-0.5">Цвет дисков / спиц</label>
+                        <input type="color" id="car-rim" value="#d1d5db" oninput="updateLiveDraft()" class="w-full h-8 bg-transparent cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-gray-400 block mb-0.5">Тонировка стёкол</label>
+                        <input type="range" id="car-tint" min="0.2" max="0.95" step="0.05" value="0.75" oninput="updateLiveDraft()" class="w-full h-6">
+                    </div>
+                </div>
+            </div>
+
+            <div id="creator-fields-animal" class="space-y-2.5 hidden">
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-[10px] text-gray-400 block mb-0.5">Животное / Порода</label>
+                        <select id="animal-sub" onchange="onAnimalSubChange()" class="w-full bg-gray-900 border border-white/10 rounded-lg p-1.5 text-xs">
+                            <option value="poodle">Собака: Пудель</option>
+                            <option value="mastiff">Собака: Дог / Мастиф</option>
+                            <option value="shepherd">Собака: Овчарка</option>
+                            <option value="cat_short">Кошка: Гладкошёрстная</option>
+                            <option value="cat_fluffy">Кошка: Пушистая</option>
+                            <option value="parrot">Птица: Попугай (яркий)</option>
+                            <option value="pigeon">Птица: Голубь</option>
+                            <option value="chicken">Птица: Курица</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-gray-400 block mb-0.5">Размер</label>
+                        <input type="range" id="animal-scale" min="0.7" max="1.5" step="0.1" value="1.0" oninput="updateLiveDraft()" class="w-full h-6">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-[10px] text-gray-400 block mb-0.5">Основной окрас</label>
+                        <input type="color" id="animal-color" value="#f8fafc" oninput="updateLiveDraft()" class="w-full h-8 bg-transparent cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-gray-400 block mb-0.5">Второй оттенок</label>
+                        <input type="color" id="animal-accent" value="#cbd5e1" oninput="updateLiveDraft()" class="w-full h-8 bg-transparent cursor-pointer">
+                    </div>
+                </div>
+            </div>
+
+            <div id="creator-fields-crowd" class="space-y-2.5 hidden">
+                <div class="bg-indigo-950/40 border border-indigo-500/20 rounded-xl p-2 text-[11px] text-indigo-200">
+                    Массовка генерируется со случайной внешностью и выполняет заданную фоновую программу автоматически.
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-[10px] text-gray-400 block mb-0.5">Тип массовки</label>
+                        <select id="crowd-role" onchange="updateLiveDraft()" class="w-full bg-gray-900 border border-white/10 rounded-lg p-1.5 text-xs">
+                            <option value="walker">Прохожий (ходит туда-обратно)</option>
+                            <option value="officeworker">Офисный работник (печатает / звонит)</option>
+                            <option value="delivery">Доставщик (в оранжевом, с коробкой)</option>
+                            <option value="janitor">Дворник (метёт метлой)</option>
+                            <option value="drivingcar">Проезжающая машина</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-gray-400 block mb-0.5">Количество (1–8)</label>
+                        <input type="number" id="crowd-count" value="3" min="1" max="8" class="w-full bg-gray-900 border border-white/10 rounded-lg p-1.5 text-xs text-white">
+                    </div>
+                </div>
+            </div>
+
+            <div id="creator-fields-static" class="space-y-2.5 hidden">
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-[10px] text-gray-400 block mb-0.5">Тип статичного объекта</label>
+                        <select id="static-type" onchange="onStaticTypeChange()" class="w-full bg-gray-900 border border-white/10 rounded-lg p-1.5 text-xs">
+                            <option value="tree">Дерево</option>
+                            <option value="bench">Скамейка</option>
+                            <option value="table">Стол</option>
+                            <option value="chair">Стул</option>
+                            <option value="sofa">Диван</option>
+                            <option value="flowerbed">Клумба</option>
+                            <option value="lamppost">Фонарный столб</option>
+                            <option value="monument">Памятник</option>
+                            <option value="floorlamp">Торшер</option>
+                            <option value="barrier">Ограждение</option>
+                            <option value="fence">Секция заборчика</option>
+                            <option value="kiosk">Ларёк</option>
+                            <option value="trashbin">Мусорная урна</option>
+                            <option value="bush">Куст</option>
+                            <option value="roadsign">Дорожный указатель</option>
+                            <option value="billboard">Билборд</option>
+                            <option value="flagpole_md">Флагшток с молдавским флагом</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-gray-400 block mb-0.5">Масштаб</label>
+                        <input type="range" id="static-scale" min="0.6" max="1.8" step="0.1" value="1.0" oninput="updateLiveDraft()" class="w-full h-6">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-[10px] text-gray-400 block mb-0.5">Основной цвет</label>
+                        <input type="color" id="static-color" value="#15803d" oninput="updateLiveDraft()" class="w-full h-8 bg-transparent cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-gray-400 block mb-0.5">Доп. оттенок</label>
+                        <input type="color" id="static-accent" value="#78350f" oninput="updateLiveDraft()" class="w-full h-8 bg-transparent cursor-pointer">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-3 border-t border-white/10 shrink-0">
+            <button onclick="confirmSaveObject()" class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-xs shadow-lg transition">
+                ✓ Сохранить и оставить на сцене
+            </button>
+        </div>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- MODAL 2: PROJECT SETTINGS & OBJECT CATALOG                              -->
+    <!-- ======================================================================= -->
+    <div id="project-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden" onclick="if(event.target===this) closeProjectModal()">
+        <div class="glass-panel w-full max-w-md max-h-[86dvh] rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+            <div class="flex items-center justify-between px-4 py-3.5 border-b border-white/10">
+                <span class="text-sm font-bold text-white">Настройки проекта и сцены</span>
+                <button onclick="closeProjectModal()" class="w-7 h-7 rounded-full bg-white/10 text-gray-300 hover:text-white text-xs">✕</button>
+            </div>
+
+            <div class="p-4 overflow-y-auto custom-scroll space-y-4 text-xs flex-1">
+                <div class="bg-white/5 border border-white/10 rounded-2xl p-3 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[11px] font-bold text-indigo-300 uppercase tracking-wider">Локация и хронометраж</span>
+                        <button onclick="openScenesDirectoryPicker()" class="text-[10px] px-2 py-0.5 rounded-lg bg-indigo-950/90 hover:bg-indigo-900 text-indigo-300 border border-indigo-500/30" title="Подключить локальную папку scenes">
+                            📁 Папка scenes
+                        </button>
+                    </div>
+                    
+                    <div class="relative">
+                        <label class="text-[10px] text-gray-400 block mb-1">Сцена</label>
+                        <button type="button" id="scene-select-trigger" onclick="toggleSceneDropdown(event)"
+                            class="w-full bg-gray-900 border border-white/10 rounded-xl p-2 text-xs text-white flex items-center justify-between hover:border-indigo-500/50 relative">
+                            <span id="scene-select-current" class="font-medium truncate">Комната</span>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <span id="scene-menu-red-dot" class="hidden notify-dot w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                                <span class="text-[10px] text-gray-400">▼</span>
+                            </div>
+                        </button>
+
+                        <div id="scene-dropdown-list" onclick="event.stopPropagation()"
+                            class="hidden mt-1 bg-gray-950 border border-white/15 rounded-xl p-1.5 shadow-2xl space-y-1 max-h-56 overflow-y-auto custom-scroll">
+                        </div>
+                    </div>
+
+                    <div id="save-scene-changes-box" class="hidden bg-red-950/30 border border-red-500/30 rounded-xl p-2.5 flex items-center justify-between gap-2">
+                        <div class="text-[11px] text-red-200 leading-tight">
+                            Сцена изменена (добавлены статичные объекты)
+                        </div>
+                        <button onclick="saveModifiedSceneToDisk()" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-[11px] shrink-0 shadow">
+                            💾 Сохранить сцену
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2.5">
+                        <div>
+                            <label class="text-[10px] text-gray-400 block mb-1">Длительность (сек)</label>
+                            <input type="number" id="proj-duration-input" value="10" min="2" max="120" step="1" onchange="updateDuration(this.value)" class="w-full bg-gray-900 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-gray-400 block mb-1">Освещение (День / Ночь)</label>
+                            <button onclick="toggleDayNightGlobal()" id="daynight-btn" class="w-full py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-amber-300 font-bold border border-white/10">☀ День</button>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-[10px] text-gray-400">Пресеты:</span>
+                        <button onclick="updateDuration(5)" class="px-2 py-0.5 rounded bg-gray-800 hover:bg-indigo-600 text-[10px]">5с</button>
+                        <button onclick="updateDuration(7)" class="px-2 py-0.5 rounded bg-gray-800 hover:bg-indigo-600 text-[10px]">7с</button>
+                        <button onclick="updateDuration(10)" class="px-2 py-0.5 rounded bg-gray-800 hover:bg-indigo-600 text-[10px]">10с</button>
+                        <button onclick="updateDuration(15)" class="px-2 py-0.5 rounded bg-gray-800 hover:bg-indigo-600 text-[10px]">15с</button>
+                        <button onclick="updateDuration(30)" class="px-2 py-0.5 rounded bg-gray-800 hover:bg-indigo-600 text-[10px]">30с</button>
+                    </div>
+
+                    <div class="flex gap-2 pt-1">
+                        <button onclick="exportProjectJSON()" class="flex-1 py-1.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-emerald-400 font-semibold border border-white/10">⬇ Сохранить JSON</button>
+                        <label class="flex-1 py-1.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-indigo-400 font-semibold border border-white/10 text-center cursor-pointer">
+                            ⬆ Загрузить JSON
+                            <input type="file" accept=".json" class="hidden" onchange="importProjectJSON(event)">
+                        </label>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[11px] font-bold text-gray-300 uppercase tracking-wider">Объекты в проекте</span>
+                        <span id="catalog-count" class="text-[10px] px-2 py-0.5 rounded-full bg-indigo-600/30 text-indigo-300">0</span>
+                    </div>
+                    <div id="catalog-grid" class="grid grid-cols-2 gap-2.5"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- MODAL 3: TIMELAPSE MOTION & FULL ACTION LIBRARY                         -->
+    <!-- ======================================================================= -->
+    <div id="motion-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 hidden" onclick="if(event.target===this) closeMotionModal()">
+        <div class="glass-panel w-full max-w-lg max-h-[86dvh] rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-white/10">
+                <div>
+                    <span class="text-sm font-bold text-white" id="motion-modal-title">Действия и маршрут</span>
+                    <span class="text-[10px] text-gray-400 block">Независимые дорожки поз и координат (X, Y, Z)</span>
+                </div>
+                <button onclick="closeMotionModal()" class="w-7 h-7 rounded-full bg-white/10 text-gray-300 text-xs">✕</button>
+            </div>
+
+            <div class="p-4 overflow-y-auto custom-scroll space-y-4 text-xs flex-1">
+                <div class="bg-white/5 border border-white/10 rounded-2xl p-3 space-y-2.5">
+                    <div class="font-bold text-indigo-300">1. Действие / Анимация позы</div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="col-span-3 sm:col-span-1">
+                            <label class="text-[10px] text-gray-400 block mb-0.5">Действие</label>
+                            <select id="anim-action-type" onchange="onActionSelectChange()" class="w-full bg-gray-900 border border-white/10 rounded-lg p-1.5 text-xs">
+                                <option value="wave">Махать рукой / жестикулировать</option>
+                                <option value="smoke">Курить сигарету (с прикуриванием)</option>
+                                <option value="box">Боксировать (махать кулаками)</option>
+                                <option value="sit">Садиться</option>
+                                <option value="sit_crossed">Сидеть нога на ногу</option>
+                                <option value="lay">Ложиться</option>
+                                <option value="nod">Кивать головой</option>
+                                <option value="finger_no">Качать пальцем («нет»)</option>
+                                <option value="put_glasses">Надевать очки</option>
+                                <option value="jump">Подпрыгивать</option>
+                                <option value="walk_cycle">Идти / Бежать</option>
+                                <option value="stumble">Споткнуться и упасть</option>
+                                <option value="roll">Сделать кувырок</option>
+                                <option value="kneel">Встать на одно колено</option>
+                                <option value="gun">Вытащить пистолет</option>
+                                <option value="drink">Выпить</option>
+                                <option value="spit">Сплюнуть</option>
+                                <option value="hug">Раскинуть руки для объятий</option>
+                                <option value="beckon">Манить / подзывать к себе</option>
+                                <option value="lookaround">Оглядываться по сторонам</option>
+                                <option value="write">Писать сидя</option>
+                                <option value="handover">Протянуть предмет в руке</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-gray-400 block mb-0.5">С (сек)</label>
+                            <input type="number" id="anim-start" value="1" min="0" step="0.5" class="w-full bg-gray-900 border border-white/10 rounded-lg p-1.5 text-xs">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-gray-400 block mb-0.5">По (сек)</label>
+                            <input type="number" id="anim-end" value="5" min="0.5" step="0.5" class="w-full bg-gray-900 border border-white/10 rounded-lg p-1.5 text-xs">
+                        </div>
+                    </div>
+
+                    <div id="handover-item-box" class="hidden">
+                        <label class="text-[10px] text-gray-400 block mb-0.5">Что протягивает в руке:</label>
+                        <select id="handover-item" class="w-full bg-gray-900 border border-white/10 rounded-lg p-1.5 text-xs">
+                            <option value="paper">Листок бумаги</option>
+                            <option value="cigarettes">Пачка сигарет</option>
+                            <option value="box">Коробка</option>
+                        </select>
+                    </div>
+
+                    <button onclick="addPoseAction()" class="w-full py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold active:scale-95 transition">
+                        + Добавить действие
+                    </button>
+                    <div id="pose-actions-list" class="space-y-1 pt-1"></div>
+                </div>
+
+                <div class="bg-white/5 border border-white/10 rounded-2xl p-3 space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-emerald-300">2. Перемещение по координатам (X, Y, Z)</span>
+                        <button onclick="fillCurrentCoordsAsStart()" class="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/30">Взять текущие X, Y, Z</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-[10px] text-gray-400 block mb-0.5">Начало движения (сек)</label>
+                            <input type="number" id="move-start" value="3" min="0" step="0.5" class="w-full bg-gray-900 border border-white/10 rounded-lg p-1.5 text-xs">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-gray-400 block mb-0.5">Конец движения (сек)</label>
+                            <input type="number" id="move-end" value="5" min="0.5" step="0.5" class="w-full bg-gray-900 border border-white/10 rounded-lg p-1.5 text-xs">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-1.5">
+                        <div><label class="text-[10px] text-gray-400 block mb-0.5">От X</label><input type="number" id="move-x1" value="0" step="0.5" class="w-full bg-gray-900 border border-white/10 rounded-lg p-1.5 text-xs"></div>
+                        <div><label class="text-[10px] text-gray-400 block mb-0.5">От Y (высота)</label><input type="number" id="move-y1" value="0" step="0.5" class="w-full bg-gray-900 border border-white/10 rounded-lg p-1.5 text-xs"></div>
+                        <div><label class="text-[10px] text-gray-400 block mb-0.5">От Z</label><input type="number" id="move-z1" value="0" step="0.5" class="w-full bg-gray-900 border border-white/10 rounded-lg p-1.5 text-xs"></div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-1.5">
+                        <div><label class="text-[10px] text-gray-400 block mb-0.5">До X</label><input type="number" id="move-x2" value="2" step="0.5" class="w-full bg-gray-900 border border-white/10 rounded-lg p-1.5 text-xs"></div>
+                        <div><label class="text-[10px] text-gray-400 block mb-0.5">До Y (высота)</label><input type="number" id="move-y2" value="0" step="0.5" class="w-full bg-gray-900 border border-white/10 rounded-lg p-1.5 text-xs"></div>
+                        <div><label class="text-[10px] text-gray-400 block mb-0.5">До Z</label><input type="number" id="move-z2" value="2" step="0.5" class="w-full bg-gray-900 border border-white/10 rounded-lg p-1.5 text-xs"></div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" id="move-auto-walk" checked class="accent-emerald-500">
+                        <label for="move-auto-walk" class="text-[11px] text-gray-300">Авто-шаг ног/колёс и поворот по ходу движения</label>
+                    </div>
+                    <button onclick="addMoveSegment()" class="w-full py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold active:scale-95 transition">
+                        + Добавить отрезок пути
+                    </button>
+                    <div id="move-segments-list" class="space-y-1 pt-1"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP SCRIPT (Modular Dynamic Loader) -->
+    <script type="module">
+        import { loadAllAssets } from './assets/manifest.js';
+
+        // Глобальные реестры подгруженных модулей
+        window.AssetModules = { textures: {}, objects: {}, environments: {} };
+
+        // 1. ENGINE & VIEWPORT SETUP
+        function setAppHeight() { document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`); }
+        window.addEventListener('resize', () => {
+            setAppHeight();
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        setAppHeight();
+
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0f1115);
+
+        const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 220);
+        camera.position.set(0, 4.4, 7.2);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.06;
+        controls.maxPolarAngle = Math.PI / 2 - 0.02;
+        controls.target.set(0, 1.0, 0);
+
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x334155, 0.68);
+        scene.add(hemiLight);
+
+        const sunLight = new THREE.DirectionalLight(0xfff7ed, 0.95);
+        sunLight.position.set(6, 12, 8);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.width = 1024;
+        sunLight.shadow.mapSize.height = 1024;
+        scene.add(sunLight);
+
+        const envGroup = new THREE.Group();
+        const guidesGroup = new THREE.Group();
+        const objectsGroup = new THREE.Group();
+        const gizmoGroup = new THREE.Group();
+        scene.add(envGroup, guidesGroup, objectsGroup, gizmoGroup);
+
+        const selectionRing = new THREE.Mesh(
+            new THREE.RingGeometry(0.55, 0.65, 32),
+            new THREE.MeshBasicMaterial({ color: 0x6366f1, side: THREE.DoubleSide })
+        );
+        selectionRing.rotation.x = -Math.PI / 2;
+        selectionRing.position.y = 0.02;
+        selectionRing.visible = false;
+        scene.add(selectionRing);
+
+        const heightGizmoLine = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.015, 0.015, 2.2, 8),
+            new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.7 })
+        );
+        heightGizmoLine.position.y = 1.1;
+        const heightGizmoKnob = new THREE.Mesh(
+            new THREE.OctahedronGeometry(0.14, 0),
+            new THREE.MeshBasicMaterial({ color: 0x34d399 })
+        );
+        heightGizmoKnob.position.y = 2.2;
+        heightGizmoKnob.name = 'heightGizmoKnob';
+        gizmoGroup.add(heightGizmoLine, heightGizmoKnob);
+        gizmoGroup.visible = false;
+
+        // SCENES CATALOG
+        window.scenesCatalog = [
+            { id: 'room', name: 'Комната', isDefault: true, customData: null },
+            { id: 'office', name: 'Офис', isDefault: true, customData: null },
+            { id: 'park', name: 'Парк', isDefault: true, customData: null },
+            { id: 'city', name: 'Улица города', isDefault: true, customData: null },
+            { id: 'supermarket', name: 'Супермаркет', isDefault: true, customData: null },
+            { id: 'gym', name: 'Тренажёрный зал с боксёрским рингом', isDefault: true, customData: null },
+            { id: 'club', name: 'Заведение: Бар и Казино', isDefault: true, customData: null },
+            { id: 'studio', name: 'Студия', isDefault: true, customData: null }
+        ];
+
+        window.isSceneDirty = false;
+        window.dirtySceneId = null;
+        window.rootDirHandle = null;
+        window.scenesDirHandle = null;
+
+        window.project = {
+            environment: 'room',
+            isNight: false,
+            duration: 10,
+            objects: []
+        };
+
+        window.envColliders = [];
+        window.interactiveElements = [];
+        window.selectedObjId = null;
+        window.draftIds = [];
+        window.activeCreatorCategory = 'character';
+
+        window.isDraggingObject = false;
+        window.isDraggingHeight = false;
+        window.heightDragStartY = 0;
+        window.heightDragBaseY = 0;
+
+        const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+        const raycaster = new THREE.Raycaster();
+        const pointerNDC = new THREE.Vector2();
+
+        window.isPlaying = false;
+        window.isRecording = false;
+        window.currentTime = 0;
+        const clock = new THREE.Clock();
+        let mediaRecorder = null;
+        let recordedChunks = [];
+
+        // COORDINATE GUIDES
+        function createLabelSprite(text, colorStr) {
+            const c = document.createElement('canvas');
+            c.width = 96; c.height = 48;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = 'rgba(15, 17, 21, 0.42)';
+            ctx.beginPath(); ctx.roundRect(18, 12, 60, 24, 6); ctx.fill();
+            ctx.font = 'bold 16px monospace';
+            ctx.fillStyle = colorStr;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, 48, 24);
+            const tex = new THREE.CanvasTexture(c);
+            const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.48, depthTest: false });
+            const sprite = new THREE.Sprite(mat);
+            sprite.scale.set(0.42, 0.21, 1);
+            return sprite;
+        }
+
+        function buildCoordinateGuides() {
+            while (guidesGroup.children.length > 0) guidesGroup.remove(guidesGroup.children[0]);
+            const gridSize = 24;
+            const grid = new THREE.GridHelper(gridSize, gridSize, 0x6366f1, 0x334155);
+            grid.position.y = 0.01;
+            grid.material.opacity = 0.28;
+            grid.material.transparent = true;
+            guidesGroup.add(grid);
+
+            const axisExtent = 22, yTop = 16, yBottom = -4;
+            const xMat = new THREE.LineBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.65 });
+            guidesGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-axisExtent, 0.02, 0), new THREE.Vector3(axisExtent, 0.02, 0)]), xMat));
+            const zMat = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.65 });
+            guidesGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0.02, -axisExtent), new THREE.Vector3(0, 0.02, axisExtent)]), zMat));
+            const yMat = new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.65 });
+            guidesGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, yBottom, 0), new THREE.Vector3(0, yTop, 0)]), yMat));
+
+            for (let i = -18; i <= 18; i++) {
+                if (i === 0) continue;
+                const tickX = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.02, 0.12), new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.45 }));
+                tickX.position.set(i, 0.02, 0);
+                guidesGroup.add(tickX);
+                const lblX = createLabelSprite(`${i}x`, 'rgba(252, 165, 165, 0.78)');
+                lblX.position.set(i, 0.14, 0.22);
+                guidesGroup.add(lblX);
+
+                const tickZ = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.02, 0.02), new THREE.MeshBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.45 }));
+                tickZ.position.set(0, 0.02, i);
+                guidesGroup.add(tickZ);
+                const lblZ = createLabelSprite(`${i}z`, 'rgba(147, 197, 253, 0.78)');
+                lblZ.position.set(0.24, 0.14, i);
+                guidesGroup.add(lblZ);
+            }
+            for (let y = 1; y <= 14; y++) {
+                const tickY = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.02, 0.12), new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.45 }));
+                tickY.position.set(0, y, 0);
+                guidesGroup.add(tickY);
+                const lblY = createLabelSprite(`${y}y`, 'rgba(110, 231, 183, 0.82)');
+                lblY.position.set(0.24, y, 0);
+                guidesGroup.add(lblY);
+            }
+        }
+        buildCoordinateGuides();
+
+        // HELPERS & COLLISION
+        window.addStaticCollider = function(cx, cz, width, depth) {
+            envColliders.push({ minX: cx - width / 2, maxX: cx + width / 2, minZ: cz - depth / 2, maxZ: cz + depth / 2 });
+        };
+
+        function resolvePositionWithCollisions(targetX, targetZ, radius, ignoreObjId, currentY = 0) {
+            let x = Math.max(-14.0, Math.min(14.0, targetX));
+            let z = Math.max(-14.0, Math.min(14.0, targetZ));
+            if (currentY > 2.2) return { x, z };
+
+            for (const box of envColliders) {
+                const closestX = Math.max(box.minX, Math.min(x, box.maxX));
+                const closestZ = Math.max(box.minZ, Math.min(z, box.maxZ));
+                const dx = x - closestX, dz = z - closestZ;
+                const distSq = dx * dx + dz * dz;
+                if (distSq < radius * radius) {
+                    const dist = Math.sqrt(distSq);
+                    if (dist > 0.0001) {
+                        const overlap = radius - dist;
+                        x += (dx / dist) * overlap;
+                        z += (dz / dist) * overlap;
+                    }
+                }
+            }
+            for (const other of project.objects) {
+                if (other.id === ignoreObjId || !other.visible) continue;
+                const mesh = objectsGroup.children.find(m => m.userData.objId === other.id);
+                if (!mesh || Math.abs((mesh.position.y || 0) - currentY) > 1.8) continue;
+                const minDist = radius + (other.radius || 0.42);
+                const dx = x - mesh.position.x, dz = z - mesh.position.z;
+                const dist = Math.hypot(dx, dz);
+                if (dist < minDist && dist > 0.0001) {
+                    const push = minDist - dist;
+                    x += (dx / dist) * push;
+                    z += (dz / dist) * push;
+                }
+            }
+            return { x, z };
+        }
+
+        window.findFreeSpawnPoint = function(radius, offsetIdx = 0) {
+            const baseCandidates = [[0, 1.2], [1.2, 1.4], [-1.2, 1.4], [0, 2.5], [1.8, 0.2], [-1.8, 0.5], [0.9, 3.2], [-0.9, 3.2]];
+            for (let i = 0; i < baseCandidates.length; i++) {
+                const [cx, cz] = baseCandidates[(i + offsetIdx) % baseCandidates.length];
+                const res = resolvePositionWithCollisions(cx, cz, radius, null, 0);
+                if (Math.hypot(res.x - cx, res.z - cz) < 0.05) return res;
+            }
+            return resolvePositionWithCollisions(0, 2.0, radius, null, 0);
+        };
+
+        // DYNAMIC BUILDING & BUILDERS
+        function buildEnvironment(sceneId) {
+            project.environment = sceneId;
+            while (envGroup.children.length > 0) envGroup.remove(envGroup.children[0]);
+            envColliders = [];
+            interactiveElements = [];
+
+            const sceneMeta = scenesCatalog.find(s => s.id === sceneId);
+            const baseEnvType = (sceneMeta && sceneMeta.customData && sceneMeta.customData.baseEnvironment) ? sceneMeta.customData.baseEnvironment : sceneId;
+
+            if (project.isNight) {
+                hemiLight.intensity = 0.32;
+                sunLight.intensity = 0.35;
+                sunLight.color.setHex(0x93c5fd);
+            } else {
+                hemiLight.intensity = 0.72;
+                sunLight.intensity = 0.95;
+                sunLight.color.setHex(0xfff7ed);
+            }
+
+            // Вызываем модуль сцены из реестра environments
+            const envModule = window.AssetModules.environments[baseEnvType] || window.AssetModules.environments['room'];
+            if (envModule && typeof envModule.build === 'function') {
+                envModule.build({ scene, envGroup, project, interactiveElements, addStaticCollider });
+            }
+
+            // Загрузка статических объектов из пресета сцены
+            if (sceneMeta && sceneMeta.customData && Array.isArray(sceneMeta.customData.staticObjects)) {
+                project.objects = project.objects.filter(o => !o.fromScenePreset);
+                Array.from(objectsGroup.children).forEach(m => {
+                    if (m.userData.fromScenePreset) objectsGroup.remove(m);
+                });
+                sceneMeta.customData.staticObjects.forEach((st, idx) => {
+                    const cloned = JSON.parse(JSON.stringify(st));
+                    cloned.id = cloned.id || ('preset_static_' + Date.now + '_' + idx);
+                    cloned.fromScenePreset = true;
+                    project.objects.push(cloned);
+                    rebuildSceneObjectMesh(cloned);
+                });
+            }
+        }
+        window.buildEnvironment = buildEnvironment;
+
+        window.toggleDayNightGlobal = function() {
+            project.isNight = !project.isNight;
+            const btn = document.getElementById('daynight-btn');
+            if (btn) {
+                btn.innerText = project.isNight ? '🌙 Ночь' : '☀ День';
+                btn.className = project.isNight ? 'w-full py-2 rounded-xl bg-indigo-950 text-indigo-200 font-bold border border-indigo-400/30' : 'w-full py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-amber-300 font-bold border border-white/10';
+            }
+            buildEnvironment(project.environment);
+        };
+
+        window.getRadiusForType = function(type, subModel) {
+            if (type === 'car' || subModel === 'drivingcar') return 1.15;
+            if (type === 'animal') return 0.35;
+            if (type === 'static') {
+                const wideStatics = ['kiosk', 'sofa', 'billboard', 'fence', 'barrier', 'bench', 'table'];
+                return wideStatics.includes(subModel) ? 0.85 : 0.45;
+            }
+            return 0.42;
+        };
+
+        window.buildObjectMesh = function(obj) {
+            if (obj.type === 'character') {
+                const mod = window.AssetModules.objects['human'];
+                return mod && mod.build ? mod.build(obj.data) : new THREE.Group();
+            }
+            if (obj.type === 'car') {
+                const mod = window.AssetModules.objects[obj.data.model || 'sedan'];
+                return mod && mod.build ? mod.build(obj.data) : new THREE.Group();
+            }
+            if (obj.type === 'animal') {
+                const subKey = obj.data.sub || 'poodle';
+                const key = ['parrot', 'pigeon', 'chicken'].includes(subKey) ? `bird_${subKey}` : (['poodle', 'mastiff', 'shepherd'].includes(subKey) ? `dog_${subKey}` : `cat_${subKey}`);
+                const mod = window.AssetModules.objects[key] || window.AssetModules.objects['dog_poodle'];
+                return mod && mod.build ? mod.build(obj.data) : new THREE.Group();
+            }
+            if (obj.type === 'static') {
+                const st = obj.data.staticType || 'tree';
+                const mod = window.AssetModules.objects[st] || window.AssetModules.objects['tree'];
+                return mod && mod.build ? mod.build(obj.data) : new THREE.Group();
+            }
+            // Crowd
+            const role = obj.data.role || 'walker';
+            if (role === 'drivingcar') {
+                const mod = window.AssetModules.objects[obj.data.carModel || 'sedan'];
+                return mod && mod.build ? mod.build({ ...obj.data, color: obj.data.color || '#3b82f6' }) : new THREE.Group();
+            }
+            const humanMod = window.AssetModules.objects['human'];
+            const charMesh = humanMod && humanMod.build ? humanMod.build(obj.data) : new THREE.Group();
+            if (role === 'janitor') {
+                const broom = new THREE.Group();
+                const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 1.3), new THREE.MeshStandardMaterial({ color: 0x78350f }));
+                const brush = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.1, 0.12), new THREE.MeshStandardMaterial({ color: 0xd97706 }));
+                brush.position.y = -0.65;
+                broom.add(stick, brush);
+                broom.position.set(0.32, 0.65, 0.25);
+                broom.rotation.x = 0.35;
+                charMesh.add(broom);
+            } else if (role === 'delivery') {
+                const bag = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.42, 0.28), new THREE.MeshStandardMaterial({ color: 0xf97316 }));
+                bag.position.set(0, 0.85, -0.26);
+                charMesh.add(bag);
+            }
+            return charMesh;
+        };
+
+        // UI & MODALS INTERACTION (остальная стандартная логика интерфейса, модалок, анимаций и таймлайна)
+        window.openCreatorModal = function() {
+            if (isPlaying) togglePlayback();
+            closeProjectModal();
+            closeMotionModal();
+
+            draftIds = [];
+            const radius = getRadiusForType('character');
+            const pos = findFreeSpawnPoint(radius, 0);
+
+            const draftObj = {
+                id: 'obj_' + Date.now(),
+                name: 'Аватар',
+                type: 'character',
+                data: { accessories: [] },
+                visible: true,
+                baseX: pos.x, baseY: 0, baseZ: pos.z,
+                rotY: 0, radius: radius,
+                poseActions: [], movePaths: []
+            };
+
+            project.objects.push(draftObj);
+            draftIds = [draftObj.id];
+            selectCreatorCategory('character');
+            document.getElementById('creator-modal').classList.remove('hidden');
+        };
+
+        window.selectCreatorCategory = function(cat) {
+            activeCreatorCategory = cat;
+            ['character', 'car', 'animal', 'crowd', 'static'].forEach(c => {
+                const btn = document.getElementById('cat-' + c);
+                btn.className = (c === cat) ? 'py-1.5 rounded-lg bg-indigo-600 text-white font-semibold text-[10px]' : 'py-1.5 rounded-lg text-gray-400 font-medium text-[10px]';
+            });
+            document.getElementById('creator-fields-character').classList.toggle('hidden', cat !== 'character');
+            document.getElementById('creator-fields-car').classList.toggle('hidden', cat !== 'car');
+            document.getElementById('creator-fields-animal').classList.toggle('hidden', cat !== 'animal');
+            document.getElementById('creator-fields-crowd').classList.toggle('hidden', cat !== 'crowd');
+            document.getElementById('creator-fields-static').classList.toggle('hidden', cat !== 'static');
+
+            const nameInp = document.getElementById('inp-obj-name');
+            if (cat === 'character') nameInp.value = 'Аватар';
+            else if (cat === 'car') nameInp.value = 'Автомобиль';
+            else if (cat === 'animal') onAnimalSubChange();
+            else if (cat === 'crowd') nameInp.value = 'Массовка';
+            else if (cat === 'static') onStaticTypeChange();
+            updateLiveDraft();
+        };
+
+        window.onStaticTypeChange = function() {
+            const st = document.getElementById('static-type').value;
+            const namesMap = {
+                tree: ['Дерево', '#15803d', '#78350f'], bench: ['Скамейка', '#334155', '#92400e'], table: ['Стол', '#475569', '#78350f'],
+                chair: ['Стул', '#475569', '#92400e'], sofa: ['Диван', '#334155', '#1e293b'], flowerbed: ['Клумба', '#16a34a', '#5c3a21'],
+                lamppost: ['Фонарный столб', '#fef08a', '#1f2937'], monument: ['Памятник', '#b45309', '#64748b'], floorlamp: ['Торшер', '#fef08a', '#1f2937'],
+                barrier: ['Ограждение', '#dc2626', '#f8fafc'], fence: ['Секция заборчика', '#78350f', '#92400e'], kiosk: ['Ларёк', '#2563eb', '#1e293b'],
+                trashbin: ['Мусорная урна', '#10b981', '#1f2937'], bush: ['Куст', '#166534', '#14532d'], roadsign: ['Дорожный указатель', '#2563eb', '#f8fafc'],
+                billboard: ['Билборд', '#facc15', '#1f2937'], flagpole_md: ['Флагшток (Молдова)', '#0046ae', '#ffd200']
+            };
+            const [nm, c1, c2] = namesMap[st] || ['Объект', '#15803d', '#78350f'];
+            document.getElementById('inp-obj-name').value = nm;
+            document.getElementById('static-color').value = c1;
+            document.getElementById('static-accent').value = c2;
+            updateLiveDraft();
+        };
+
+        window.onGenderChange = function() {
+            const g = document.getElementById('char-gender').value;
+            const hairSel = document.getElementById('char-hair');
+            if (g === 'female' && hairSel.value === 'short') hairSel.value = 'long';
+            if (g === 'male' && hairSel.value === 'long') hairSel.value = 'short';
+            updateLiveDraft();
+        };
+
+        window.onAnimalSubChange = function() {
+            const sub = document.getElementById('animal-sub').value;
+            const map = {
+                poodle: ['Пудель', '#f8fafc', '#cbd5e1'], mastiff: ['Дог', '#92400e', '#451a03'], shepherd: ['Овчарка', '#b45309', '#111827'],
+                cat_short: ['Кошка', '#64748b', '#f1f5f9'], cat_fluffy: ['Пушистая кошка', '#f59e0b', '#fef3c7'], parrot: ['Попугай', '#ef4444', '#3b82f6'],
+                pigeon: ['Голубь', '#94a3b8', '#475569'], chicken: ['Курица', '#fef3c7', '#dc2626']
+            };
+            const [nm, c1, c2] = map[sub] || ['Животное', '#b45309', '#fef3c7'];
+            document.getElementById('inp-obj-name').value = nm;
+            document.getElementById('animal-color').value = c1;
+            document.getElementById('animal-accent').value = c2;
+            updateLiveDraft();
+        };
+
+        window.toggleAccessoriesDropdown = function(e) {
+            e.stopPropagation();
+            document.getElementById('acc-dropdown-menu').classList.toggle('hidden');
+        };
+
+        window.onAccessoriesChange = function() {
+            const cbs = Array.from(document.querySelectorAll('.char-acc-cb:checked'));
+            const lbl = document.getElementById('acc-dropdown-label');
+            if (cbs.length === 0) lbl.innerText = 'Не выбрано';
+            else if (cbs.length === 1) lbl.innerText = cbs[0].parentElement.innerText.trim();
+            else lbl.innerText = `Выбрано: ${cbs.length}`;
+            updateLiveDraft();
+        };
+
+        window.readCreatorForm = function() {
+            const name = document.getElementById('inp-obj-name').value.trim() || 'Объект';
+            if (activeCreatorCategory === 'character') {
+                const accessories = Array.from(document.querySelectorAll('.char-acc-cb:checked')).map(cb => cb.value);
+                return {
+                    name,
+                    data: {
+                        gender: document.getElementById('char-gender').value,
+                        physique: document.getElementById('char-physique').value,
+                        height: document.getElementById('char-height').value,
+                        expression: document.getElementById('char-expression').value,
+                        hair: document.getElementById('char-hair').value,
+                        accessories,
+                        bottomType: document.getElementById('char-bottom-type').value,
+                        shoesType: document.getElementById('char-shoes-type').value,
+                        skin: document.getElementById('char-skin').value,
+                        hairCol: document.getElementById('char-haircol').value,
+                        top: document.getElementById('char-top').value,
+                        bottom: document.getElementById('char-bottom').value,
+                        shoesCol: document.getElementById('char-shoes-col').value
+                    }
+                };
+            } else if (activeCreatorCategory === 'car') {
+                return {
+                    name,
+                    data: {
+                        model: document.getElementById('car-model').value,
+                        color: document.getElementById('car-color').value,
+                        rim: document.getElementById('car-rim').value,
+                        tint: document.getElementById('car-tint').value
+                    }
+                };
+            } else if (activeCreatorCategory === 'animal') {
+                return {
+                    name,
+                    data: {
+                        sub: document.getElementById('animal-sub').value,
+                        scale: document.getElementById('animal-scale').value,
+                        color: document.getElementById('animal-color').value,
+                        accent: document.getElementById('animal-accent').value
+                    }
+                };
+            } else if (activeCreatorCategory === 'static') {
+                return {
+                    name,
+                    data: {
+                        staticType: document.getElementById('static-type').value,
+                        scale: document.getElementById('static-scale').value,
+                        color: document.getElementById('static-color').value,
+                        accent: document.getElementById('static-accent').value
+                    }
+                };
+            } else {
+                return {
+                    name,
+                    data: {
+                        role: document.getElementById('crowd-role').value,
+                        count: parseInt(document.getElementById('crowd-count').value) || 3
+                    }
+                };
+            }
+        };
+
+        function generateRandomCrowdData(role, idx) {
+            const tops = ['#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#eab308', '#64748b'];
+            const bots = ['#1e293b', '#0f172a', '#334155', '#475569'];
+            const skins = ['#f5cba7', '#e0ac69', '#8d5524', '#ffdbac'];
+            const hairs = ['short', 'long', 'bob', 'ponytail', 'bald'];
+            const carModels = ['sedan', 'suv', 'sports', 'pickup', 'microbus'];
+            return {
+                role, gender: idx % 2 === 0 ? 'male' : 'female', physique: ['slim', 'average', 'athletic'][idx % 3],
+                height: (0.92 + (idx % 4) * 0.05).toFixed(2), expression: 'neutral', hair: hairs[idx % hairs.length],
+                skin: skins[idx % skins.length], hairCol: '#2c1e16', top: role === 'delivery' ? '#f97316' : (role === 'janitor' ? '#0284c7' : tops[idx % tops.length]),
+                bottom: bots[idx % bots.length], accessories: (role === 'delivery' || role === 'janitor') ? ['cap'] : [],
+                carModel: carModels[idx % carModels.length], color: tops[idx % tops.length], seedOffset: idx * 1.7
+            };
+        }
+
+        window.updateLiveDraft = function() {
+            if (draftIds.length === 0) return;
+            while (draftIds.length > 1) removeObjectCompletely(draftIds.pop());
+
+            const primaryObj = project.objects.find(o => o.id === draftIds[0]);
+            if (!primaryObj) return;
+
+            const form = readCreatorForm();
+            primaryObj.type = activeCreatorCategory;
+            primaryObj.name = form.name;
+
+            if (activeCreatorCategory === 'crowd') {
+                primaryObj.data = generateRandomCrowdData(form.data.role, 0);
+                primaryObj.radius = getRadiusForType('crowd', form.data.role);
+            } else if (activeCreatorCategory === 'static') {
+                primaryObj.data = form.data;
+                primaryObj.radius = getRadiusForType('static', form.data.staticType);
+            } else {
+                primaryObj.data = form.data;
+                primaryObj.radius = getRadiusForType(activeCreatorCategory);
+            }
+
+            const res = resolvePositionWithCollisions(primaryObj.baseX, primaryObj.baseZ, primaryObj.radius, primaryObj.id, primaryObj.baseY || 0);
+            primaryObj.baseX = res.x; primaryObj.baseZ = res.z;
+            rebuildSceneObjectMesh(primaryObj);
+            selectObject(primaryObj.id, false);
+        };
+
+        window.confirmSaveObject = function() {
+            const form = readCreatorForm();
+            if (activeCreatorCategory === 'crowd' && form.data.count > 1) {
+                const role = form.data.role;
+                const roleLabels = { walker: 'Прохожий', officeworker: 'Офисный работник', delivery: 'Доставщик', janitor: 'Дворник', drivingcar: 'Авто потока' };
+                const firstObj = project.objects.find(o => o.id === draftIds[0]);
+                if (firstObj) firstObj.name = `${roleLabels[role] || 'Массовка'} 1`;
+
+                for (let i = 1; i < form.data.count; i++) {
+                    const rad = getRadiusForType('crowd', role);
+                    const pos = findFreeSpawnPoint(rad, i);
+                    const cObj = {
+                        id: 'obj_' + Date.now() + '_' + i, name: `${roleLabels[role] || 'Массовка'} ${i + 1}`,
+                        type: 'crowd', data: generateRandomCrowdData(role, i), visible: true,
+                        baseX: pos.x, baseY: 0, baseZ: pos.z, rotY: 0, radius: rad, poseActions: [], movePaths: []
+                    };
+                    project.objects.push(cObj);
+                    rebuildSceneObjectMesh(cObj);
+                }
+            }
+            if (activeCreatorCategory === 'static') {
+                const primaryObj = project.objects.find(o => o.id === draftIds[0]);
+                if (primaryObj) primaryObj.fromScenePreset = true;
+                markCurrentSceneDirty();
+            }
+
+            const lastId = draftIds[0];
+            draftIds = [];
+            document.getElementById('creator-modal').classList.add('hidden');
+            if (lastId) selectObject(lastId, true);
+        };
+
+        window.cancelCreatorModal = function() {
+            draftIds.forEach(id => removeObjectCompletely(id));
+            draftIds = [];
+            document.getElementById('creator-modal').classList.add('hidden');
+        };
+
+        window.rebuildSceneObjectMesh = function(obj) {
+            const old = objectsGroup.children.find(m => m.userData.objId === obj.id);
+            if (old) objectsGroup.remove(old);
+
+            const mesh = window.buildObjectMesh(obj);
+            mesh.userData = { objId: obj.id, fromScenePreset: !!obj.fromScenePreset };
+            mesh.position.set(obj.baseX, obj.baseY || 0, obj.baseZ);
+            mesh.rotation.y = obj.rotY;
+            mesh.visible = obj.visible;
+            objectsGroup.add(mesh);
+        };
+
+        window.removeObjectCompletely = function(id) {
+            project.objects = project.objects.filter(o => o.id !== id);
+            const old = objectsGroup.children.find(m => m.userData.objId === id);
+            if (old) objectsGroup.remove(old);
+            if (selectedObjId === id) deselectObject();
+            if (activeCreatorCategory === 'static' || old?.userData?.fromScenePreset) markCurrentSceneDirty();
+        };
+
+        // SCENE PERSISTENCE & DIRTY MARKERS
+        window.markCurrentSceneDirty = function() {
+            isSceneDirty = true;
+            dirtySceneId = project.environment;
+            updateDirtyIndicatorsUI();
+        };
+
+        window.clearDirtyIndicators = function() {
+            isSceneDirty = false;
+            dirtySceneId = null;
+            updateDirtyIndicatorsUI();
+        };
+
+        function updateDirtyIndicatorsUI() {
+            const settingsDot = document.getElementById('settings-red-dot');
+            const menuDot = document.getElementById('scene-menu-red-dot');
+            const saveBox = document.getElementById('save-scene-changes-box');
+            if (settingsDot) settingsDot.classList.toggle('hidden', !isSceneDirty);
+            if (menuDot) menuDot.classList.toggle('hidden', !isSceneDirty);
+            if (saveBox) saveBox.classList.toggle('hidden', !isSceneDirty);
+        }
+
+        window.openScenesDirectoryPicker = async function() {
+            if (!window.showDirectoryPicker) {
+                alert('Ваш браузер не поддерживает File System Access API.');
+                return;
+            }
+            try {
+                rootDirHandle = await window.showDirectoryPicker();
+                scenesDirHandle = await rootDirHandle.getDirectoryHandle('scenes', { create: true });
+                alert('Папка scenes успешно подключена!');
+                await loadScenesFromDirectory();
+            } catch (err) { if (err.name !== 'AbortError') console.error(err); }
+        };
+
+        async function loadScenesFromDirectory() {
+            if (!scenesDirHandle) return;
+            try {
+                for await (const [name, handle] of scenesDirHandle.entries()) {
+                    if (name.endsWith('.json') && handle.kind === 'file') {
+                        const file = await handle.getFile();
+                        const data = JSON.parse(await file.text());
+                        const sceneId = name.replace('.json', '');
+                        let existing = scenesCatalog.find(s => s.id === sceneId);
+                        if (existing) { existing.name = data.name || existing.name; existing.customData = data; }
+                        else { scenesCatalog.push({ id: sceneId, name: data.name || sceneId, isDefault: false, customData: data }); }
+                    }
+                }
+                renderSceneDropdownList();
+            } catch (err) { console.error(err); }
+        }
+
+        window.saveModifiedSceneToDisk = async function() {
+            if (!scenesDirHandle) { await openScenesDirectoryPicker(); if (!scenesDirHandle) return; }
+            const activeMeta = scenesCatalog.find(s => s.id === project.environment);
+            const staticObjectsToSave = project.objects.filter(o => o.fromScenePreset || o.type === 'static');
+            const sceneExportData = {
+                id: project.environment,
+                name: activeMeta ? activeMeta.name : project.environment,
+                baseEnvironment: activeMeta && activeMeta.customData ? activeMeta.customData.baseEnvironment : project.environment,
+                staticObjects: staticObjectsToSave
+            };
+            try {
+                const fileHandle = await scenesDirHandle.getFileHandle(`${project.environment}.json`, { create: true });
+                const writable = await fileHandle.createWritable();
+                await writable.write(JSON.stringify(sceneExportData, null, 2));
+                await writable.close();
+                if (activeMeta) activeMeta.customData = sceneExportData;
+                else scenesCatalog.push({ id: project.environment, name: project.environment, isDefault: false, customData: sceneExportData });
+                clearDirtyIndicators();
+                alert(`Сцена "${project.environment}.json" сохранена в папку scenes!`);
+            } catch (err) { console.error(err); alert('Не удалось сохранить сцену.'); }
+        };
+
+        window.toggleSceneDropdown = function(e) {
+            e.stopPropagation();
+            document.getElementById('scene-dropdown-list').classList.toggle('hidden');
+            renderSceneDropdownList();
+        };
+
+        function renderSceneDropdownList() {
+            const list = document.getElementById('scene-dropdown-list');
+            if (!list) return;
+            list.innerHTML = '';
+            scenesCatalog.forEach(sc => {
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.className = 'w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 flex items-center justify-between text-xs transition';
+                const isSelected = sc.id === project.environment;
+                item.innerHTML = `<span class="${isSelected ? 'text-indigo-400 font-bold' : 'text-gray-200'}">${sc.name}</span>${isSelected ? '<span class="text-[10px] text-indigo-400">✓ Активна</span>' : ''}`;
+                item.onclick = () => { switchScene(sc.id); list.classList.add('hidden'); };
+                list.appendChild(item);
+            });
+        }
+
+        window.switchScene = function(sceneId) {
+            project.environment = sceneId;
+            const meta = scenesCatalog.find(s => s.id === sceneId);
+            const currEl = document.getElementById('scene-select-current');
+            if (currEl) currEl.innerText = meta ? meta.name : sceneId;
+            buildEnvironment(sceneId);
+            updateProjectCatalog();
+        };
+
+        window.openProjectModal = function() {
+            if (isPlaying) togglePlayback();
+            closeCreatorModal();
+            closeMotionModal();
+            document.getElementById('proj-duration-input').value = project.duration || 10;
+            updateProjectCatalog();
+            updateDirtyIndicatorsUI();
+            document.getElementById('project-modal').classList.remove('hidden');
+        };
+
+        window.closeProjectModal = function() { document.getElementById('project-modal').classList.add('hidden'); };
+
+        window.updateDuration = function(val) {
+            project.duration = parseFloat(val) || 10;
+            document.getElementById('timeline-scrubber').max = project.duration;
+            updateTimeDisplay();
+        };
+
+        window.updateProjectCatalog = function() {
+            const countEl = document.getElementById('catalog-count');
+            const gridEl = document.getElementById('catalog-grid');
+            if (!countEl || !gridEl) return;
+            countEl.innerText = project.objects.length;
+            gridEl.innerHTML = '';
+            if (project.objects.length === 0) {
+                gridEl.innerHTML = '<div class="col-span-2 text-center text-gray-500 py-6 text-[11px]">Нет объектов в сцене.</div>';
+                return;
+            }
+            project.objects.forEach(obj => {
+                const card = document.createElement('div');
+                card.className = `glass-panel p-2.5 rounded-xl border flex flex-col gap-1.5 transition ${selectedObjId === obj.id ? 'border-indigo-500 bg-indigo-950/30' : 'border-white/10 hover:border-white/20'}`;
+                card.innerHTML = `
+                    <div class="flex items-center justify-between"><span class="font-bold text-white truncate text-[11px]">${obj.name || 'Объект'}</span><button type="button" onclick="event.stopPropagation(); removeObjectCompletely('${obj.id}'); updateProjectCatalog();" class="text-gray-400 hover:text-red-400 text-xs px-1">✕</button></div>
+                    <div class="text-[10px] font-mono text-gray-400">X:${(obj.baseX || 0).toFixed(1)} Y:${(obj.baseY || 0).toFixed(1)} Z:${(obj.baseZ || 0).toFixed(1)}</div>
+                    <div class="flex gap-1 pt-1"><button type="button" onclick="closeProjectModal(); selectObject('${obj.id}', true);" class="flex-1 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-semibold">Выбрать</button><button type="button" onclick="closeProjectModal(); selectObject('${obj.id}', true); openMotionModal();" class="py-1 px-2 rounded bg-gray-800 hover:bg-gray-700 text-gray-200 text-[10px]">🎬</button></div>
+                `;
+                gridEl.appendChild(card);
+            });
+        };
+
+        window.exportProjectJSON = function() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(project, null, 2));
+            const dlAnchor = document.createElement('a');
+            dlAnchor.setAttribute("href", dataStr); dlAnchor.setAttribute("download", `3d_studio_project_${Date.now()}.json`);
+            document.body.appendChild(dlAnchor); dlAnchor.click(); dlAnchor.remove();
+        };
+
+        window.importProjectJSON = function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    const loaded = JSON.parse(evt.target.result);
+                    if (loaded && Array.isArray(loaded.objects)) {
+                        project = loaded;
+                        switchScene(project.environment || 'room');
+                        updateDuration(project.duration || 10);
+                        while (objectsGroup.children.length > 0) objectsGroup.remove(objectsGroup.children[0]);
+                        project.objects.forEach(obj => rebuildSceneObjectMesh(obj));
+                        alert('Проект успешно загружен!');
+                        closeProjectModal();
+                    }
+                } catch (err) { alert('Неверный формат JSON.'); }
+            };
+            reader.readAsText(file);
+        };
+
+        // MOTION MODAL & ACTIONS
+        window.openMotionModal = function() {
+            if (!selectedObjId) { alert('Сначала выберите объект!'); return; }
+            if (isPlaying) togglePlayback();
+            closeCreatorModal(); closeProjectModal();
+            const obj = project.objects.find(o => o.id === selectedObjId);
+            if (!obj) return;
+            document.getElementById('motion-modal-title').innerText = `Действия: ${obj.name}`;
+            renderPoseActionsList(obj); renderMoveSegmentsList(obj);
+            document.getElementById('motion-modal').classList.remove('hidden');
+        };
+
+        window.closeMotionModal = function() { document.getElementById('motion-modal').classList.add('hidden'); };
+
+        window.onActionSelectChange = function() {
+            const act = document.getElementById('anim-action-type').value;
+            document.getElementById('handover-item-box').classList.toggle('hidden', act !== 'handover');
+        };
+
+        window.addPoseAction = function() {
+            const obj = project.objects.find(o => o.id === selectedObjId);
+            if (!obj) return;
+            if (!obj.poseActions) obj.poseActions = [];
+            obj.poseActions.push({
+                type: document.getElementById('anim-action-type').value,
+                start: parseFloat(document.getElementById('anim-start').value) || 0,
+                end: parseFloat(document.getElementById('anim-end').value) || 3,
+                propItem: document.getElementById('handover-item') ? document.getElementById('handover-item').value : 'paper'
+            });
+            renderPoseActionsList(obj);
+        };
+
+        window.removePoseAction = function(idx) {
+            const obj = project.objects.find(o => o.id === selectedObjId);
+            if (!obj || !obj.poseActions) return;
+            obj.poseActions.splice(idx, 1);
+            renderPoseActionsList(obj);
+        };
+
+        function renderPoseActionsList(obj) {
+            const list = document.getElementById('pose-actions-list');
+            if (!list) return;
+            list.innerHTML = '';
+            if (!obj.poseActions || obj.poseActions.length === 0) { list.innerHTML = '<div class="text-[10px] text-gray-500 py-1">Нет действий.</div>'; return; }
+            obj.poseActions.forEach((act, idx) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between bg-black/40 px-2.5 py-1.5 rounded-xl border border-white/5 text-[11px]';
+                row.innerHTML = `<span class="text-indigo-300 font-medium">${act.type} (${act.start}s - ${act.end}s)</span><button onclick="removePoseAction(${idx})" class="text-gray-400 hover:text-red-400 text-xs px-1">✕</button>`;
+                list.appendChild(row);
+            });
+        }
+
+        window.fillCurrentCoordsAsStart = function() {
+            const obj = project.objects.find(o => o.id === selectedObjId);
+            if (!obj) return;
+            const mesh = objectsGroup.children.find(m => m.userData.objId === obj.id);
+            const cx = mesh ? mesh.position.x : obj.baseX, cy = mesh ? mesh.position.y : (obj.baseY || 0), cz = mesh ? mesh.position.z : obj.baseZ;
+            document.getElementById('move-x1').value = cx.toFixed(1); document.getElementById('move-y1').value = cy.toFixed(1); document.getElementById('move-z1').value = cz.toFixed(1);
+            document.getElementById('move-x2').value = (cx + 2).toFixed(1); document.getElementById('move-y2').value = cy.toFixed(1); document.getElementById('move-z2').value = (cz + 2).toFixed(1);
+        };
+
+        window.addMoveSegment = function() {
+            const obj = project.objects.find(o => o.id === selectedObjId);
+            if (!obj) return;
+            if (!obj.movePaths) obj.movePaths = [];
+            obj.movePaths.push({
+                start: parseFloat(document.getElementById('move-start').value) || 0, end: parseFloat(document.getElementById('move-end').value) || 5,
+                x1: parseFloat(document.getElementById('move-x1').value) || 0, y1: parseFloat(document.getElementById('move-y1').value) || 0, z1: parseFloat(document.getElementById('move-z1').value) || 0,
+                x2: parseFloat(document.getElementById('move-x2').value) || 2, y2: parseFloat(document.getElementById('move-y2').value) || 0, z2: parseFloat(document.getElementById('move-z2').value) || 2,
+                autoWalk: document.getElementById('move-auto-walk').checked
+            });
+            renderMoveSegmentsList(obj);
+        };
+
+        window.removeMoveSegment = function(idx) {
+            const obj = project.objects.find(o => o.id === selectedObjId);
+            if (!obj || !obj.movePaths) return;
+            obj.movePaths.splice(idx, 1);
+            renderMoveSegmentsList(obj);
+        };
+
+        function renderMoveSegmentsList(obj) {
+            const list = document.getElementById('move-segments-list');
+            if (!list) return;
+            list.innerHTML = '';
+            if (!obj.movePaths || obj.movePaths.length === 0) { list.innerHTML = '<div class="text-[10px] text-gray-500 py-1">Нет путей.</div>'; return; }
+            obj.movePaths.forEach((mp, idx) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between bg-black/40 px-2.5 py-1.5 rounded-xl border border-white/5 text-[11px]';
+                row.innerHTML = `<span class="text-emerald-300 font-mono">(${mp.x1},${mp.y1},${mp.z1}) ➔ (${mp.x2},${mp.y2},${mp.z2}) [${mp.start}-${mp.end}s]</span><button onclick="removeMoveSegment(${idx})" class="text-gray-400 hover:text-red-400 text-xs px-1">✕</button>`;
+                list.appendChild(row);
+            });
+        }
+
+        // SELECTION & DRAGGING
+        window.selectObject = function(id, centerCamera = false) {
+            selectedObjId = id;
+            const obj = project.objects.find(o => o.id === id);
+            const mesh = objectsGroup.children.find(m => m.userData.objId === id);
+            if (!obj || !mesh) { deselectObject(); return; }
+
+            document.getElementById('selected-bar').classList.remove('hidden');
+            document.getElementById('sel-title').innerText = obj.name;
+            updateSelectedCoordsUI(mesh);
+            document.getElementById('sel-y-slider').value = mesh.position.y;
+            selectionRing.visible = true; selectionRing.position.set(mesh.position.x, 0.02, mesh.position.z);
+            gizmoGroup.visible = true; gizmoGroup.position.copy(mesh.position);
+
+            if (centerCamera) { controls.target.copy(mesh.position); controls.target.y += 0.8; }
+        };
+
+        window.deselectObject = function() {
+            selectedObjId = null;
+            document.getElementById('selected-bar').classList.add('hidden');
+            selectionRing.visible = false; gizmoGroup.visible = false;
+        };
+
+        function updateSelectedCoordsUI(mesh) {
+            const coords = document.getElementById('sel-coords');
+            if (coords) coords.innerText = `X: ${mesh.position.x.toFixed(2)} | Y: ${mesh.position.y.toFixed(2)} | Z: ${mesh.position.z.toFixed(2)}`;
+            selectionRing.position.set(mesh.position.x, 0.02, mesh.position.z);
+            gizmoGroup.position.copy(mesh.position);
+        }
+
+        window.setSelectedHeight = function(val) {
+            if (!selectedObjId) return;
+            const y = parseFloat(val) || 0;
+            const obj = project.objects.find(o => o.id === selectedObjId);
+            const mesh = objectsGroup.children.find(m => m.userData.objId === selectedObjId);
+            if (!obj || !mesh) return;
+            obj.baseY = y; mesh.position.y = y;
+            updateSelectedCoordsUI(mesh);
+            if (obj.type === 'static' || obj.fromScenePreset) markCurrentSceneDirty();
+        };
+
+        window.toggleSelectedVisibility = function() {
+            if (!selectedObjId) return;
+            const obj = project.objects.find(o => o.id === selectedObjId);
+            const mesh = objectsGroup.children.find(m => m.userData.objId === selectedObjId);
+            if (!obj || !mesh) return;
+            obj.visible = !obj.visible; mesh.visible = obj.visible;
+        };
+
+        window.rotateSelected45 = function() {
+            if (!selectedObjId) return;
+            const obj = project.objects.find(o => o.id === selectedObjId);
+            const mesh = objectsGroup.children.find(m => m.userData.objId === selectedObjId);
+            if (!obj || !mesh) return;
+            obj.rotY += Math.PI / 4; mesh.rotation.y = obj.rotY;
+            if (obj.type === 'static' || obj.fromScenePreset) markCurrentSceneDirty();
+        };
+
+        window.addEventListener('pointerdown', (e) => {
+            if (e.target.closest('#creator-modal') || e.target.closest('#project-modal') || e.target.closest('#motion-modal') || e.target.closest('#selected-bar') || e.target.closest('#bottom-transport') || e.target.closest('button')) return;
+            pointerNDC.x = (e.clientX / window.innerWidth) * 2 - 1; pointerNDC.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(pointerNDC, camera);
+
+            const gizmoHits = raycaster.intersectObject(heightGizmoKnob);
+            if (gizmoHits.length > 0 && selectedObjId) {
+                isDraggingHeight = true; heightDragStartY = e.clientY;
+                const mesh = objectsGroup.children.find(m => m.userData.objId === selectedObjId);
+                heightDragBaseY = mesh ? mesh.position.y : 0;
+                controls.enabled = false; return;
+            }
+
+            const hits = raycaster.intersectObjects(objectsGroup.children, true);
+            if (hits.length > 0) {
+                let rootHit = hits[0].object;
+                while (rootHit.parent && rootHit.parent !== objectsGroup) rootHit = rootHit.parent;
+                if (rootHit.userData && rootHit.userData.objId) {
+                    selectObject(rootHit.userData.objId, false);
+                    isDraggingObject = true; controls.enabled = false; return;
+                }
+            }
+
+            const envHits = raycaster.intersectObjects(interactiveElements.map(ie => ie.mesh), false);
+            if (envHits.length > 0) {
+                const hitItem = interactiveElements.find(ie => ie.mesh === envHits[0].object);
+                if (hitItem) {
+                    if (hitItem.type === 'window') toggleDayNightGlobal();
+                    else if (hitItem.type === 'lamp') {
+                        hitItem.on = !hitItem.on;
+                        hitItem.mat.emissiveIntensity = hitItem.on ? 0.9 : 0.0;
+                        if (hitItem.light) hitItem.light.intensity = hitItem.on ? 1.2 : 0;
+                    } else if (hitItem.type === 'bin') {
+                        hitItem.full = !hitItem.full;
+                        if (hitItem.trashMesh) hitItem.trashMesh.visible = hitItem.full;
+                    } else if (hitItem.type === 'strobe') {
+                        hitItem.active = !hitItem.active;
+                        hitItem.beams.forEach(b => b.visible = hitItem.active);
+                    }
+                }
+            }
+        });
+
+        window.addEventListener('pointermove', (e) => {
+            if (isDraggingHeight && selectedObjId) {
+                const dy = heightDragStartY - e.clientY;
+                const newY = Math.max(0, Math.min(10, heightDragBaseY + dy * 0.025));
+                setSelectedHeight(newY);
+                document.getElementById('sel-y-slider').value = newY;
+                return;
+            }
+            if (isDraggingObject && selectedObjId) {
+                pointerNDC.x = (e.clientX / window.innerWidth) * 2 - 1; pointerNDC.y = -(e.clientY / window.innerHeight) * 2 + 1;
+                raycaster.setFromCamera(pointerNDC, camera);
+                const planeIntersects = new THREE.Vector3();
+                raycaster.ray.intersectPlane(groundPlane, planeIntersects);
+                const obj = project.objects.find(o => o.id === selectedObjId);
+                const mesh = objectsGroup.children.find(m => m.userData.objId === selectedObjId);
+                if (obj && mesh) {
+                    const res = resolvePositionWithCollisions(planeIntersects.x, planeIntersects.z, obj.radius, obj.id, mesh.position.y);
+                    obj.baseX = res.x; obj.baseZ = res.z;
+                    mesh.position.x = res.x; mesh.position.z = res.z;
+                    updateSelectedCoordsUI(mesh);
+                    if (obj.type === 'static' || obj.fromScenePreset) markCurrentSceneDirty();
+                }
+            }
+        });
+
+        window.addEventListener('pointerup', () => { isDraggingObject = false; isDraggingHeight = false; controls.enabled = true; });
+
+        // PLAYBACK & ANIMATION
+        window.togglePlayback = function() {
+            isPlaying = !isPlaying;
+            document.getElementById('play-btn').innerText = isPlaying ? '⏸ Пауза' : '▶ Старт';
+            if (isPlaying && currentTime >= project.duration) currentTime = 0;
+            clock.start();
+        };
+
+        window.seekTime = function(val) {
+            currentTime = parseFloat(val) || 0;
+            updateTimeDisplay();
+            evaluateAnimationsAtTime(currentTime);
+        };
+
+        function updateTimeDisplay() {
+            document.getElementById('time-display').innerText = `${currentTime.toFixed(1)} / ${project.duration.toFixed(1)}с`;
+            document.getElementById('timeline-scrubber').value = currentTime;
+        }
+
+        function evaluateAnimationsAtTime(t) {
+            project.objects.forEach(obj => {
+                const mesh = objectsGroup.children.find(m => m.userData.objId === obj.id);
+                if (!mesh || !obj.visible) return;
+
+                let posX = obj.baseX, posY = obj.baseY || 0, posZ = obj.baseZ, rotY = obj.rotY;
+                if (Array.isArray(obj.movePaths) && obj.movePaths.length > 0) {
+                    let activePath = obj.movePaths.find(mp => t >= mp.start && t <= mp.end);
+                    if (activePath) {
+                        const progress = (t - activePath.start) / Math.max(0.001, (activePath.end - activePath.start));
+                        posX = THREE.MathUtils.lerp(activePath.x1, activePath.x2, progress);
+                        posY = THREE.MathUtils.lerp(activePath.y1, activePath.y2, progress);
+                        posZ = THREE.MathUtils.lerp(activePath.z1, activePath.z2, progress);
+                        if (activePath.autoWalk) {
+                            const dx = activePath.x2 - activePath.x1, dz = activePath.z2 - activePath.z1;
+                            if (Math.hypot(dx, dz) > 0.05) rotY = Math.atan2(dx, dz);
+                        }
+                    } else {
+                        const lastPath = obj.movePaths[obj.movePaths.length - 1];
+                        if (t > lastPath.end) { posX = lastPath.x2; posY = lastPath.y2; posZ = lastPath.z2; }
+                    }
+                }
+                mesh.position.set(posX, posY, posZ);
+                mesh.rotation.y = rotY;
+
+                const bodyPivot = mesh.getObjectByName('bodyPivot');
+                const leftArm = mesh.getObjectByName('leftArm'), rightArm = mesh.getObjectByName('rightArm');
+                const head = mesh.getObjectByName('head');
+                const leftLeg = mesh.getObjectByName('leftLeg'), rightLeg = mesh.getObjectByName('rightLeg');
+                const propCig = mesh.getObjectByName('propCigarette'), propGun = mesh.getObjectByName('propGun'), propHandover = mesh.getObjectByName('propHandover');
+
+                if (propCig) propCig.visible = false;
+                if (propGun) propGun.visible = false;
+                if (propHandover) propHandover.visible = false;
+
+                let activePose = Array.isArray(obj.poseActions) ? obj.poseActions.find(pa => t >= pa.start && t <= pa.end) : null;
+                const seed = (obj.data && obj.data.seedOffset) ? obj.data.seedOffset : 1.0;
+
+                if (bodyPivot) bodyPivot.position.y = 0;
+                if (head) { head.rotation.x = 0; head.rotation.z = 0; }
+                if (leftArm) leftArm.rotation.set(0, 0, 0);
+                if (rightArm) rightArm.rotation.set(0, 0, 0);
+                if (leftLeg) leftLeg.rotation.set(0, 0, 0);
+                if (rightLeg) rightLeg.rotation.set(0, 0, 0);
+
+                if (activePose) {
+                    const localT = t - activePose.start;
+                    if (activePose.type === 'wave' && rightArm) {
+                        rightArm.rotation.z = Math.PI * 0.75 + Math.sin(localT * 10) * 0.25;
+                        rightArm.rotation.x = -0.5;
+                    } else if (activePose.type === 'smoke') {
+                        if (propCig) propCig.visible = true;
+                        if (rightArm) { rightArm.rotation.x = -1.35; rightArm.rotation.z = 0.35; }
+                    } else if (activePose.type === 'box') {
+                        if (leftArm) leftArm.rotation.x = Math.sin(localT * 14) * 0.8;
+                        if (rightArm) rightArm.rotation.x = -Math.sin(localT * 14) * 0.8;
+                    } else if (activePose.type === 'sit' && bodyPivot) {
+                        bodyPivot.position.y = -0.25;
+                        if (leftLeg) leftLeg.rotation.x = Math.PI / 2;
+                        if (rightLeg) rightLeg.rotation.x = Math.PI / 2;
+                    } else if (activePose.type === 'sit_crossed' && bodyPivot) {
+                        bodyPivot.position.y = -0.25;
+                        if (leftLeg) { leftLeg.rotation.x = Math.PI / 2; leftLeg.rotation.z = 0.45; }
+                        if (rightLeg) { rightLeg.rotation.x = Math.PI / 2; rightLeg.rotation.z = -0.45; }
+                    } else if (activePose.type === 'lay' && bodyPivot) {
+                        bodyPivot.position.y = -0.52; bodyPivot.rotation.z = Math.PI / 2;
+                    } else if (activePose.type === 'nod' && head) {
+                        head.rotation.x = Math.sin(localT * 8) * 0.22;
+                    } else if (activePose.type === 'jump' && bodyPivot) {
+                        bodyPivot.position.y = Math.abs(Math.sin(localT * Math.PI)) * 0.65;
+                    } else if (activePose.type === 'gun') {
+                        if (propGun) propGun.visible = true;
+                        if (rightArm) rightArm.rotation.x = -1.55;
+                    } else if (activePose.type === 'handover') {
+                        if (propHandover) propHandover.visible = true;
+                        if (rightArm) rightArm.rotation.x = -1.25;
+                    }
+                } else {
+                    const isMoving = Array.isArray(obj.movePaths) && obj.movePaths.some(mp => t >= mp.start && t <= mp.end);
+                    if (isMoving) {
+                        const stepCycle = Math.sin(t * 9 + seed);
+                        if (leftLeg) leftLeg.rotation.x = stepCycle * 0.45;
+                        if (rightLeg) rightLeg.rotation.x = -stepCycle * 0.45;
+                        if (leftArm) leftArm.rotation.x = -stepCycle * 0.35;
+                        if (rightArm) rightArm.rotation.x = stepCycle * 0.35;
+                    } else {
+                        if (bodyPivot) bodyPivot.position.y = Math.sin(t * 2.5 + seed) * 0.022;
+                        if (head) head.rotation.y = Math.sin(t * 1.2 + seed) * 0.15;
+                    }
+                }
+            });
+            if (selectedObjId) {
+                const mesh = objectsGroup.children.find(m => m.userData.objId === selectedObjId);
+                if (mesh) updateSelectedCoordsUI(mesh);
+            }
+        }
+
+        // VIDEO RECORDER
+        window.recordVideo = function() {
+            if (isRecording) { stopRecording(); return; }
+            recordedChunks = [];
+            const stream = renderer.domElement.captureStream(30);
+            try { mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' }); }
+            catch (e) {
+                try { mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' }); }
+                catch (err) { alert('Запись не поддерживается.'); return; }
+            }
+            mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) recordedChunks.push(e.data); };
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = `3d_animation_${Date.now()}.webm`;
+                document.body.appendChild(a); a.click(); a.remove();
+                document.getElementById('rec-btn-label').innerText = 'REC';
+                document.getElementById('rec-btn').className = 'px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-xs font-bold text-white active:scale-95 transition flex items-center gap-1.5 shrink-0 shadow-lg shadow-red-950/50';
+            };
+            mediaRecorder.start();
+            isRecording = true;
+            document.getElementById('rec-btn-label').innerText = 'СТОП';
+            document.getElementById('rec-btn').className = 'px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-xs font-bold text-white active:scale-95 transition flex items-center gap-1.5 shrink-0 animate-pulse';
+            currentTime = 0;
+            if (!isPlaying) togglePlayback();
+        };
+
+        function stopRecording() {
+            if (mediaRecorder && isRecording) { mediaRecorder.stop(); isRecording = false; if (isPlaying) togglePlayback(); }
+        }
+
+        // INITIALIZATION (Async Load from Manifest)
+        async function initStudioModular() {
+            const loadBar = document.getElementById('loading-bar');
+            const loadPct = document.getElementById('loading-percent');
+            const loadStatus = document.getElementById('loading-status');
+            const loadOverlay = document.getElementById('loading-overlay');
+
+            try {
+                loadStatus.innerText = 'Загрузка манифеста и модулей из папки assets...';
+                loadBar.style.width = '30%'; loadPct.innerText = '30%';
+
+                const registry = await loadAllAssets();
+                window.AssetModules = registry;
+
+                loadBar.style.width = '80%'; loadPct.innerText = '80%';
+                loadStatus.innerText = 'Инициализация сцены...';
+
+                buildEnvironment('room');
+
+                const spawnPos = findFreeSpawnPoint(0.42, 0);
+                const defaultAvatar = {
+                    id: 'obj_default_avatar', name: 'Аватар', type: 'character',
+                    data: {
+                        gender: 'male', physique: 'average', height: '1.0', expression: 'happy',
+                        hair: 'short', accessories: ['glasses'], bottomType: 'pants', shoesType: 'sneakers',
+                        skin: '#f5cba7', hairCol: '#2c1e16', top: '#3b82f6', bottom: '#1e293b', shoesCol: '#f8fafc'
+                    },
+                    visible: true, baseX: spawnPos.x, baseY: 0, baseZ: spawnPos.z, rotY: 0, radius: 0.42,
+                    poseActions: [{ type: 'wave', start: 0, end: 3, propItem: 'paper' }],
+                    movePaths: [{ start: 3, end: 8, x1: spawnPos.x, y1: 0, z1: spawnPos.z, x2: spawnPos.x + 2.5, y2: 0, z2: spawnPos.z, autoWalk: true }]
+                };
+                project.objects.push(defaultAvatar);
+                rebuildSceneObjectMesh(defaultAvatar);
+
+                loadBar.style.width = '100%'; loadPct.innerText = '100%';
+                loadStatus.innerText = 'Готово!';
+                setTimeout(() => {
+                    loadOverlay.style.opacity = '0';
+                    setTimeout(() => loadOverlay.remove(), 500);
+                }, 300);
+
+            } catch (err) {
+                console.error(err);
+                loadStatus.innerText = 'Ошибка загрузки модулей! Убедитесь, что запускаете через локальный сервер (http-server / Live Server).';
+                loadStatus.className = 'text-[11px] text-red-400 mb-4';
+            }
+        }
+
+        initStudioModular();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = clock.getDelta();
+            if (isPlaying) {
+                currentTime += dt;
+                if (currentTime >= project.duration) { currentTime = project.duration; togglePlayback(); }
+                updateTimeDisplay();
+                evaluateAnimationsAtTime(currentTime);
+            }
+            controls.update();
+            interactiveElements.forEach(ie => {
+                if (ie.type === 'strobe' && ie.active && ie.group) ie.group.rotation.y += dt * 0.75;
+            });
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
