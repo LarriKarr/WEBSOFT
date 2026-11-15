@@ -85,18 +85,18 @@
                     <div class="flex items-center gap-2">
                         <label class="text-slate-400">Формат:</label>
                         <select id="cameraOrientation" onchange="updateCameraOrientation()" class="bg-slate-950 border border-slate-800 text-slate-200 rounded-lg px-2 py-1 outline-none">
-                            <option value="landscape">16:9</option>
-                            <option value="portrait" selected>9:16</option>
+                            <option value="landscape">16:9 (Горизонтальный)</option>
+                            <option value="portrait" selected>9:16 (Вертикальный)</option>
                         </select>
                     </div>
                 </div>
 
-                <!-- Viewfinder Frame with Dynamic Frames & Filters -->
-                <div id="viewfinderWrapper" class="relative bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl flex items-center justify-center transition-all mx-auto aspect-[9/16] max-h-[520px] w-full group my-1">
+                <!-- Viewfinder Frame with Dynamic Frames & Filters (Исправлено заполнение без черных полей) -->
+                <div id="viewfinderWrapper" class="relative bg-black rounded-2xl border border-slate-800 overflow-hidden shadow-2xl flex items-center justify-center transition-all mx-auto aspect-[9/16] max-h-[580px] w-full group my-1">
                     <div id="activeFrameContainer" class="absolute inset-0 z-20 pointer-events-none transition-all"></div>
                     <video id="webcam" class="hidden" autoplay playsinline muted></video>
                     <video id="webcamFront" class="hidden" autoplay playsinline muted></video>
-                    <canvas id="viewfinder" class="w-full h-full object-contain bg-black cursor-crosshair"></canvas>
+                    <canvas id="viewfinder" class="w-full h-full object-cover bg-black cursor-crosshair"></canvas>
 
                     <!-- Flash Screen Overlay for front camera simulation -->
                     <div id="screenFlash" class="absolute inset-0 bg-white opacity-0 pointer-events-none transition-opacity duration-300 z-30"></div>
@@ -286,7 +286,8 @@
     <script>
         let mediaStream = null, frontCameraStream = null, videoRecorder = null, videoChunks = [];
         let audioRecorder = null, audioChunks = [];
-        let selectedMask = 'glasses', maskPos = { x: 0.5, y: 0.5 }, isDraggingMask = false;
+        let selectedMask = 'none'; // Изменено: по умолчанию маски отключены
+        let maskPos = { x: 0.5, y: 0.5 }, isDraggingMask = false;
         let currentFlashMode = 'off'; // off, on, auto
         let currentFilter = 'none';
 
@@ -295,6 +296,7 @@
         let recognition = null, isRecognizing = false;
 
         const masks = [
+            { id: 'none', label: 'Без маски', icon: 'fa-ban' }, // Добавлена явная кнопка отключения маски
             { id: 'glasses', label: 'Очки', icon: 'fa-glasses' },
             { id: 'mustache', label: 'Усы', icon: 'fa-user-tie' },
             { id: 'pipe', label: 'Трубка', icon: 'fa-smoking' },
@@ -330,12 +332,15 @@
             activeBtn.classList.add('bg-brand-600', 'text-white', 'shadow');
         }
 
+        // Динамическое переключение формы контейнера видоискателя без черных полей
         function updateCameraOrientation() {
             const orientation = document.getElementById('cameraOrientation').value;
             const wrapper = document.getElementById('viewfinderWrapper');
-            wrapper.className = orientation === 'portrait' 
-                ? "relative bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl flex items-center justify-center transition-all mx-auto aspect-[9/16] max-h-[520px] w-full group my-1"
-                : "relative bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl flex items-center justify-center transition-all mx-auto aspect-video w-full group my-1";
+            if (orientation === 'portrait') {
+                wrapper.className = "relative bg-black rounded-2xl border border-slate-800 overflow-hidden shadow-2xl flex items-center justify-center transition-all mx-auto aspect-[9/16] max-h-[580px] w-full group my-1";
+            } else {
+                wrapper.className = "relative bg-black rounded-2xl border border-slate-800 overflow-hidden shadow-2xl flex items-center justify-center transition-all mx-auto aspect-video max-h-[580px] w-full group my-1";
+            }
         }
 
         async function initCamera() {
@@ -372,9 +377,7 @@
                         advanced: [{ torch: currentFlashMode === 'on' }]
                     });
                 }
-            } catch (e) {
-                // Если аппаратный фонарик недоступен, симулируем программную вспышку экрана при съемке
-            }
+            } catch (e) {}
         }
 
         async function triggerScreenFlash() {
